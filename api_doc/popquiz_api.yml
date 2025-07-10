@@ -1,0 +1,158 @@
+openapi: '3.0.3'
+info:
+  title: popquiz
+  version: '1.0'
+servers:
+  - url: http://localhost:5000/popquiz
+paths:
+  /register:
+    post:
+      tags:
+        - 用户管理
+      summary: 用户注册 
+      description: 用户注册账号，可选择身份为学生、老师或组织人
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - username
+                - password
+                - role
+              properties:
+                username:
+                  type: string
+                  example: "user001"
+                password:
+                  type: string
+                  format: password
+                  example: "123456"
+                role:
+                  type: string
+                  description: 用户身份
+                  enum: [student, teacher, organizer]
+                  example: "student"
+      responses:
+        '201':
+          description: 注册成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    example: "user_123456"
+                  message:
+                    type: string
+                    example: "注册成功"
+        '400':
+          description: 参数错误或用户名已存在
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "用户名已存在"
+  /login:
+    post:
+      tags:
+        - 用户管理
+      summary: 用户登录
+      description: 用户登录系统，返回身份信息和 token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - username
+                - password
+              properties:
+                username:
+                  type: string
+                  example: "user001"
+                password:
+                  type: string
+                  format: password
+                  example: "123456"
+      responses:
+        '200':
+          description: 登录成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                    example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                  role:
+                    type: string
+                    example: "student"
+                  message:
+                    type: string
+                    example: "登录成功"
+        '401':
+          description: 登录失败
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "用户名或密码错误"
+  /getQuestionByTextOllamaDemo:
+    post:
+      tags:
+        - DEMO
+      summary: 根据文本生成题目示例
+      description: 根据传入的 original_prompt 文本生成题目和四个选项
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - original_prompt
+              properties:
+                original_prompt:
+                  type: string
+                  description: 原始题目文本
+                  example: "请根据以下内容出一道选择题：太阳从哪边升起？"
+      responses:
+        '200':
+          description: 生成题目成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  question:
+                    type: string
+                    example: "太阳从哪边升起？"
+                  options:
+                    type: array
+                    items:
+                      type: string
+                    example: ["东边", "西边", "南边", "北边"]
+                  answer:
+                    type: string
+                    example: A
+        '400':
+          description: 参数错误
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "参数错误"
