@@ -4,13 +4,19 @@ info:
   version: '1.0'
 servers:
   - url: http://localhost:5000/popquiz
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
 paths:
   /register:
     post:
       tags:
         - 用户管理
       summary: 用户注册 
-      description: 用户注册账号，可选择身份为学生、老师或组织人
+      description: 用户注册账号
       requestBody:
         required: true
         content:
@@ -20,7 +26,6 @@ paths:
               required:
                 - username
                 - password
-                - role
               properties:
                 username:
                   type: string
@@ -29,11 +34,6 @@ paths:
                   type: string
                   format: password
                   example: "123456"
-                role:
-                  type: string
-                  description: 用户身份
-                  enum: [student, teacher, organizer]
-                  example: "student"
       responses:
         '201':
           description: 注册成功
@@ -92,9 +92,6 @@ paths:
                   token:
                     type: string
                     example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-                  role:
-                    type: string
-                    example: "student"
                   message:
                     type: string
                     example: "登录成功"
@@ -156,3 +153,779 @@ paths:
                   message:
                     type: string
                     example: "参数错误"
+  /speech-rooms:
+    post:
+      tags:
+        - 演讲室管理
+      summary: 创建演讲室
+      description: 用户创建新的演讲室
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - session_token
+              properties:
+                name:
+                  type: string
+                  description: 演讲室名称
+                  example: "Python基础教程"
+                description:
+                  type: string
+                  description: 演讲室描述
+                  example: "介绍Python编程语言的基础知识"
+                session_token:
+                  type: string
+                  description: 创建人session token
+                  example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                is_speaker:
+                  type: boolean
+                  description: 是否直接担任演讲者
+                  example: false
+      responses:
+        '201':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                    example: 1
+                  name:
+                    type: string
+                    example: "Python基础教程"
+                  description:
+                    type: string
+                    example: "介绍Python编程语言的基础知识"
+                  creator_id:
+                    type: integer
+                    example: 1
+                  speaker_id:
+                    type: integer
+                    example: null
+                  invite_code:
+                    type: string
+                    example: "ABC123"
+                  speaker_invite_code:
+                    type: string
+                    example: "XYZ789"
+                  status:
+                    type: integer
+                    example: 0
+                  created_at:
+                    type: string
+                    format: date-time
+                    example: "2024-01-01T10:00:00Z"
+                  message:
+                    type: string
+                    example: "演讲室创建成功"
+        '400':
+          description: 参数错误
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "演讲室名称不能为空"
+        '401':
+          description: 未授权
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "请先登录"
+        '500':
+          description: 服务器错误
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "创建演讲室失败"
+  /request-questions-by-text:
+    post:
+      tags:
+        - 题目管理
+      summary: 根据文本申请创建题目
+      description: 创建新的选择题
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - raw_text
+                - room_id
+              properties:
+                raw_text:
+                  type: string
+                  description: 原始文本
+                room_id:
+                  type: integer
+                  description: 演讲室ID
+
+      responses:
+        '201':
+          description: 服务端接收请求正在创建
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  message:
+                    type: string
+        '400':
+          description: 参数错误
+
+  /speech-rooms/{room_id}/questions:
+    get:
+      tags:
+        - 演讲室题目
+      summary: 获取指定演讲室的所有题目
+      description: 获取某个房间id对应的所有题目
+      parameters:
+        - name: room_id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: 演讲室ID
+        - name: token
+          in: query
+          required: true
+          schema:
+            type: string
+          description: 用户身份token
+      responses:
+        '200':
+          description: 题目列表
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  questions:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                        question:
+                          type: string
+                        option_a:
+                          type: string
+                        option_b:
+                          type: string
+                        option_c:
+                          type: string
+                        option_d:
+                          type: string
+                        answer:
+                          type: string
+                          description: 正确答案
+        '401':
+          description: 未授权或token无效
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "token无效或已过期"
+        '404':
+          description: Not Found
+
+  /questions/{question_id}/answers:
+    get:
+      tags:
+        - 答题
+      summary: 获取指定题目的所有答题情况
+      description: 获取某一个题目对应的所有用户答题情况
+      parameters:
+        - name: question_id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: 题目ID
+        - name: token
+          in: query
+          required: true
+          schema:
+            type: string
+          description: 用户身份token
+      responses:
+        '200':
+          description: 答题情况列表
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  answers:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        user_id:
+                          type: integer
+                        username:
+                          type: string
+                        selected_answer:
+                          type: string
+                        is_right:
+                          type: boolean
+                          description: 是否正确
+                        answered_at:
+                          type: string
+                          format: date-time
+        '401':
+          description: 未授权或token无效
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "token无效或已过期"
+        '404':
+          description: Not Found
+
+  /answers:
+    post:
+      tags:
+        - 答题
+      summary: 提交答题
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - room_id
+                - question_id
+                - token
+                - selected_answer
+              properties:
+                room_id:
+                  type: integer
+                question_id:
+                  type: integer
+                token:
+                  type: string
+                  description: 用户身份token
+                selected_answer:
+                  type: string
+                  enum: [A, B, C, D]
+      responses:
+        '201':
+          description: 答题成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  message:
+                    type: string
+        '400':
+          description: 参数错误
+
+  /speech-rooms/{room_id}/answers:
+    get:
+      tags:
+        - 答题
+      summary: 获取用户在演讲室的答题记录
+      parameters:
+        - name: room_id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: token
+          in: query
+          required: true
+          schema:
+            type: string
+          description: 用户身份token
+      responses:
+        '200':
+          description: 答题记录
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  answers:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        question_id:
+                          type: integer
+                        selected_answer:
+                          type: string
+                  is_right:
+                    type: boolean
+                    description: 是否正确
+        '404':
+          description: Not Found
+  /logout:
+    post:
+      tags:
+        - 用户管理
+      summary: 用户退出登录
+      description: 用户主动退出登录，令牌失效
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - token
+              properties:
+                token:
+                  type: string
+                  description: 用户身份token
+      responses:
+        '200':
+          description: 退出成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "退出成功"
+        '401':
+          description: 未授权或token无效
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "token无效或已过期"
+  /user/speech-rooms:
+    get:
+      tags:
+        - 用户管理
+      summary: 获取用户参与的所有演讲室
+      description: 获取当前用户参与或创建的所有演讲室列表
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema:
+            type: string
+          description: 用户身份token
+      responses:
+        '200':
+          description: 用户演讲室列表
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rooms:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                        name:
+                          type: string
+                        description:
+                          type: string
+                        role:
+                          type: string
+                          description: 用户在该演讲室的角色（创建者/演讲者/听众）
+                        joined_at:
+                          type: string
+                          format: date-time
+                        status:
+                          type: integer
+                          description: 演讲室状态
+        '401':
+          description: 未授权或token无效
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "token无效或已过期"
+  /user/invitations:
+    get:
+      tags:
+        - 用户管理
+      summary: 获取用户所有被邀请记录
+      description: 获取当前用户所有的被邀请记录
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema:
+            type: string
+          description: 用户身份token
+      responses:
+        '200':
+          description: 用户被邀请记录列表
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  invitations:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                          description: 邀请记录ID
+                        room_id:
+                          type: integer
+                          description: 演讲室ID
+                        room_code:
+                          type: string
+                          description: 房间号
+                        room_name:
+                          type: string
+                          description: 演讲室名称
+                        inviter_id:
+                          type: integer
+                          description: 邀请人ID
+                        inviter_name:
+                          type: string
+                          description: 邀请人名称
+                        role:
+                          type: integer
+                          description: 邀请角色（0-听众，1-演讲者）
+                        status:
+                          type: integer
+                          description: 邀请状态（0-待接受，1-已接受，2-已拒绝，3-已失效）
+                        invited_at:
+                          type: string
+                          format: date-time
+                          description: 邀请被创建时间
+        '401':
+          description: 未授权或token无效
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "token无效或已过期"
+  /invitations:
+    post:
+      tags:
+        - 用户管理
+      summary: 发起邀请
+      description: 由发起人邀请其他用户加入演讲室
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - token
+                - invitee_username
+                - room_id
+                - role
+              properties:
+                token:
+                  type: string
+                  description: 发起人token
+                invitee_username:
+                  type: string
+                  description: 被邀请人用户名
+                room_id:
+                  type: integer
+                  description: 演讲室ID
+                role:
+                  type: integer
+                  description: 邀请角色（0-听众，1-演讲者）
+      responses:
+        '201':
+          description: 邀请成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  message:
+                    type: string
+                    example: "邀请已发送|邀请已存在"
+        '400':
+          description: 参数错误
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "参数错误或用户不存在"
+        '401':
+          description: 未授权或token无效
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "token无效或已过期"
+  /invitations/accept:
+    post:
+      tags:
+        - 用户管理
+      summary: 接受邀请
+      description: 用户接受某条邀请
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - id
+                - token
+              properties:
+                id:
+                  type: integer
+                  description: 邀请记录ID
+                token:
+                  type: string
+                  description: 用户身份token
+      responses:
+        '200':
+          description: 接受成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                    description: 邀请记录ID
+                  message:
+                    type: string
+                    example: "邀请已接受"
+        '400':
+          description: 参数错误
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "参数错误或邀请不存在"
+        '401':
+          description: 未授权或token无效
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "token无效或已过期"
+
+  /invitations/reject:
+    post:
+      tags:
+        - 用户管理
+      summary: 拒绝邀请
+      description: 用户拒绝某条邀请
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - id
+                - token
+              properties:
+                id:
+                  type: integer
+                  description: 邀请记录ID
+                token:
+                  type: string
+                  description: 用户身份token
+      responses:
+        '200':
+          description: 拒绝成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                    description: 邀请记录ID
+                  message:
+                    type: string
+                    example: "邀请已拒绝"
+        '400':
+          description: 参数错误
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "参数错误或邀请不存在"
+        '401':
+          description: 未授权或token无效
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "token无效或已过期"
+  /join-room:
+    post:
+      tags:
+        - 演讲室管理
+      summary: 加入演讲室
+      description: 用户通过邀请码加入演讲室
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - token
+                - invite_code
+              properties:
+                token:
+                  type: string
+                  description: 用户身份token
+                invite_code:
+                  type: string
+                  description: 演讲室邀请码
+      responses:
+        '200':
+          description: 加入成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  room_id:
+                    type: integer
+                  message:
+                    type: string
+                    example: "加入成功"
+        '400':
+          description: 参数错误或邀请码无效
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "邀请码无效或已过期"
+        '401':
+          description: 未授权或token无效
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "token无效或已过期"
+  /user/created-rooms:
+    get:
+      tags:
+        - 用户管理
+      summary: 获取用户创建的所有演讲室
+      description: 获取当前用户作为创建者的所有演讲室列表
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema:
+            type: string
+          description: 用户身份token
+      responses:
+        '200':
+          description: 用户创建的演讲室列表
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rooms:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                        name:
+                          type: string
+                        description:
+                          type: string
+                        status:
+                          type: integer
+                          description: 演讲室状态
+                        invite_code:
+                          type: string
+                          description: 普通邀请码
+                        speaker_invite_code:
+                          type: string
+                          description: 演讲者邀请码
+                        created_at:
+                          type: string
+                          format: date-time
+        '401':
+          description: 未授权或token无效
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "token无效或已过期"
