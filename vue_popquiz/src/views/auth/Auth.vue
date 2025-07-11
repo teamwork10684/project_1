@@ -19,13 +19,6 @@
         <a-form-item v-if="mode === 'register'" label="确认密码" name="confirmPassword" :rules="rules.confirmPassword">
           <a-input-password v-model:value="form.confirmPassword" size="large" placeholder="请再次输入密码" allow-clear />
         </a-form-item>
-        <a-form-item label="身份" name="role" :rules="rules.role">
-          <a-select v-model:value="form.role" size="large" placeholder="请选择身份">
-            <a-select-option value="student">学生</a-select-option>
-            <a-select-option value="teacher">老师</a-select-option>
-            <a-select-option value="organizer">组织人</a-select-option>
-          </a-select>
-        </a-form-item>
         <a-form-item>
           <a-button type="primary" html-type="submit" block size="large" :loading="loading">{{ mode === 'login' ? '登录' : '注册' }}</a-button>
         </a-form-item>
@@ -48,12 +41,16 @@ const router = useRouter();
 const route = useRoute();
 const mode = ref(route.name === 'Register' || route.path === '/register' ? 'register' : 'login');
 const loading = ref(false);
-const form = ref({ username: '', password: '', confirmPassword: '', role: 'student' });
+const form = ref({ username: '', password: '', confirmPassword: '' });
 
 const validateConfirmPassword = (rule, value) => {
   if (mode.value === 'register') {
-    if (!value) return Promise.reject('请再次输入密码');
-    if (value !== form.value.password) return Promise.reject('两次输入的密码不一致');
+    if (!value) {
+      return Promise.reject('请再次输入密码');
+    }
+    if (value !== form.value.password) {
+      return Promise.reject('两次输入的密码不一致');
+    }
   }
   return Promise.resolve();
 };
@@ -62,10 +59,8 @@ const rules = computed(() => ({
   username: [ { required: true, message: '请输入用户名', trigger: 'blur' } ],
   password: [ { required: true, message: '请输入密码', trigger: 'blur' } ],
   confirmPassword: mode.value === 'register' ? [
-    { required: true, message: '请再次输入密码', trigger: 'blur' },
     { validator: validateConfirmPassword, trigger: 'blur' }
-  ] : [],
-  role: [ { required: true, message: '请选择身份', trigger: 'change' } ]
+  ] : []
 }));
 
 const handleLogin = async () => {
@@ -78,7 +73,6 @@ const handleLogin = async () => {
     const data = res.data;
     if (data.token) {
       localStorage.setItem('token', data.token);
-      localStorage.setItem('role', data.role);
       message.success('登录成功');
       router.push('/main')
     } else {
@@ -97,8 +91,7 @@ const handleRegister = async () => {
   try {
     const res = await app.config.globalProperties.$axios.post('/register', {
       username: form.value.username,
-      password: form.value.password,
-      role: form.value.role
+      password: form.value.password
     });
     const data = res.data;
     if (data.id) {
@@ -125,7 +118,7 @@ const toggleMode = () => {
     mode.value = 'login';
     router.replace({ name: 'Auth', path: '/' });
   }
-  form.value = { username: '', password: '', confirmPassword: '', role: 'student' };
+  form.value = { username: '', password: '', confirmPassword: '' };
 };
 
 watch(() => route.path, (newPath) => {

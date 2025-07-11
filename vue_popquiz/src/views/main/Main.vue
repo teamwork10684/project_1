@@ -25,6 +25,12 @@
             <a-menu-item key="demo">
               <span>Demo 演示</span>
             </a-menu-item>
+            <a-menu-item key="room">
+              <span>房间</span>
+            </a-menu-item>
+            <a-menu-item key="speakerroom">
+              <span>发言房间</span>
+            </a-menu-item>
           </a-menu>
         </a-layout-sider>
         <a-layout>
@@ -47,6 +53,8 @@ const route = useRoute();
 
 const selectedKey = computed(() => {
   if (route.path === '/main/demo') return 'demo';
+  if (route.path === '/main/room') return 'room';
+  if (route.path === '/main/speakerroom') return 'speakerroom';
   return 'home';
 });
 
@@ -55,6 +63,10 @@ const onMenuClick = ({ key }) => {
     router.push('/main');
   } else if (key === 'demo') {
     router.push('/main/demo');
+  } else if (key === 'room') {
+    router.push('/main/room');
+  } else if (key === 'speakerroom') {
+    router.push('/main/speakerroom');
   }
 };
 
@@ -107,7 +119,7 @@ const toggleCollapse = () => {
 }
 .main-content {
   margin: 24px 16px;
-  padding: 24px;
+  padding: 0;
   background: #fff;
   min-height: 280px;
   border-radius: 8px;
