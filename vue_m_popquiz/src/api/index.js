@@ -2,6 +2,8 @@ import axios from 'axios';
 import { message } from 'ant-design-vue';
 import router from '../router';
 
+//计划6天之内初步完成
+
 // 创建axios实例
 const api = axios.create({
   baseURL: 'http://localhost:5000/popquiz',
