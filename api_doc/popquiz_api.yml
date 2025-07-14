@@ -1,7 +1,15 @@
 openapi: '3.0.3'
 info:
-  title: popquiz
+  title: PopQuiz API
   version: '1.0'
+  description: |
+    PopQuiz演讲室管理系统API文档
+    
+    本API提供演讲室管理、用户管理、题目管理等功能。
+    
+    ## 相关文档
+    - [WebSocket API文档](./websocket_api.yml) - 实时通信API
+    - [WebSocket使用说明](./websocket_usage.md) - 详细使用指南
 servers:
   - url: http://localhost:5000/popquiz
 components:
@@ -210,10 +218,10 @@ paths:
                     example: null
                   invite_code:
                     type: string
-                    example: "ABC123"
+                    example: "aB3cD7eF9gH2jK5m"
                   speaker_invite_code:
                     type: string
-                    example: "XYZ789"
+                    example: "xY8zN4pQ6rS1tU3vW"
                   status:
                     type: integer
                     example: 0
@@ -254,242 +262,6 @@ paths:
                   message:
                     type: string
                     example: "创建演讲室失败"
-  /request-questions-by-text:
-    post:
-      tags:
-        - 题目管理
-      summary: 根据文本申请创建题目
-      description: 创建新的选择题
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - raw_text
-                - room_id
-              properties:
-                raw_text:
-                  type: string
-                  description: 原始文本
-                room_id:
-                  type: integer
-                  description: 演讲室ID
-
-      responses:
-        '201':
-          description: 服务端接收请求正在创建
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  id:
-                    type: integer
-                  message:
-                    type: string
-        '400':
-          description: 参数错误
-
-  /speech-rooms/{room_id}/questions:
-    get:
-      tags:
-        - 演讲室题目
-      summary: 获取指定演讲室的所有题目
-      description: 获取某个房间id对应的所有题目
-      parameters:
-        - name: room_id
-          in: path
-          required: true
-          schema:
-            type: integer
-          description: 演讲室ID
-        - name: token
-          in: query
-          required: true
-          schema:
-            type: string
-          description: 用户身份token
-      responses:
-        '200':
-          description: 题目列表
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  questions:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        id:
-                          type: integer
-                        question:
-                          type: string
-                        option_a:
-                          type: string
-                        option_b:
-                          type: string
-                        option_c:
-                          type: string
-                        option_d:
-                          type: string
-                        answer:
-                          type: string
-                          description: 正确答案
-        '401':
-          description: 未授权或token无效
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                    example: "token无效或已过期"
-        '404':
-          description: Not Found
-
-  /questions/{question_id}/answers:
-    get:
-      tags:
-        - 答题
-      summary: 获取指定题目的所有答题情况
-      description: 获取某一个题目对应的所有用户答题情况
-      parameters:
-        - name: question_id
-          in: path
-          required: true
-          schema:
-            type: integer
-          description: 题目ID
-        - name: token
-          in: query
-          required: true
-          schema:
-            type: string
-          description: 用户身份token
-      responses:
-        '200':
-          description: 答题情况列表
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  answers:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        user_id:
-                          type: integer
-                        username:
-                          type: string
-                        selected_answer:
-                          type: string
-                        is_right:
-                          type: boolean
-                          description: 是否正确
-                        answered_at:
-                          type: string
-                          format: date-time
-        '401':
-          description: 未授权或token无效
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                    example: "token无效或已过期"
-        '404':
-          description: Not Found
-
-  /answers:
-    post:
-      tags:
-        - 答题
-      summary: 提交答题
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - room_id
-                - question_id
-                - token
-                - selected_answer
-              properties:
-                room_id:
-                  type: integer
-                question_id:
-                  type: integer
-                token:
-                  type: string
-                  description: 用户身份token
-                selected_answer:
-                  type: string
-                  enum: [A, B, C, D]
-      responses:
-        '201':
-          description: 答题成功
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  id:
-                    type: integer
-                  message:
-                    type: string
-        '400':
-          description: 参数错误
-
-  /speech-rooms/{room_id}/answers:
-    get:
-      tags:
-        - 答题
-      summary: 获取用户在演讲室的答题记录
-      parameters:
-        - name: room_id
-          in: path
-          required: true
-          schema:
-            type: integer
-        - name: token
-          in: query
-          required: true
-          schema:
-            type: string
-          description: 用户身份token
-      responses:
-        '200':
-          description: 答题记录
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  answers:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        question_id:
-                          type: integer
-                        selected_answer:
-                          type: string
-                  is_right:
-                    type: boolean
-                    description: 是否正确
-        '404':
-          description: Not Found
   /logout:
     post:
       tags:
@@ -534,7 +306,7 @@ paths:
       tags:
         - 用户管理
       summary: 获取用户参与的所有演讲室
-      description: 获取当前用户参与或创建的所有演讲室列表
+      description: 获取当前用户参与或创建的所有演讲室列表，只有房间创建者才能看到邀请码
       parameters:
         - name: token
           in: query
@@ -557,19 +329,104 @@ paths:
                       properties:
                         id:
                           type: integer
+                          description: 演讲室ID
+                          example: 1
                         name:
                           type: string
+                          description: 演讲室名称
+                          example: "Python基础教程"
                         description:
                           type: string
+                          description: 演讲室描述
+                          example: "介绍Python编程语言的基础知识"
+                        creator_id:
+                          type: integer
+                          description: 创建者ID
+                          example: 1
+                        speaker_id:
+                          type: integer
+                          nullable: true
+                          description: 演讲者ID
+                          example: 2
                         role:
+                          type: integer
+                          description: 用户在该演讲室的角色（0-创建者，1-演讲者，2-听众）
+                          enum: [0, 1, 2]
+                          example: 0
+                        invite_code:
                           type: string
-                          description: 用户在该演讲室的角色（创建者/演讲者/听众）
-                        joined_at:
+                          nullable: true
+                          description: 普通邀请码（仅创建者可见）
+                          example: "aB3cD7eF9gH2jK5m"
+                        speaker_invite_code:
                           type: string
-                          format: date-time
+                          nullable: true
+                          description: 演讲者邀请码（仅创建者可见）
+                          example: "xY8zN4pQ6rS1tU3vW"
                         status:
                           type: integer
-                          description: 演讲室状态
+                          description: 演讲室状态（0-等待开始，1-进行中，2-已结束）
+                          example: 0
+                        created_at:
+                          type: string
+                          format: date-time
+                          description: 创建时间
+                          example: "2024-01-01T10:00:00Z"
+                        total_participants:
+                          type: integer
+                          description: 参与总人数
+                          example: 15
+                        creator_name:
+                          type: string
+                          description: 创始人姓名
+                          example: "张三"
+                        speaker_name:
+                          type: string
+                          nullable: true
+                          description: 演讲人姓名
+                          example: "李四"
+              example:
+                rooms:
+                  - id: 1
+                    name: "Python基础教程"
+                    description: "介绍Python编程语言的基础知识"
+                    creator_id: 1
+                    speaker_id: 2
+                    role: 0
+                    invite_code: "aB3cD7eF9gH2jK5m"
+                    speaker_invite_code: "xY8zN4pQ6rS1tU3vW"
+                    status: 0
+                    created_at: "2024-01-01T10:00:00Z"
+                  - id: 2
+                    name: "Web开发实战"
+                    description: "从零开始学习Web开发"
+                    creator_id: 3
+                    speaker_id: 1
+                    role: 1
+                    invite_code: null
+                    speaker_invite_code: null
+                    status: 1
+                    created_at: "2024-01-02T14:30:00Z"
+                  - id: 3
+                    name: "数据结构与算法"
+                    description: "计算机科学基础课程"
+                    creator_id: 4
+                    speaker_id: 5
+                    role: 2
+                    invite_code: null
+                    speaker_invite_code: null
+                    status: 0
+                    created_at: "2024-01-03T09:15:00Z"
+        '400':
+          description: 参数错误
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "参数错误"
         '401':
           description: 未授权或token无效
           content:
@@ -612,28 +469,89 @@ paths:
                         room_id:
                           type: integer
                           description: 演讲室ID
-                        room_code:
-                          type: string
-                          description: 房间号
+                          example: 1
                         room_name:
                           type: string
                           description: 演讲室名称
-                        inviter_id:
-                          type: integer
-                          description: 邀请人ID
-                        inviter_name:
+                          example: "Python基础教程"
+                        description:
                           type: string
-                          description: 邀请人名称
-                        role:
-                          type: integer
-                          description: 邀请角色（0-听众，1-演讲者）
-                        status:
-                          type: integer
-                          description: 邀请状态（0-待接受，1-已接受，2-已拒绝，3-已失效）
-                        invited_at:
+                          description: 演讲室描述
+                          example: "介绍Python编程语言的基础知识"
+                        created_at:
                           type: string
                           format: date-time
-                          description: 邀请被创建时间
+                          description: 演讲室创建时间
+                          example: "2024-01-01T10:00:00Z"
+                        creator_name:
+                          type: string
+                          description: 组织者姓名
+                          example: "张三"
+                        speaker_name:
+                          type: string
+                          nullable: true
+                          description: 演讲者姓名
+                          example: "李四"
+                        total_participants:
+                          type: integer
+                          description: 参与人数
+                          example: 15
+                        role:
+                          type: integer
+                          description: 担任角色（0-听众，1-演讲者）
+                          enum: [0, 1]
+                          example: 1
+                        status:
+                          type: integer
+                          description: 邀请状态（0-待接受，1-已接受，2-已拒绝）
+                          enum: [0, 1, 2]
+                          example: 0
+                        room_status:
+                          type: integer
+                          description: 房间状态（0-等待开始，1-进行中，2-已结束）
+                          enum: [0, 1, 2]
+                          example: 0
+                        invited_time:
+                          type: string
+                          format: date-time
+                          description: 邀请时间
+                          example: "2024-01-01T09:30:00Z"
+              example:
+                invitations:
+                  - id: 1
+                    room_id: 1
+                    room_name: "Python基础教程"
+                    description: "介绍Python编程语言的基础知识"
+                    created_at: "2024-01-01T10:00:00Z"
+                    creator_name: "张三"
+                    speaker_name: "李四"
+                    total_participants: 15
+                    role: 1
+                    status: 0
+                    room_status: 0
+                    invited_time: "2024-01-01T09:30:00Z"
+                  - id: 2
+                    room_id: 2
+                    room_name: "Web开发实战"
+                    description: "从零开始学习Web开发"
+                    created_at: "2024-01-02T14:30:00Z"
+                    creator_name: "王五"
+                    speaker_name: null
+                    total_participants: 8
+                    role: 0
+                    status: 1
+                    room_status: 1
+                    invited_time: "2024-01-02T13:00:00Z"
+        '400':
+          description: 参数错误
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "参数错误"
         '401':
           description: 未授权或token无效
           content:
@@ -875,12 +793,357 @@ paths:
                   message:
                     type: string
                     example: "token无效或已过期"
+  /speech-rooms/{room_id}/start:
+    post:
+      tags:
+        - 演讲室管理
+      summary: 开始演讲
+      description: 房间创建者或演讲者开始演讲，将房间状态从等待开始(0)改为进行中(1)。如果房间没有演讲人，则自动将组织者设为演讲人。
+      parameters:
+        - name: room_id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: 演讲室ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - token
+              properties:
+                token:
+                  type: string
+                  description: 用户身份token
+      responses:
+        '200':
+          description: 开始演讲成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  room_id:
+                    type: integer
+                    description: 演讲室ID
+                  status:
+                    type: integer
+                    description: 房间状态（1-进行中）
+                    example: 1
+                  speaker_id:
+                    type: integer
+                    nullable: true
+                    description: 演讲者ID（如果之前没有演讲者，则自动设为组织者）
+                    example: 1
+                  message:
+                    type: string
+                    example: "演讲已开始"
+        '400':
+          description: 参数错误或房间状态不允许
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "房间状态不允许开始演讲"
+        '401':
+          description: 未授权或token无效
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "token无效或已过期"
+        '403':
+          description: 权限不足
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "只有房间创建者和演讲者才能开始演讲"
+        '404':
+          description: 演讲室不存在
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "演讲室不存在"
+  /speech-rooms/{room_id}/end:
+    post:
+      tags:
+        - 演讲室管理
+      summary: 结束演讲
+      description: 房间创建者或演讲者结束演讲，将房间状态从进行中(1)改为已结束(2)
+      parameters:
+        - name: room_id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: 演讲室ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - token
+              properties:
+                token:
+                  type: string
+                  description: 用户身份token
+      responses:
+        '200':
+          description: 结束演讲成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  room_id:
+                    type: integer
+                    description: 演讲室ID
+                  status:
+                    type: integer
+                    description: 房间状态（2-已结束）
+                    example: 2
+                  message:
+                    type: string
+                    example: "演讲已结束"
+        '400':
+          description: 参数错误或房间状态不允许
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "房间状态不允许结束演讲"
+        '401':
+          description: 未授权或token无效
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "token无效或已过期"
+        '403':
+          description: 权限不足
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "只有房间创建者和演讲者才能结束演讲"
+        '404':
+          description: 演讲室不存在
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "演讲室不存在"
+  /speech-rooms/{room_id}/participants/count:
+    get:
+      tags:
+        - 演讲室管理
+      summary: 获取演讲室参与总人数
+      description: 获取指定演讲室的参与人数统计
+      parameters:
+        - name: room_id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: 演讲室ID
+        - name: token
+          in: query
+          required: true
+          schema:
+            type: string
+          description: 用户身份token
+      responses:
+        '200':
+          description: 获取成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  room_id:
+                    type: integer
+                    description: 演讲室ID
+                  total_participants:
+                    type: integer
+                    description: 参与总人数
+                    example: 15
+                  creator_id:
+                    type: integer
+                    description: 创建者ID
+                    example: 1
+                  speaker_id:
+                    type: integer
+                    nullable: true
+                    description: 演讲者ID
+                    example: 2
+                  message:
+                    type: string
+                    example: "获取成功"
+        '401':
+          description: 未授权或token无效
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "token无效或已过期"
+        '404':
+          description: 演讲室不存在
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "演讲室不存在"
+  /speech-rooms/{room_id}/online-participants:
+    get:
+      tags:
+        - 演讲室管理
+      summary: 获取演讲室在线人员列表
+      description: 获取指定演讲室的所有在线人员信息，包括用户ID、用户名和角色
+      parameters:
+        - name: room_id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: 演讲室ID
+        - name: token
+          in: query
+          required: true
+          schema:
+            type: string
+          description: 用户身份token
+      responses:
+        '200':
+          description: 获取在线人员列表成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  room_id:
+                    type: integer
+                    description: 演讲室ID
+                    example: 1
+                  room_name:
+                    type: string
+                    description: 演讲室名称
+                    example: "Python基础教程"
+                  total_online:
+                    type: integer
+                    description: 在线总人数
+                    example: 12
+                  participants:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        user_id:
+                          type: integer
+                          description: 用户ID
+                          example: 1
+                        username:
+                          type: string
+                          description: 用户名
+                          example: "user001"
+                        role:
+                          type: integer
+                          description: 角色（0-创建者，1-演讲者，2-听众）
+                          example: 0
+
+                  message:
+                    type: string
+                    example: "获取在线人员列表成功"
+              example:
+                room_id: 1
+                room_name: "Python基础教程"
+                total_online: 12
+                participants:
+                  - user_id: 1
+                    username: "user001"
+                    role: 0
+                  - user_id: 2
+                    username: "user002"
+                    role: 1
+                  - user_id: 3
+                    username: "user003"
+                    role: 2
+                  - user_id: 4
+                    username: "user004"
+                    role: 2
+                message: "获取在线人员列表成功"
+        '401':
+          description: 未授权或token无效
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "token无效或已过期"
+        '403':
+          description: 权限不足
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "您不是该演讲室的成员"
+        '404':
+          description: 演讲室不存在
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "演讲室不存在"
   /user/created-rooms:
     get:
       tags:
         - 用户管理
       summary: 获取用户创建的所有演讲室
-      description: 获取当前用户作为创建者的所有演讲室列表
+      description: 获取当前用户作为创建者的所有演讲室列表，支持分页、排序和状态过滤
       parameters:
         - name: token
           in: query
@@ -888,6 +1151,46 @@ paths:
           schema:
             type: string
           description: 用户身份token
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+          description: 页码，从1开始
+        - name: per_page
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 10
+            minimum: 1
+            maximum: 100
+          description: 每页数量，最大100
+        - name: sort_by
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [created_at, name, status]
+            default: created_at
+          description: 排序字段
+        - name: order
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+          description: 排序方向
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: integer
+            enum: [0, 1, 2]
+          description: 房间状态过滤（0-等待开始，1-进行中，2-已结束）
       responses:
         '200':
           description: 用户创建的演讲室列表
@@ -903,22 +1206,106 @@ paths:
                       properties:
                         id:
                           type: integer
+                          description: 演讲室ID
+                          example: 1
                         name:
                           type: string
+                          description: 演讲室名称
+                          example: "Python基础教程"
                         description:
                           type: string
-                        status:
+                          description: 演讲室描述
+                          example: "介绍Python编程语言的基础知识"
+                        creator_id:
                           type: integer
-                          description: 演讲室状态
+                          description: 创建者ID
+                          example: 1
+                        speaker_id:
+                          type: integer
+                          nullable: true
+                          description: 演讲者ID
+                          example: 2
                         invite_code:
                           type: string
                           description: 普通邀请码
+                          example: "aB3cD7eF9gH2jK5m"
                         speaker_invite_code:
                           type: string
                           description: 演讲者邀请码
+                          example: "xY8zN4pQ6rS1tU3vW"
+                        status:
+                          type: integer
+                          description: 演讲室状态（0-等待开始，1-进行中，2-已结束）
+                          example: 0
                         created_at:
                           type: string
                           format: date-time
+                          description: 创建时间
+                          example: "2024-01-01T10:00:00Z"
+                  pagination:
+                    type: object
+                    properties:
+                      page:
+                        type: integer
+                        description: 当前页码
+                        example: 1
+                      per_page:
+                        type: integer
+                        description: 每页数量
+                        example: 10
+                      total:
+                        type: integer
+                        description: 总记录数
+                        example: 25
+                      pages:
+                        type: integer
+                        description: 总页数
+                        example: 3
+                      has_next:
+                        type: boolean
+                        description: 是否有下一页
+                        example: true
+                      has_prev:
+                        type: boolean
+                        description: 是否有上一页
+                        example: false
+              example:
+                rooms:
+                  - id: 1
+                    name: "Python基础教程"
+                    description: "介绍Python编程语言的基础知识"
+                    creator_id: 1
+                    speaker_id: 2
+                    invite_code: "aB3cD7eF9gH2jK5m"
+                    speaker_invite_code: "xY8zN4pQ6rS1tU3vW"
+                    status: 0
+                    created_at: "2024-01-01T10:00:00Z"
+                  - id: 2
+                    name: "Web开发实战"
+                    description: "从零开始学习Web开发"
+                    creator_id: 1
+                    speaker_id: null
+                    invite_code: "mN8pQ2rS5tU7vW1xY"
+                    speaker_invite_code: "zA4bC6dE8fG0hI2jK"
+                    status: 1
+                    created_at: "2024-01-02T14:30:00Z"
+                pagination:
+                  page: 1
+                  per_page: 10
+                  total: 25
+                  pages: 3
+                  has_next: true
+                  has_prev: false
+        '400':
+          description: 参数错误
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "参数错误"
         '401':
           description: 未授权或token无效
           content:
@@ -929,3 +1316,1762 @@ paths:
                   message:
                     type: string
                     example: "token无效或已过期"
+        '500':
+          description: 服务器错误
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "查询失败"
+
+  /discussions:
+    post:
+      tags:
+        - 讨论管理
+      summary: 发表讨论
+      description: 用户在指定演讲室发表讨论内容
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - token
+                - room_id
+                - content
+              properties:
+                token:
+                  type: string
+                  description: 用户身份token
+                  example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                room_id:
+                  type: integer
+                  description: 演讲室ID
+                  example: 1
+                content:
+                  type: string
+                  description: 讨论内容
+                  example: "这个题目很有意思，我想分享一下我的想法..."
+                question_id:
+                  type: integer
+                  description: 被讨论的题目ID（可选，-1表示不针对题目的讨论）
+                  example: 5
+      responses:
+        '201':
+          description: 发表讨论成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                    description: 讨论ID
+                    example: 1
+                  room_id:
+                    type: integer
+                    description: 演讲室ID
+                    example: 1
+                  user_id:
+                    type: integer
+                    description: 作者用户ID
+                    example: 1
+                  content:
+                    type: string
+                    description: 讨论内容
+                    example: "这个题目很有意思，我想分享一下我的想法..."
+                  question_id:
+                    type: integer
+                    description: 被讨论的题目ID
+                    example: 5
+                  created_at:
+                    type: string
+                    format: date-time
+                    description: 创建时间
+                    example: "2024-01-01T10:00:00Z"
+                  message:
+                    type: string
+                    example: "讨论发表成功"
+        '400':
+          description: 参数错误
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "讨论内容不能为空"
+        '401':
+          description: 未授权或token无效
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "token无效或已过期"
+        '403':
+          description: 权限不足
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "您不是该演讲室的成员"
+        '404':
+          description: 演讲室不存在
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "演讲室不存在"
+    get:
+      tags:
+        - 讨论管理
+      summary: 获取讨论列表
+      description: 获取指定演讲室的讨论列表
+      parameters:
+        - name: room_id
+          in: query
+          required: true
+          schema:
+            type: integer
+          description: 演讲室ID
+        - name: token
+          in: query
+          required: true
+          schema:
+            type: string
+          description: 用户身份token
+      responses:
+        '200':
+          description: 获取讨论列表成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  discussions:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                          description: 讨论ID
+                          example: 1
+                        room_id:
+                          type: integer
+                          description: 演讲室ID
+                          example: 1
+                        user_id:
+                          type: integer
+                          description: 作者用户ID
+                          example: 1
+                        username:
+                          type: string
+                          description: 作者用户名
+                          example: "张三"
+                        content:
+                          type: string
+                          description: 讨论内容
+                          example: "这个题目很有意思，我想分享一下我的想法..."
+                        question_id:
+                          type: integer
+                          description: 被讨论的题目ID
+                          example: 5
+                        is_system:
+                          type: boolean
+                          description: 是否为系统发布
+                          example: false
+                        created_at:
+                          type: string
+                          format: date-time
+                          description: 创建时间
+                          example: "2024-01-01T10:00:00Z"
+              example:
+                discussions:
+                  - id: 1
+                    room_id: 1
+                    user_id: 1
+                    username: "张三"
+                    content: "这个题目很有意思，我想分享一下我的想法..."
+                    question_id: 5
+                    is_system: false
+                    created_at: "2024-01-01T10:00:00Z"
+                  - id: 2
+                    room_id: 1
+                    user_id: 2
+                    username: "李四"
+                    content: "我同意你的观点，这个知识点确实很重要"
+                    question_id: 5
+                    is_system: false
+                    created_at: "2024-01-01T10:05:00Z"
+                  - id: 3
+                    room_id: 1
+                    user_id: 0
+                    username: "系统"
+                    content: "题目已发布，请大家积极参与讨论"
+                    question_id: -1
+                    is_system: true
+                    created_at: "2024-01-01T10:00:00Z"
+        '400':
+          description: 参数错误
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "参数错误"
+        '401':
+          description: 未授权或token无效
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "token无效或已过期"
+        '404':
+          description: 演讲室不存在
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "演讲室不存在"
+
+  /questions/{question_id}/discussions:
+    get:
+      tags:
+        - 讨论管理
+      summary: 获取指定题目的所有讨论
+      description: 获取指定题目ID的所有讨论列表
+      parameters:
+        - name: question_id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: 题目ID
+        - name: token
+          in: query
+          required: true
+          schema:
+            type: string
+          description: 用户身份token
+      responses:
+        '200':
+          description: 获取题目讨论列表成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  question_id:
+                    type: integer
+                    description: 题目ID
+                    example: 5
+                  question_content:
+                    type: string
+                    description: 题目内容
+                    example: "太阳从哪边升起？"
+                  discussions:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                          description: 讨论ID
+                          example: 1
+                        room_id:
+                          type: integer
+                          description: 演讲室ID
+                          example: 1
+                        room_name:
+                          type: string
+                          description: 演讲室名称
+                          example: "Python基础教程"
+                        user_id:
+                          type: integer
+                          description: 作者用户ID
+                          example: 1
+                        username:
+                          type: string
+                          description: 作者用户名
+                          example: "张三"
+                        content:
+                          type: string
+                          description: 讨论内容
+                          example: "这个题目很有意思，我想分享一下我的想法..."
+                        is_system:
+                          type: boolean
+                          description: 是否为系统发布
+                          example: false
+                        created_at:
+                          type: string
+                          format: date-time
+                          description: 创建时间
+                          example: "2024-01-01T10:00:00Z"
+              example:
+                question_id: 5
+                question_content: "太阳从哪边升起？"
+                discussions:
+                  - id: 1
+                    room_id: 1
+                    room_name: "Python基础教程"
+                    user_id: 1
+                    username: "张三"
+                    content: "这个题目很有意思，我想分享一下我的想法..."
+                    is_system: false
+                    created_at: "2024-01-01T10:00:00Z"
+                  - id: 2
+                    room_id: 1
+                    room_name: "Python基础教程"
+                    user_id: 2
+                    username: "李四"
+                    content: "我同意你的观点，这个知识点确实很重要"
+                    is_system: false
+                    created_at: "2024-01-01T10:05:00Z"
+                  - id: 3
+                    room_id: 2
+                    room_name: "Web开发实战"
+                    user_id: 3
+                    username: "王五"
+                    content: "这个问题在Web开发中也很常见"
+                    is_system: false
+                    created_at: "2024-01-01T11:00:00Z"
+        '400':
+          description: 参数错误
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "参数错误"
+        '401':
+          description: 未授权或token无效
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "token无效或已过期"
+        '404':
+          description: 题目不存在
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "题目不存在"
+
+  /speech-rooms/{room_id}/questions:
+    get:
+      tags:
+        - 题目管理
+      summary: 获取房间内所有已创建的题目
+      description: 获取指定演讲室内所有已创建完成(created=True)的题目列表(听众无权限使用此api)
+      parameters:
+        - name: room_id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: 演讲室ID
+        - name: token
+          in: query
+          required: true
+          schema:
+            type: string
+          description: 用户身份token
+      responses:
+        '200':
+          description: 获取题目列表成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  room_id:
+                    type: integer
+                    description: 演讲室ID
+                    example: 1
+                  questions:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                          description: 题目ID
+                          example: 1
+                        raw_text:
+                          type: string
+                          description: 原始文本
+                          example: "太阳从哪边升起？"
+                        prompt:
+                          type: string
+                          description: 提示词
+                          example: "请根据以下内容出一道选择题"
+                        question:
+                          type: string
+                          description: 问题
+                          example: "太阳从哪边升起？"
+                        option_a:
+                          type: string
+                          description: 选项A
+                          example: "东边"
+                        option_b:
+                          type: string
+                          description: 选项B
+                          example: "西边"
+                        option_c:
+                          type: string
+                          description: 选项C
+                          example: "南边"
+                        option_d:
+                          type: string
+                          description: 选项D
+                          example: "北边"
+                        answer:
+                          type: string
+                          description: 正确答案
+                          example: "A"
+                        created:
+                          type: boolean
+                          description: 是否创建完成
+                          example: true
+                        published:
+                          type: boolean
+                          description: 是否被发布过
+                          example: false
+                        created_at:
+                          type: string
+                          format: date-time
+                          description: 创建时间
+                          example: "2024-01-01T10:00:00Z"
+              example:
+                room_id: 1
+                questions:
+                  - id: 1
+                    raw_text: "太阳从哪边升起？"
+                    prompt: "请根据以下内容出一道选择题"
+                    question: "太阳从哪边升起？"
+                    option_a: "东边"
+                    option_b: "西边"
+                    option_c: "南边"
+                    option_d: "北边"
+                    answer: "A"
+                    created: true
+                    published: false
+                    created_at: "2024-01-01T10:00:00Z"
+                  - id: 2
+                    raw_text: "Python是一种什么类型的编程语言？"
+                    prompt: "请根据以下内容出一道选择题"
+                    question: "Python是一种什么类型的编程语言？"
+                    option_a: "编译型语言"
+                    option_b: "解释型语言"
+                    option_c: "汇编语言"
+                    option_d: "机器语言"
+                    answer: "B"
+                    created: true
+                    published: true
+                    created_at: "2024-01-01T11:00:00Z"
+        '400':
+          description: 参数错误
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "参数错误"
+        '401':
+          description: 未授权或token无效
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "token无效或已过期"
+        '403':
+          description: 权限不足
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "您不是该演讲室的成员"
+        '404':
+          description: 演讲室不存在
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "演讲室不存在"
+
+  /speech-rooms/{room_id}/current-question-for-speaker-and-organizer:
+    get:
+      tags:
+        - 题目管理
+      summary: 获取房间最新被发布还未结束的题目
+      description: 获取指定演讲室内最新被发布且状态为进行中(0)的题目(听众无权限使用此api)
+      parameters:
+        - name: room_id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: 演讲室ID
+        - name: token
+          in: query
+          required: true
+          schema:
+            type: string
+          description: 用户身份token
+      responses:
+        '200':
+          description: 获取当前题目成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  room_id:
+                    type: integer
+                    description: 演讲室ID
+                    example: 1
+                  published_question:
+                    type: object
+                    nullable: true
+                    properties:
+                      id:
+                        type: integer
+                        description: 发布题目ID
+                        example: 1
+                      question_id:
+                        type: integer
+                        description: 原题目ID
+                        example: 5
+                      start_time:
+                        type: string
+                        format: date-time
+                        description: 答题开始时间
+                        example: "2024-01-01T10:00:00Z"
+                      end_time:
+                        type: string
+                        format: date-time
+                        nullable: true
+                        description: 答题结束时间
+                        example: "2024-01-01T10:05:00Z"
+                      time_limit:
+                        type: integer
+                        description: 答题时间限制（秒）
+                        example: 60
+                      status:
+                        type: integer
+                        description: 状态（0-进行中，1-已结束）
+                        example: 0
+                      created_at:
+                        type: string
+                        format: date-time
+                        description: 发布时间
+                        example: "2024-01-01T10:00:00Z"
+                      question:
+                        type: object
+                        properties:
+                          id:
+                            type: integer
+                            description: 题目ID
+                            example: 5
+                          question:
+                            type: string
+                            description: 问题
+                            example: "太阳从哪边升起？"
+                          option_a:
+                            type: string
+                            description: 选项A
+                            example: "东边"
+                          option_b:
+                            type: string
+                            description: 选项B
+                            example: "西边"
+                          option_c:
+                            type: string
+                            description: 选项C
+                            example: "南边"
+                          option_d:
+                            type: string
+                            description: 选项D
+                            example: "北边"
+                          answer:
+                            type: string
+                            description: 正确答案
+                            example: "A"
+              example:
+                room_id: 1
+                published_question:
+                  id: 1
+                  question_id: 5
+                  start_time: "2024-01-01T10:00:00Z"
+                  end_time: null
+                  time_limit: 60
+                  status: 0
+                  created_at: "2024-01-01T10:00:00Z"
+                  question:
+                    id: 5
+                    question: "太阳从哪边升起？"
+                    option_a: "东边"
+                    option_b: "西边"
+                    option_c: "南边"
+                    option_d: "北边"
+                    answer: "A"
+        '204':
+          description: 当前没有进行中的题目
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  room_id:
+                    type: integer
+                    description: 演讲室ID
+                    example: 1
+                  published_question:
+                    type: object
+                    nullable: true
+                    example: null
+                  message:
+                    type: string
+                    example: "当前没有进行中的题目"
+        '400':
+          description: 参数错误
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "参数错误"
+        '401':
+          description: 未授权或token无效
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "token无效或已过期"
+        '403':
+          description: 权限不足
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "您不是该演讲室的成员"
+        '404':
+          description: 演讲室不存在
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "演讲室不存在"
+
+  /published-questions/{published_question_id}/statistics-for-speaker-and-organizer:
+    get:
+      tags:
+        - 题目管理
+      summary: 获取题目答题情况统计
+      description: 获取指定发布题目的答题情况统计，包括各选项选择人数和未参与人数(听众无权限使用此api)
+      parameters:
+        - name: published_question_id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: 发布题目ID
+        - name: token
+          in: query
+          required: true
+          schema:
+            type: string
+          description: 用户身份token
+      responses:
+        '200':
+          description: 获取答题统计成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  published_question_id:
+                    type: integer
+                    description: 发布题目ID
+                    example: 1
+                  room_id:
+                    type: integer
+                    description: 演讲室ID
+                    example: 1
+                  question_info:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                        description: 题目ID
+                        example: 5
+                      question:
+                        type: string
+                        description: 问题
+                        example: "太阳从哪边升起？"
+                      option_a:
+                        type: string
+                        description: 选项A
+                        example: "东边"
+                      option_b:
+                        type: string
+                        description: 选项B
+                        example: "西边"
+                      option_c:
+                        type: string
+                        description: 选项C
+                        example: "南边"
+                      option_d:
+                        type: string
+                        description: 选项D
+                        example: "北边"
+                      answer:
+                        type: string
+                        description: 正确答案
+                        example: "A"
+                  statistics:
+                    type: object
+                    properties:
+                      total_participants:
+                        type: integer
+                        description: 演讲室总参与人数
+                        example: 15
+                      answered_count:
+                        type: integer
+                        description: 已答题人数
+                        example: 12
+                      unanswered_count:
+                        type: integer
+                        description: 未答题人数
+                        example: 3
+                      option_a_count:
+                        type: integer
+                        description: 选择A的人数
+                        example: 8
+                      option_b_count:
+                        type: integer
+                        description: 选择B的人数
+                        example: 2
+                      option_c_count:
+                        type: integer
+                        description: 选择C的人数
+                        example: 1
+                      option_d_count:
+                        type: integer
+                        description: 选择D的人数
+                        example: 1
+                      correct_count:
+                        type: integer
+                        description: 答对人数
+                        example: 8
+                      wrong_count:
+                        type: integer
+                        description: 答错人数
+                        example: 4
+                      accuracy_rate:
+                        type: number
+                        format: float
+                        description: 正确率（百分比）
+                        example: 66.67
+                  time_info:
+                    type: object
+                    properties:
+                      start_time:
+                        type: string
+                        format: date-time
+                        description: 答题开始时间
+                        example: "2024-01-01T10:00:00Z"
+                      end_time:
+                        type: string
+                        format: date-time
+                        nullable: true
+                        description: 答题结束时间
+                        example: "2024-01-01T10:05:00Z"
+                      time_limit:
+                        type: integer
+                        description: 答题时间限制（秒）
+                        example: 60
+                      status:
+                        type: integer
+                        description: 状态（0-进行中，1-已结束）
+                        example: 1
+              example:
+                published_question_id: 1
+                room_id: 1
+                question_info:
+                  id: 5
+                  question: "太阳从哪边升起？"
+                  option_a: "东边"
+                  option_b: "西边"
+                  option_c: "南边"
+                  option_d: "北边"
+                  answer: "A"
+                statistics:
+                  total_participants: 15
+                  answered_count: 12
+                  unanswered_count: 3
+                  option_a_count: 8
+                  option_b_count: 2
+                  option_c_count: 1
+                  option_d_count: 1
+                  correct_count: 8
+                  wrong_count: 4
+                  accuracy_rate: 66.67
+                time_info:
+                  start_time: "2024-01-01T10:00:00Z"
+                  end_time: "2024-01-01T10:05:00Z"
+                  time_limit: 60
+                  status: 1
+        '400':
+          description: 参数错误
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "参数错误"
+        '401':
+          description: 未授权或token无效
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "token无效或已过期"
+        '403':
+          description: 权限不足
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "您不是该演讲室的成员"
+        '404':
+          description: 发布题目不存在
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "发布题目不存在"
+
+  /published-questions/{published_question_id}/statistics-for-audience:
+    get:
+      tags:
+        - 题目管理
+      summary: 听众获取题目答题情况统计
+      description: 听众获取指定发布题目的答题情况统计，只有在题目结束时才返回正确答案和正确率
+      parameters:
+        - name: published_question_id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: 发布题目ID
+        - name: token
+          in: query
+          required: true
+          schema:
+            type: string
+          description: 用户身份token
+      responses:
+        '200':
+          description: 获取答题统计成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  published_question_id:
+                    type: integer
+                    description: 发布题目ID
+                    example: 1
+                  room_id:
+                    type: integer
+                    description: 演讲室ID
+                    example: 1
+                  question_info:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                        description: 题目ID
+                        example: 5
+                      question:
+                        type: string
+                        description: 问题
+                        example: "太阳从哪边升起？"
+                      option_a:
+                        type: string
+                        description: 选项A
+                        example: "东边"
+                      option_b:
+                        type: string
+                        description: 选项B
+                        example: "西边"
+                      option_c:
+                        type: string
+                        description: 选项C
+                        example: "南边"
+                      option_d:
+                        type: string
+                        description: 选项D
+                        example: "北边"
+                      answer:
+                        type: string
+                        description: 正确答案（仅在题目结束时返回）
+                        example: "A"
+                        nullable: true
+                  statistics:
+                    type: object
+                    properties:
+                      total_participants:
+                        type: integer
+                        description: 演讲室总参与人数
+                        example: 15
+                      answered_count:
+                        type: integer
+                        description: 已答题人数
+                        example: 12
+                      unanswered_count:
+                        type: integer
+                        description: 未答题人数
+                        example: 3
+                      option_a_count:
+                        type: integer
+                        description: 选择A的人数
+                        example: 8
+                      option_b_count:
+                        type: integer
+                        description: 选择B的人数
+                        example: 2
+                      option_c_count:
+                        type: integer
+                        description: 选择C的人数
+                        example: 1
+                      option_d_count:
+                        type: integer
+                        description: 选择D的人数
+                        example: 1
+                      correct_count:
+                        type: integer
+                        description: 答对人数（仅在题目结束时返回）
+                        example: 8
+                        nullable: true
+                      wrong_count:
+                        type: integer
+                        description: 答错人数（仅在题目结束时返回）
+                        example: 4
+                        nullable: true
+                      accuracy_rate:
+                        type: number
+                        format: float
+                        description: 正确率（仅在题目结束时返回）
+                        example: 66.67
+                        nullable: true
+                  time_info:
+                    type: object
+                    properties:
+                      start_time:
+                        type: string
+                        format: date-time
+                        description: 答题开始时间
+                        example: "2024-01-01T10:00:00Z"
+                      end_time:
+                        type: string
+                        format: date-time
+                        nullable: true
+                        description: 答题结束时间
+                        example: "2024-01-01T10:05:00Z"
+                      time_limit:
+                        type: integer
+                        description: 答题时间限制（秒）
+                        example: 60
+                      status:
+                        type: integer
+                        description: 状态（0-进行中，1-已结束）
+                        example: 1
+              example:
+                published_question_id: 1
+                room_id: 1
+                question_info:
+                  id: 5
+                  question: "太阳从哪边升起？"
+                  option_a: "东边"
+                  option_b: "西边"
+                  option_c: "南边"
+                  option_d: "北边"
+                  answer: "A"
+                statistics:
+                  total_participants: 15
+                  answered_count: 12
+                  unanswered_count: 3
+                  option_a_count: 8
+                  option_b_count: 2
+                  option_c_count: 1
+                  option_d_count: 1
+                  correct_count: 8
+                  wrong_count: 4
+                  accuracy_rate: 66.67
+                time_info:
+                  start_time: "2024-01-01T10:00:00Z"
+                  end_time: "2024-01-01T10:05:00Z"
+                  time_limit: 60
+                  status: 1
+        '400':
+          description: 参数错误
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "参数错误"
+        '401':
+          description: 未授权或token无效
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "token无效或已过期"
+        '403':
+          description: 权限不足
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "您不是该演讲室的成员"
+        '404':
+          description: 发布题目不存在
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "发布题目不存在"
+
+  /speech-rooms/{room_id}/publish-question:
+    post:
+      tags:
+        - 题目管理
+      summary: 发布题目
+      description: 在指定演讲室发布一个题目，开始答题环节
+      parameters:
+        - name: room_id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: 演讲室ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - token
+                - question_id
+              properties:
+                token:
+                  type: string
+                  description: 用户身份token
+                  example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                question_id:
+                  type: integer
+                  description: 要发布的题目ID
+                  example: 5
+                time_limit:
+                  type: integer
+                  description: 答题时间限制（秒），可选，默认60秒
+                  example: 60
+      responses:
+        '201':
+          description: 题目发布成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                    description: 发布题目ID
+                    example: 1
+                  room_id:
+                    type: integer
+                    description: 演讲室ID
+                    example: 1
+                  question_id:
+                    type: integer
+                    description: 原题目ID
+                    example: 5
+                  start_time:
+                    type: string
+                    format: date-time
+                    description: 答题开始时间
+                    example: "2024-01-01T10:00:00Z"
+                  time_limit:
+                    type: integer
+                    description: 答题时间限制（秒）
+                    example: 60
+                  status:
+                    type: integer
+                    description: 状态（0-进行中）
+                    example: 0
+                  created_at:
+                    type: string
+                    format: date-time
+                    description: 发布时间
+                    example: "2024-01-01T10:00:00Z"
+                  question:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                        description: 题目ID
+                        example: 5
+                      question:
+                        type: string
+                        description: 问题
+                        example: "太阳从哪边升起？"
+                      option_a:
+                        type: string
+                        description: 选项A
+                        example: "东边"
+                      option_b:
+                        type: string
+                        description: 选项B
+                        example: "西边"
+                      option_c:
+                        type: string
+                        description: 选项C
+                        example: "南边"
+                      option_d:
+                        type: string
+                        description: 选项D
+                        example: "北边"
+                  message:
+                    type: string
+                    example: "题目发布成功"
+              example:
+                id: 1
+                room_id: 1
+                question_id: 5
+                start_time: "2024-01-01T10:00:00Z"
+                time_limit: 60
+                status: 0
+                created_at: "2024-01-01T10:00:00Z"
+                question:
+                  id: 5
+                  question: "太阳从哪边升起？"
+                  option_a: "东边"
+                  option_b: "西边"
+                  option_c: "南边"
+                  option_d: "北边"
+                message: "题目发布成功"
+        '400':
+          description: 参数错误或题目已发布
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "题目ID无效或该房间已有进行中的题目"
+        '401':
+          description: 未授权或token无效
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "token无效或已过期"
+        '403':
+          description: 权限不足
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "只有房间创建者和演讲者才能发布题目"
+        '404':
+          description: 演讲室或题目不存在
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "演讲室或题目不存在"
+        '409':
+          description: 冲突
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "该房间已有进行中的题目，请等待当前题目结束"
+        '500':
+          description: 服务器错误
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "发布题目失败"
+
+  /speech-rooms/{room_id}/current-question-for-audience:
+    get:
+      tags:
+        - 题目管理
+      summary: 听众获取房间最新被发布还未结束的题目
+      description: 获取指定演讲室内最新被发布且状态为进行中(0)的题目，不包含答案，并显示当前用户是否已答题
+      parameters:
+        - name: room_id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: 演讲室ID
+        - name: token
+          in: query
+          required: true
+          schema:
+            type: string
+          description: 用户身份token
+      responses:
+        '200':
+          description: 获取当前题目成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  room_id:
+                    type: integer
+                    description: 演讲室ID
+                    example: 1
+                  published_question:
+                    type: object
+                    nullable: true
+                    properties:
+                      id:
+                        type: integer
+                        description: 发布题目ID
+                        example: 1
+                      question_id:
+                        type: integer
+                        description: 原题目ID
+                        example: 5
+                      start_time:
+                        type: string
+                        format: date-time
+                        description: 答题开始时间
+                        example: "2024-01-01T10:00:00Z"
+                      end_time:
+                        type: string
+                        format: date-time
+                        nullable: true
+                        description: 答题结束时间
+                        example: "2024-01-01T10:05:00Z"
+                      time_limit:
+                        type: integer
+                        description: 答题时间限制（秒）
+                        example: 60
+                      status:
+                        type: integer
+                        description: 状态（0-进行中，1-已结束）
+                        example: 0
+                      created_at:
+                        type: string
+                        format: date-time
+                        description: 发布时间
+                        example: "2024-01-01T10:00:00Z"
+                      question:
+                        type: object
+                        properties:
+                          id:
+                            type: integer
+                            description: 题目ID
+                            example: 5
+                          question:
+                            type: string
+                            description: 问题
+                            example: "太阳从哪边升起？"
+                          option_a:
+                            type: string
+                            description: 选项A
+                            example: "东边"
+                          option_b:
+                            type: string
+                            description: 选项B
+                            example: "西边"
+                          option_c:
+                            type: string
+                            description: 选项C
+                            example: "南边"
+                          option_d:
+                            type: string
+                            description: 选项D
+                            example: "北边"
+                      has_answered:
+                        type: boolean
+                        description: 当前用户是否已答题
+                        example: false
+                      user_answer:
+                        type: string
+                        nullable: true
+                        description: 当前用户的答案（如果已答题）
+                        example: "A"
+              example:
+                room_id: 1
+                published_question:
+                  id: 1
+                  question_id: 5
+                  start_time: "2024-01-01T10:00:00Z"
+                  end_time: null
+                  time_limit: 60
+                  status: 0
+                  created_at: "2024-01-01T10:00:00Z"
+                  question:
+                    id: 5
+                    question: "太阳从哪边升起？"
+                    option_a: "东边"
+                    option_b: "西边"
+                    option_c: "南边"
+                    option_d: "北边"
+                  has_answered: false
+                  user_answer: null
+        '204':
+          description: 当前没有进行中的题目
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  room_id:
+                    type: integer
+                    description: 演讲室ID
+                    example: 1
+                  published_question:
+                    type: object
+                    nullable: true
+                    example: null
+                  message:
+                    type: string
+                    example: "当前没有进行中的题目"
+        '400':
+          description: 参数错误
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "参数错误"
+        '401':
+          description: 未授权或token无效
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "token无效或已过期"
+        '403':
+          description: 权限不足
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "您不是该演讲室的成员"
+        '404':
+          description: 演讲室不存在
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "演讲室不存在"
+
+  /speech-rooms/{room_id}/enter:
+    get:
+      tags:
+        - 演讲室管理
+      summary: 进入房间获取房间信息和角色信息
+      description: 进入房间获取房间信息和用户在指定演讲室中扮演的角色
+      parameters:
+        - name: room_id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: 演讲室ID
+        - name: token
+          in: query
+          required: true
+          schema:
+            type: string
+          description: 用户身份token
+      responses:
+        '200':
+          description: 进入房间成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  room_info:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                        description: 演讲室ID
+                        example: 1
+                      name:
+                        type: string
+                        description: 演讲室名称
+                        example: "Python基础教程"
+                      description:
+                        type: string
+                        description: 演讲室描述
+                        example: "介绍Python编程语言的基础知识"
+                      creator_id:
+                        type: integer
+                        description: 创建者ID
+                        example: 1
+                      creator_name:
+                        type: string
+                        description: 创建者用户名
+                        example: "张三"
+                      speaker_id:
+                        type: integer
+                        nullable: true
+                        description: 演讲者ID
+                        example: 2
+                      speaker_name:
+                        type: string
+                        nullable: true
+                        description: 演讲者用户名
+                        example: "李四"
+                      status:
+                        type: integer
+                        description: 房间状态（0-等待开始，1-进行中，2-已结束）
+                        example: 1
+                      total_participants:
+                        type: integer
+                        description: 参与总人数
+                        example: 15
+                      created_at:
+                        type: string
+                        format: date-time
+                        description: 创建时间
+                        example: "2024-01-01T10:00:00Z"
+                  user_info:
+                    type: object
+                    properties:
+                      user_id:
+                        type: integer
+                        description: 用户ID
+                        example: 1
+                      username:
+                        type: string
+                        description: 用户名
+                        example: "user001"
+                      role:
+                        type: integer
+                        description: 用户在房间中的角色（0-创建者，1-演讲者，2-听众）
+                        enum: [0, 1, 2]
+                        example: 0
+
+                  message:
+                    type: string
+                    example: "进入房间成功"
+              example:
+                room_info:
+                  id: 1
+                  name: "Python基础教程"
+                  description: "介绍Python编程语言的基础知识"
+                  creator_id: 1
+                  creator_name: "张三"
+                  speaker_id: 2
+                  speaker_name: "李四"
+                  status: 1
+                  total_participants: 15
+                  created_at: "2024-01-01T10:00:00Z"
+                user_info:
+                  user_id: 1
+                  username: "user001"
+                  role: 0
+
+                message: "进入房间成功"
+        '400':
+          description: 参数错误
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "参数错误"
+        '401':
+          description: 未授权或token无效
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "token无效或已过期"
+        '403':
+          description: 权限不足
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "您不是该演讲室的成员"
+        '404':
+          description: 演讲室不存在
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "演讲室不存在"
+
+  /speech-rooms/{room_id}/answer-question:
+    post:
+      tags:
+        - 题目管理
+      summary: 听众答题
+      description: 听众回答当前进行中的题目
+      parameters:
+        - name: room_id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: 演讲室ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - token
+                - question_id
+                - answer
+              properties:
+                token:
+                  type: string
+                  description: 用户身份token
+                  example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                question_id:
+                  type: integer
+                  description: 题目ID
+                  example: 5
+                answer:
+                  type: string
+                  description: 用户选择的答案（A/B/C/D）
+                  example: "A"
+      responses:
+        '200':
+          description: 答题成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                    description: 答题记录ID
+                    example: 1
+                  room_id:
+                    type: integer
+                    description: 演讲室ID
+                    example: 1
+                  question_id:
+                    type: integer
+                    description: 题目ID
+                    example: 5
+                  user_id:
+                    type: integer
+                    description: 用户ID
+                    example: 1
+                  selected_answer:
+                    type: string
+                    description: 用户选择的答案
+                    example: "A"
+
+                  created_at:
+                    type: string
+                    format: date-time
+                    description: 答题时间
+                    example: "2024-01-01T10:02:30Z"
+                  message:
+                    type: string
+                    example: "答题成功"
+              example:
+                id: 1
+                room_id: 1
+                question_id: 5
+                user_id: 1
+                selected_answer: "A"
+                created_at: "2024-01-01T10:02:30Z"
+                message: "答题成功"
+        '400':
+          description: 参数错误或重复答题
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "参数错误或您已经回答过这道题目"
+        '401':
+          description: 未授权或token无效
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "token无效或已过期"
+        '403':
+          description: 权限不足
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "您不是该演讲室的成员或没有答题权限"
+        '404':
+          description: 演讲室或题目不存在
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "演讲室或题目不存在"
+        '409':
+          description: 题目已结束
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "题目已结束，无法答题"
+        '500':
+          description: 服务器错误
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "答题失败"
