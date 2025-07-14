@@ -1,4 +1,6 @@
-.github/ISSUE_TEMPLATE/git_practice_flow.md
 .github
 .idea
 .vscode
+test_ollama
+__pycache__/
+__pycache__
