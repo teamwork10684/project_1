@@ -94,6 +94,38 @@
       </a-row>
     </div>
 
+    <!-- 快速操作 -->
+    <div class="quick-actions">
+      <a-card title="快速操作" class="action-card">
+        <a-row :gutter="16">
+          <a-col :span="8">
+            <a-button type="primary" size="large" block @click="showCreateModal">
+              <template #icon>
+                <PlusOutlined />
+              </template>
+              创建新演讲
+            </a-button>
+          </a-col>
+          <a-col :span="8">
+            <a-button size="large" block @click="showJoinModal">
+              <template #icon>
+                <EnterOutlined />
+              </template>
+              加入演讲
+            </a-button>
+          </a-col>
+          <a-col :span="8">
+            <a-button size="large" block @click="showInviteModal">
+              <template #icon>
+                <UserAddOutlined />
+              </template>
+              发送邀请
+            </a-button>
+          </a-col>
+        </a-row>
+      </a-card>
+    </div>
+
     <!-- 被邀请情况 -->
     <div class="invitation-section">
       <a-collapse
@@ -125,20 +157,26 @@
           </template>
           <div class="invite-list-wrapper">
             <template v-if="filteredInvitedPresentations.length">
-              <div v-for="item in filteredInvitedPresentations" :key="item.id" class="invite-card" @mouseover="item._hover = true" @mouseleave="item._hover = false" @click="enterRoom(item)">
+              <div v-for="item in filteredInvitedPresentations" :key="item.id" class="invite-card" @mouseover="item._hover = true" @mouseleave="item._hover = false">
                 <div class="invite-item-main">
                   <div class="invite-info">
                     <div class="invite-status-tag-top">
-                      <a-tag :color="getInviteStatusColor(item.status)">{{ getInviteStatusText(item.status) }}</a-tag>
+                      <a-tag :color="getInviteStatusColor(item.status, item.room_status)">{{ getInviteStatusText(item.status, item.room_status) }}</a-tag>
                     </div>
-                    <div class="invite-title">{{ item.title }}（{{ getInviteRoleText(item.role) }}）</div>
-                    <div class="invite-desc">邀请人：{{ item.inviter_name }}，房间号：{{ item.room_code }}</div>
+                    <div class="invite-title">{{ item.room_name }}（{{ getInviteRoleText(item.role) }}）</div>
+                    <div class="invite-desc">邀请时间：{{ formatDate(item.invited_time) }}</div>
                   </div>
                   <div class="invite-actions">
                     <div class="invite-btn-group">
                       <a-button v-if="item.status === 0" type="primary" size="small" @click.stop="acceptInvite(item)">接受</a-button>
                       <a-button v-if="item.status === 0" type="default" size="small" @click.stop="rejectInvite(item)">拒绝</a-button>
-                      <a-button type="link" size="small" @click.stop="viewDetails(item)">查看详情</a-button>
+                      <a-button type="link" size="small" @click.stop="viewInviteDetails(item)">查看详情</a-button>
+                    </div>
+                    <div class="invite-enter-room" v-if="item.status === 1 && (item.room_status === 0 || item.room_status === 1)">
+                      <a-button type="primary" size="small" @click.stop="enterRoomFromInvite(item)">
+                        <PlayCircleOutlined />
+                        进入房间
+                      </a-button>
                     </div>
                   </div>
                 </div>
@@ -152,38 +190,6 @@
       </a-collapse>
     </div>
 
-    <!-- 快速操作 -->
-    <div class="quick-actions">
-      <a-card title="快速操作" class="action-card">
-        <a-row :gutter="16">
-          <a-col :span="8">
-            <a-button type="primary" size="large" block @click="showCreateModal">
-              <template #icon>
-                <PlusOutlined />
-              </template>
-              创建新演讲
-            </a-button>
-          </a-col>
-          <a-col :span="8">
-            <a-button size="large" block @click="showJoinModal">
-              <template #icon>
-                <EnterOutlined />
-              </template>
-              加入演讲
-            </a-button>
-          </a-col>
-          <a-col :span="8">
-            <a-button size="large" block @click="refreshData">
-              <template #icon>
-                <ReloadOutlined />
-              </template>
-              刷新数据
-            </a-button>
-          </a-col>
-        </a-row>
-      </a-card>
-    </div>
-
     <!-- 演讲列表 -->
     <div class="presentations-section">
       <a-tabs v-model:activeKey="activeTab" class="presentation-tabs">
@@ -194,22 +200,21 @@
               :key="presentation.id"
               class="presentation-card"
               :hoverable="true"
-              @click="viewPresentation(presentation)"
             >
               <template #cover>
                 <div class="card-cover">
-                  <div class="status-badge" :class="presentation.status">
+                  <div class="status-badge" :class="getStatusClass(presentation.status)">
                     {{ getStatusText(presentation.status) }}
                   </div>
-                  <div class="room-code">{{ presentation.room_code }}</div>
+                  <div class="room-code">ID: {{ presentation.id }}</div>
                 </div>
               </template>
-              <a-card-meta :title="presentation.title">
+              <a-card-meta :title="presentation.name">
                 <template #description>
                   <p class="description">{{ presentation.description || '暂无描述' }}</p>
                   <div class="meta-info">
                     <span class="participants">
-                      <TeamOutlined /> {{ presentation.participant_count || 0 }} 人参与
+                      <TeamOutlined /> {{ presentation.total_participants || 0 }} 人参与
                     </span>
                     <span class="created-time">
                       <CalendarOutlined /> {{ formatDate(presentation.created_at) }}
@@ -228,15 +233,15 @@
                       <EyeOutlined />
                       查看详情
                     </a-button>
-                    <a-button v-if="presentation.status === 'pending'" type="link" @click.stop="copySpeakerCode(presentation)">
+                    <a-button v-if="presentation.status === 0" type="link" @click.stop="copySpeakerCode(presentation)">
                       <UserAddOutlined />
                       演讲者邀请码
                     </a-button>
                   </div>
                   <div class="action-row">
-                    <a-button type="link" @click.stop="copyRoomCode(presentation.room_code)">
+                    <a-button type="link" @click.stop="copyRoomCode(presentation.invite_code)">
                       <CopyOutlined />
-                      复制房间号
+                      复制邀请码
                     </a-button>
                   </div>
                 </div>
@@ -252,25 +257,24 @@
               :key="presentation.id"
               class="presentation-card"
               :hoverable="true"
-              @click="viewPresentation(presentation)"
             >
               <template #cover>
                 <div class="card-cover">
-                  <div class="status-badge" :class="presentation.status">
+                  <div class="status-badge" :class="getStatusClass(presentation.status)">
                     {{ getStatusText(presentation.status) }}
                   </div>
-                  <div class="room-code">{{ presentation.room_code }}</div>
+                  <div class="room-code">ID: {{ presentation.id }}</div>
                 </div>
               </template>
-              <a-card-meta :title="presentation.title">
+              <a-card-meta :title="presentation.name">
                 <template #description>
                   <p class="description">{{ presentation.description || '暂无描述' }}</p>
                   <div class="meta-info">
                     <span class="organizer">
-                      <UserOutlined /> {{ presentation.organizer_name }}
+                      <UserOutlined /> {{ presentation.creator_name }}
                     </span>
                     <span class="joined-time">
-                      <CalendarOutlined /> {{ formatDate(presentation.joined_at) }}
+                      <CalendarOutlined /> {{ formatDate(presentation.created_at) }}
                     </span>
                   </div>
                 </template>
@@ -286,16 +290,6 @@
                       <EyeOutlined />
                       查看详情
                     </a-button>
-                    <a-button v-if="presentation.status === 'pending'" type="link" @click.stop="copySpeakerCode(presentation)">
-                      <UserAddOutlined />
-                      复制演讲者邀请码
-                    </a-button>
-                  </div>
-                  <div class="action-row">
-                    <a-button type="link" @click.stop="copyRoomCode(presentation.room_code)">
-                      <CopyOutlined />
-                      复制房间号
-                    </a-button>
                   </div>
                 </div>
               </template>
@@ -310,23 +304,22 @@
               :key="presentation.id"
               class="presentation-card ended"
               :hoverable="true"
-              @click="viewPresentation(presentation)"
             >
               <template #cover>
                 <div class="card-cover ended">
                   <div class="status-badge ended">已结束</div>
-                  <div class="room-code">{{ presentation.room_code }}</div>
+                  <div class="room-code">ID: {{ presentation.id }}</div>
                 </div>
               </template>
-              <a-card-meta :title="presentation.title">
+              <a-card-meta :title="presentation.name">
                 <template #description>
                   <p class="description">{{ presentation.description || '暂无描述' }}</p>
                   <div class="meta-info">
                     <span class="participants">
-                      <TeamOutlined /> {{ presentation.participant_count || 0 }} 人参与
+                      <TeamOutlined /> {{ presentation.total_participants || 0 }} 人参与
                     </span>
                     <span class="ended-time">
-                      <CalendarOutlined /> {{ formatDate(presentation.ended_at) }}
+                      <CalendarOutlined /> {{ formatDate(presentation.created_at) }}
                     </span>
                   </div>
                 </template>
@@ -356,8 +349,8 @@
       :confirm-loading="createLoading"
     >
       <a-form :model="createForm" :rules="createRules" ref="createFormRef">
-        <a-form-item label="演讲标题" name="title">
-          <a-input v-model:value="createForm.title" placeholder="请输入演讲标题" />
+        <a-form-item label="演讲标题" name="name">
+          <a-input v-model:value="createForm.name" placeholder="请输入演讲标题" />
         </a-form-item>
         <a-form-item label="演讲描述" name="description">
           <a-textarea
@@ -366,8 +359,8 @@
             :rows="4"
           />
         </a-form-item>
-        <a-form-item name="isSpeaker">
-          <a-checkbox v-model:checked="createForm.isSpeaker">
+        <a-form-item name="is_speaker">
+          <a-checkbox v-model:checked="createForm.is_speaker">
             我担任本次演讲的演讲人
           </a-checkbox>
         </a-form-item>
@@ -383,27 +376,46 @@
       :confirm-loading="joinLoading"
     >
       <a-form :model="joinForm" :rules="joinRules" ref="joinFormRef">
-        <a-form-item label="房间号" name="roomCode">
+        <a-form-item label="邀请码" name="invite_code">
           <a-input
-            v-model:value="joinForm.roomCode"
-            placeholder="请输入6位房间号"
-            maxlength="6"
+            v-model:value="joinForm.invite_code"
+            placeholder="请输入邀请码"
             style="text-transform: uppercase;"
           />
         </a-form-item>
-        <a-form-item label="加入身份" name="joinRole">
-          <a-radio-group v-model:value="joinForm.joinRole">
-            <a-radio value="audience">观众</a-radio>
-            <a-radio value="speaker">演讲者</a-radio>
+      </a-form>
+    </a-modal>
+
+    <!-- 发送邀请模态框 -->
+    <a-modal
+      v-model:open="inviteModalVisible"
+      title="发送邀请"
+      @ok="handleSendInvitation"
+      @cancel="inviteModalVisible = false"
+      :confirm-loading="inviteLoading"
+    >
+      <a-form :model="inviteForm" :rules="inviteRules" ref="inviteFormRef">
+        <a-form-item label="选择演讲室" name="room_id">
+          <a-select
+            v-model:value="inviteForm.room_id"
+            placeholder="请选择要邀请的演讲室"
+            :options="createdPresentations.map(room => ({
+              label: room.name,
+              value: room.id
+            }))"
+          />
+        </a-form-item>
+        <a-form-item label="被邀请用户名" name="invitee_username">
+          <a-input
+            v-model:value="inviteForm.invitee_username"
+            placeholder="请输入被邀请用户的用户名"
+          />
+        </a-form-item>
+        <a-form-item label="邀请角色" name="role">
+          <a-radio-group v-model:value="inviteForm.role">
+            <a-radio :value="0">听众</a-radio>
+            <a-radio :value="1">演讲者</a-radio>
           </a-radio-group>
-        </a-form-item>
-        <a-form-item v-if="joinForm.joinRole === 'speaker'" label="演讲者邀请码" name="speakerCode">
-          <a-input
-            v-model:value="joinForm.speakerCode"
-            placeholder="请输入演讲者邀请码"
-            maxlength="8"
-            style="text-transform: uppercase;"
-          />
         </a-form-item>
       </a-form>
     </a-modal>
@@ -418,7 +430,7 @@
     >
       <div v-if="currentPresentation" class="presentation-detail">
         <div class="detail-header">
-          <h2>{{ currentPresentation.title }}</h2>
+          <h2>{{ currentPresentation.name }}</h2>
           <a-tag :color="getStatusColor(currentPresentation.status)">
             {{ getStatusText(currentPresentation.status) }}
           </a-tag>
@@ -426,9 +438,18 @@
         
         <div class="detail-content">
           <a-descriptions :column="1" bordered>
-            <a-descriptions-item label="房间号">
-              <span class="room-code-display">{{ currentPresentation.room_code }}</span>
-              <a-button type="link" size="small" @click="copyRoomCode(currentPresentation.room_code)">
+            <a-descriptions-item label="房间ID">
+              <span class="room-code-display">{{ currentPresentation.id }}</span>
+            </a-descriptions-item>
+            <a-descriptions-item v-if="currentPresentation.role === 0" label="听众邀请码">
+              <span class="room-code-display">{{ currentPresentation.invite_code }}</span>
+              <a-button type="link" size="small" @click="copyRoomCode(currentPresentation.invite_code)">
+                <CopyOutlined /> 复制
+              </a-button>
+            </a-descriptions-item>
+            <a-descriptions-item v-if="currentPresentation.role === 0" label="演讲者邀请码">
+              <span class="room-code-display">{{ currentPresentation.speaker_invite_code }}</span>
+              <a-button type="link" size="small" @click="copySpeakerCode(currentPresentation)">
                 <CopyOutlined /> 复制
               </a-button>
             </a-descriptions-item>
@@ -441,19 +462,19 @@
             <a-descriptions-item label="组织者">
               <div class="user-info">
                 <a-avatar :size="32" style="background-color: #1677ff">
-                  {{ currentPresentation.organizer_name?.charAt(0) || 'O' }}
+                  {{ currentPresentation.creator_name?.charAt(0) || 'O' }}
                 </a-avatar>
-                <span class="username">{{ currentPresentation.organizer_name || '未知' }}</span>
+                <span class="username">{{ currentPresentation.creator_name || '未知' }}</span>
               </div>
             </a-descriptions-item>
             <a-descriptions-item label="演讲者">
               <div class="speaker-info">
-                <div v-if="currentPresentation.speaker" class="speaker-item">
+                <div v-if="currentPresentation.speaker_name" class="speaker-item">
                   <a-avatar :size="32" style="background-color: #52c41a">
-                    {{ currentPresentation.speaker.name?.charAt(0) || 'S' }}
+                    {{ currentPresentation.speaker_name?.charAt(0) || 'S' }}
                   </a-avatar>
-                  <span class="username">{{ currentPresentation.speaker.name }}</span>
-                  <a-tag v-if="currentPresentation.speaker.is_organizer" color="blue" size="small">组织者</a-tag>
+                  <span class="username">{{ currentPresentation.speaker_name }}</span>
+                  <a-tag v-if="currentPresentation.speaker_id === currentPresentation.creator_id" color="blue" size="small">组织者</a-tag>
                 </div>
                 <div v-else class="no-speaker">
                   暂无演讲者
@@ -461,7 +482,7 @@
               </div>
             </a-descriptions-item>
             <a-descriptions-item label="参与者数量">
-              {{ currentPresentation.participant_count || 0 }} 人
+              {{ currentPresentation.total_participants || 0 }} 人
             </a-descriptions-item>
           </a-descriptions>
         </div>
@@ -472,6 +493,93 @@
             进入房间
           </a-button>
           <a-button @click="detailModalVisible = false">
+            关闭
+          </a-button>
+        </div>
+      </div>
+    </a-modal>
+
+    <!-- 被邀请条详情弹窗 -->
+    <a-modal
+      v-model:open="inviteDetailModalVisible"
+      title="邀请详情"
+      width="500px"
+      :footer="null"
+      @cancel="inviteDetailModalVisible = false"
+    >
+      <div v-if="currentInvite" class="invite-detail">
+        <div class="invite-detail-header">
+          <h3>{{ currentInvite.room_name }}</h3>
+          <a-tag :color="getInviteStatusColor(currentInvite.status, currentInvite.room_status)">
+            {{ getInviteStatusText(currentInvite.status, currentInvite.room_status) }}
+          </a-tag>
+        </div>
+        
+        <div class="invite-detail-content">
+          <a-descriptions :column="1" bordered size="small">
+            <a-descriptions-item label="房间名称">
+              <span class="room-code-display">{{ currentInvite.room_name }}</span>
+            </a-descriptions-item>
+            <a-descriptions-item label="演讲室描述">
+              {{ currentInvite.description || '暂无描述' }}
+            </a-descriptions-item>
+            <a-descriptions-item label="演讲室创建时间">
+              {{ formatDate(currentInvite.created_at) }}
+            </a-descriptions-item>
+            <a-descriptions-item label="组织者">
+              <div class="user-info">
+                <a-avatar :size="24" style="background-color: #1677ff">
+                  {{ currentInvite.creator_name?.charAt(0) || 'O' }}
+                </a-avatar>
+                <span class="username">{{ currentInvite.creator_name || '未知' }}</span>
+              </div>
+            </a-descriptions-item>
+            <a-descriptions-item label="演讲者">
+              <div class="speaker-info">
+                <div v-if="currentInvite.speaker_name" class="speaker-item">
+                  <a-avatar :size="24" style="background-color: #52c41a">
+                    {{ currentInvite.speaker_name?.charAt(0) || 'S' }}
+                  </a-avatar>
+                  <span class="username">{{ currentInvite.speaker_name }}</span>
+                </div>
+                <div v-else class="no-speaker">
+                  暂无演讲者
+                </div>
+              </div>
+            </a-descriptions-item>
+            <a-descriptions-item label="参与人数">
+              {{ currentInvite.total_participants || 0 }} 人
+            </a-descriptions-item>
+            <a-descriptions-item label="邀请角色">
+              <a-tag :color="currentInvite.role === 1 ? 'green' : 'blue'">
+                {{ getInviteRoleText(currentInvite.role) }}
+              </a-tag>
+            </a-descriptions-item>
+            <a-descriptions-item label="房间状态">
+              <a-tag :color="getStatusColor(currentInvite.room_status)">
+                {{ getStatusText(currentInvite.room_status) }}
+              </a-tag>
+            </a-descriptions-item>
+            <a-descriptions-item label="邀请时间">
+              {{ formatDate(currentInvite.invited_time) }}
+            </a-descriptions-item>
+          </a-descriptions>
+        </div>
+        
+        <div class="invite-detail-actions">
+          <a-button v-if="currentInvite.status === 0" type="primary" @click="acceptInvite(currentInvite)">
+            <CheckCircleOutlined />
+            接受邀请
+          </a-button>
+          <a-button v-if="currentInvite.status === 0" @click="rejectInvite(currentInvite)">
+            <CloseCircleOutlined />
+            拒绝邀请
+          </a-button>
+          <a-button v-if="currentInvite.status === 1 && (currentInvite.room_status === 0 || currentInvite.room_status === 1)" type="primary" @click="enterRoomFromInvite(currentInvite)">
+            <PlayCircleOutlined />
+            进入房间
+          </a-button>
+          <a-button @click="inviteDetailModalVisible = false">
             关闭
           </a-button>
         </div>
@@ -501,8 +609,10 @@ import {
   EyeOutlined,
   CopyOutlined,
   BarChartOutlined,
-  UserAddOutlined
+  UserAddOutlined,
+  CloseCircleOutlined
 } from '@ant-design/icons-vue';
+import { userAPI, speechRoomAPI, invitationAPI, checkTokenExpired } from '../../api';
 
 const router = useRouter();
 
@@ -510,10 +620,17 @@ const router = useRouter();
 const activeTab = ref('created');
 const createModalVisible = ref(false);
 const joinModalVisible = ref(false);
+const inviteModalVisible = ref(false);
 const detailModalVisible = ref(false);
+const inviteDetailModalVisible = ref(false);
 const createLoading = ref(false);
 const joinLoading = ref(false);
+const inviteLoading = ref(false);
 const currentPresentation = ref(null);
+const currentInvite = ref(null);
+const createFormRef = ref();
+const joinFormRef = ref();
+const inviteFormRef = ref();
 
 // 用户信息
 const userInfo = ref({
@@ -554,150 +671,89 @@ const inviteCollapseActiveKey = ref([]);
 
 // 表单数据
 const createForm = reactive({
-  title: '',
+  name: '',
   description: '',
-  isSpeaker: false
+  is_speaker: false
 });
 
 const joinForm = reactive({
-  roomCode: '',
-  joinRole: 'audience',
-  speakerCode: ''
+  invite_code: ''
+});
+
+const inviteForm = reactive({
+  room_id: null,
+  invitee_username: '',
+  role: 0
 });
 
 // 表单验证规则
 const createRules = {
-  title: [{ required: true, message: '请输入演讲标题', trigger: 'blur' }]
+  name: [{ required: true, message: '请输入演讲标题', trigger: 'blur' }]
 };
 
 const joinRules = {
-  roomCode: [
-    { required: true, message: '请输入房间号', trigger: 'blur' },
-    { pattern: /^[A-Z0-9]{6}$/, message: '房间号格式不正确', trigger: 'blur' }
-  ],
-  speakerCode: [
-    { 
-      required: true, 
-      message: '请输入演讲者邀请码', 
-      trigger: 'blur',
-      validator: (rule, value) => {
-        if (joinForm.joinRole === 'speaker' && !value) {
-          return Promise.reject('请输入演讲者邀请码');
-        }
-        return Promise.resolve();
-      }
-    },
-    { 
-      pattern: /^[A-Z0-9]{8}$/, 
-      message: '邀请码格式不正确', 
-      trigger: 'blur',
-      validator: (rule, value) => {
-        if (joinForm.joinRole === 'speaker' && value && !/^[A-Z0-9]{8}$/.test(value)) {
-          return Promise.reject('邀请码格式不正确');
-        }
-        return Promise.resolve();
-      }
-    }
+  invite_code: [
+    { required: true, message: '请输入邀请码', trigger: 'blur' }
   ]
 };
 
-// 模拟数据（实际项目中应该从API获取）
-const mockData = () => {
-  createdPresentations.value = [
-    {
-      id: '1',
-      title: 'Vue.js 3.0 新特性介绍',
-      description: '详细介绍Vue.js 3.0的新特性和使用方法',
-      room_code: 'ABC123',
-      status: 'active',
-      participant_count: 15,
-      created_at: '2024-01-15T10:00:00Z',
-      organizer_name: '李老师',
-      speaker: { id: '1', name: '李老师', is_organizer: true }
-    },
-    {
-      id: '2',
-      title: 'React Hooks 深度解析',
-      description: '深入理解React Hooks的工作原理和最佳实践',
-      room_code: 'DEF456',
-      status: 'pending',
-      participant_count: 8,
-      created_at: '2024-01-14T14:30:00Z',
-      organizer_name: '张老师',
-      speaker: null // 组织者未担任演讲人
-    }
-  ];
+const inviteRules = {
+  room_id: [
+    { required: true, message: '请选择演讲室', trigger: 'change' }
+  ],
+  invitee_username: [
+    { required: true, message: '请输入被邀请用户名', trigger: 'blur' }
+  ],
+  role: [
+    { required: true, message: '请选择邀请角色', trigger: 'change' }
+  ]
+};
 
-  participatedPresentations.value = [
-    {
-      id: '3',
-      title: 'TypeScript 高级技巧',
-      description: '学习TypeScript的高级特性和实用技巧',
-      room_code: 'GHI789',
-      status: 'active',
-      organizer_name: '陈老师',
-      joined_at: '2024-01-13T09:00:00Z',
-      speaker: { id: '2', name: '刘专家', is_organizer: false }
+// 获取用户演讲室数据
+const fetchUserSpeechRooms = async () => {
+  try {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      checkTokenExpired();
+      return;
     }
-  ];
 
-  endedPresentations.value = [
-    {
-      id: '4',
-      title: 'JavaScript 异步编程',
-      description: '深入理解JavaScript的异步编程模式',
-      room_code: 'JKL012',
-      status: 'ended',
-      participant_count: 25,
-      ended_at: '2024-01-12T16:00:00Z',
-      organizer_name: '赵老师',
-      speaker: { id: '1', name: '赵老师', is_organizer: true }
+    const response = await userAPI.getUserSpeechRooms(token);
+    const rooms = response.data.rooms || [];
+    
+    // 分类演讲室
+    createdPresentations.value = rooms.filter(room => room.role === 0);
+    participatedPresentations.value = rooms.filter(room => room.role === 1 || room.role === 2);
+    endedPresentations.value = rooms.filter(room => room.status === 2);
+    
+    // 更新统计数据
+    stats.value = {
+      created: createdPresentations.value.length,
+      participated: participatedPresentations.value.length,
+      active: rooms.filter(room => room.status === 1).length,
+      ended: endedPresentations.value.length
+    };
+  } catch (error) {
+    console.error('获取用户演讲室失败:', error);
+    message.error('获取数据失败');
+  }
+};
+
+// 获取用户邀请数据
+const fetchUserInvitations = async () => {
+  try {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      checkTokenExpired();
+      return;
     }
-  ];
 
-  invitedPresentations.value = [
-    {
-      id: '5',
-      title: 'Node.js 实战',
-      room_code: 'MNO345',
-      inviter_name: '王老师',
-      role: 0, // 听众
-      status: 0 // 待接受
-    },
-    {
-      id: '6',
-      title: 'AI 未来趋势',
-      room_code: 'PQR678',
-      inviter_name: '李教授',
-      role: 1, // 演讲者
-      status: 1 // 已接受
-    },
-    {
-      id: '7',
-      title: '大数据分析',
-      room_code: 'XYZ999',
-      inviter_name: '赵老师',
-      role: 0, // 听众
-      status: 2 // 已拒绝
-    },
-    {
-      id: '8',
-      title: '云计算安全',
-      room_code: 'CLOUD1',
-      inviter_name: '孙教授',
-      role: 1, // 演讲者
-      status: 3 // 房间已关闭
-    }
-  ];
-
-  // 更新统计数据
-  stats.value = {
-    created: createdPresentations.value.length,
-    participated: participatedPresentations.value.length,
-    active: createdPresentations.value.filter(p => p.status === 'active').length + 
-            participatedPresentations.value.filter(p => p.status === 'active').length,
-    ended: endedPresentations.value.length
-  };
+    const response = await userAPI.getUserInvitations(token);
+    invitedPresentations.value = response.data.invitations || [];
+  } catch (error) {
+    console.error('获取用户邀请失败:', error);
+    message.error('获取邀请数据失败');
+  }
 };
 
 // 方法
@@ -709,54 +765,131 @@ const showJoinModal = () => {
   joinModalVisible.value = true;
 };
 
-const handleCreatePresentation = async () => {
-  createLoading.value = true;
+const showInviteModal = () => {
+  inviteModalVisible.value = true;
+};
+
+const handleSendInvitation = async () => {
   try {
-    // 这里应该调用API创建演讲
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    // 先进行表单验证
+    await inviteFormRef.value.validate();
     
-    const roleText = createForm.isSpeaker ? '组织者兼演讲人' : '组织者';
-    message.success(`演讲创建成功！您将作为${roleText}。`);
-    createModalVisible.value = false;
+    inviteLoading.value = true;
+    const token = localStorage.getItem('token');
+    if (!token) {
+      checkTokenExpired();
+      return;
+    }
+
+    const response = await invitationAPI.inviteUser({
+      token: token,
+      invitee_username: inviteForm.invitee_username,
+      room_id: inviteForm.room_id,
+      role: inviteForm.role
+    });
+
+    message.success('邀请发送成功！');
+    inviteModalVisible.value = false;
     
     // 重置表单
-    createForm.title = '';
-    createForm.description = '';
-    createForm.isSpeaker = false;
+    inviteForm.room_id = null;
+    inviteForm.invitee_username = '';
+    inviteForm.role = 0;
     
     refreshData();
   } catch (error) {
-    message.error('创建失败，请重试');
+    if (error?.errorFields) {
+      // 表单验证失败，不显示错误消息
+      return;
+    }
+    console.error('发送邀请失败:', error);
+    message.error(error.response?.data?.message || '发送邀请失败，请重试');
+  } finally {
+    inviteLoading.value = false;
+  }
+};
+
+const handleCreatePresentation = async () => {
+  try {
+    // 先进行表单验证
+    await createFormRef.value.validate();
+    
+    createLoading.value = true;
+    const token = localStorage.getItem('token');
+    if (!token) {
+      checkTokenExpired();
+      return;
+    }
+
+    const response = await speechRoomAPI.createSpeechRoom({
+      session_token: token,
+      name: createForm.name,
+      description: createForm.description,
+      is_speaker: createForm.is_speaker
+    });
+
+    message.success('演讲创建成功！');
+    createModalVisible.value = false;
+    
+    // 重置表单
+    createForm.name = '';
+    createForm.description = '';
+    createForm.is_speaker = false;
+    
+    refreshData();
+  } catch (error) {
+    if (error?.errorFields) {
+      // 表单验证失败，不显示错误消息
+      return;
+    }
+    console.error('创建演讲失败:', error);
+    message.error(error.response?.data?.message || '创建失败，请重试');
   } finally {
     createLoading.value = false;
   }
 };
 
 const handleJoinPresentation = async () => {
-  joinLoading.value = true;
   try {
-    // 这里应该调用API加入演讲
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    // 先进行表单验证
+    await joinFormRef.value.validate();
     
-    const roleText = joinForm.joinRole === 'audience' ? '观众' : '演讲者';
-    message.success(`成功以${roleText}身份加入演讲！`);
+    joinLoading.value = true;
+    const token = localStorage.getItem('token');
+    if (!token) {
+      checkTokenExpired();
+      return;
+    }
+
+    const response = await speechRoomAPI.joinRoom({
+      token: token,
+      invite_code: joinForm.invite_code
+    });
+
+    message.success('成功加入演讲！');
     joinModalVisible.value = false;
     
     // 重置表单
-    joinForm.roomCode = '';
-    joinForm.joinRole = 'audience';
-    joinForm.speakerCode = '';
+    joinForm.invite_code = '';
     
     refreshData();
   } catch (error) {
-    message.error('加入失败，请检查房间号和邀请码');
+    if (error?.errorFields) {
+      // 表单验证失败，不显示错误消息
+      return;
+    }
+    console.error('加入演讲失败:', error);
+    message.error(error.response?.data?.message || '加入失败，请检查邀请码');
   } finally {
     joinLoading.value = false;
   }
 };
 
-const refreshData = () => {
-  mockData();
+const refreshData = async () => {
+  await Promise.all([
+    fetchUserSpeechRooms(),
+    fetchUserInvitations()
+  ]);
   message.success('数据已刷新');
 };
 
@@ -765,7 +898,27 @@ const viewPresentation = (presentation) => {
 };
 
 const enterRoom = (presentation) => {
-  router.push(`/room/${presentation.id}`);
+  // 根据用户角色决定跳转到哪个页面
+  // role: 0-创建者，1-演讲者，2-听众
+  if (presentation.role === 0 || presentation.role === 1) {
+    // 创建者或演讲者进入Speakerroom
+    router.push(`/speakerroom/${presentation.id}`);
+  } else {
+    // 听众进入Room
+    router.push(`/room/${presentation.id}`);
+  }
+};
+
+// 新增：处理邀请条进入房间的逻辑
+const enterRoomFromInvite = (invite) => {
+  // 邀请中的role表示被邀请成为的角色：0-听众，1-演讲者
+  if (invite.role === 1) {
+    // 被邀请为演讲者，进入Speakerroom
+    router.push(`/speakerroom/${invite.room_id}`);
+  } else {
+    // 被邀请为听众，进入Room
+    router.push(`/room/${invite.room_id}`);
+  }
 };
 
 const viewDetails = (presentation) => {
@@ -773,53 +926,72 @@ const viewDetails = (presentation) => {
   detailModalVisible.value = true;
 };
 
+const viewInviteDetails = (invite) => {
+  currentInvite.value = invite;
+  inviteDetailModalVisible.value = true;
+};
+
 const viewResults = (presentation) => {
   router.push(`/presentation/${presentation.id}/results`);
 };
 
 const copyRoomCode = (roomCode) => {
+  if (!roomCode) {
+    message.warning('暂无邀请码');
+    return;
+  }
   navigator.clipboard.writeText(roomCode);
-  message.success('房间号已复制到剪贴板');
+  message.success('邀请码已复制到剪贴板');
 };
 
 const copySpeakerCode = (presentation) => {
-  // 生成演讲者邀请码（实际项目中应该从后端获取）
-  const speakerCode = generateSpeakerCode(presentation.room_code);
-  navigator.clipboard.writeText(speakerCode);
+  if (!presentation.speaker_invite_code) {
+    message.warning('暂无演讲者邀请码');
+    return;
+  }
+  navigator.clipboard.writeText(presentation.speaker_invite_code);
   message.success('演讲者邀请码已复制到剪贴板');
 };
 
-const generateSpeakerCode = (roomCode) => {
-  // 基于房间号生成演讲者邀请码（实际项目中应该从后端获取）
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-  let result = roomCode.substring(0, 2); // 取房间号前两位
-  for (let i = 0; i < 6; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
+const handleLogout = async () => {
+  try {
+    const token = localStorage.getItem('token');
+    if (token) {
+      await userAPI.logout({ token });
+    }
+  } catch (error) {
+    console.error('退出登录失败:', error);
+  } finally {
+    localStorage.removeItem('token');
+    localStorage.removeItem('username');
+    router.push('/auth');
+    message.success('已退出登录');
   }
-  return result;
-};
-
-const handleLogout = () => {
-  localStorage.removeItem('token');
-  localStorage.removeItem('username');
-  router.push('/login');
-  message.success('已退出登录');
 };
 
 const getStatusText = (status) => {
   const statusMap = {
-    pending: '等待开始',
-    active: '进行中',
-    ended: '已结束'
+    0: '等待开始',
+    1: '进行中',
+    2: '已结束'
   };
   return statusMap[status] || status;
 };
 
+const getStatusClass = (status) => {
+  const classMap = {
+    0: 'pending',
+    1: 'active',
+    2: 'ended'
+  };
+  return classMap[status] || '';
+};
+
 const getStatusColor = (status) => {
   const colorMap = {
-    pending: 'orange',
-    active: 'green',
-    ended: 'purple'
+    0: 'orange',
+    1: 'green',
+    2: 'purple'
   };
   return colorMap[status] || 'default';
 };
@@ -830,16 +1002,52 @@ const getInviteRoleText = (role) => {
   return '未知';
 };
 
-const acceptInvite = (item) => {
-  item.status = 1;
-  message.success('已接受邀请');
+const acceptInvite = async (item) => {
+  try {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      checkTokenExpired();
+      return;
+    }
+
+    await invitationAPI.acceptInvitation({
+      id: item.id,
+      token: token
+    });
+
+    item.status = 1;
+    message.success('已接受邀请');
+    refreshData();
+  } catch (error) {
+    console.error('接受邀请失败:', error);
+    message.error(error.response?.data?.message || '接受邀请失败');
+  }
 };
-const rejectInvite = (item) => {
-  item.status = 2;
-  message.info('已拒绝邀请');
+
+const rejectInvite = async (item) => {
+  try {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      checkTokenExpired();
+      return;
+    }
+
+    await invitationAPI.rejectInvitation({
+      id: item.id,
+      token: token
+    });
+
+    item.status = 2;
+    message.info('已拒绝邀请');
+    refreshData();
+  } catch (error) {
+    console.error('拒绝邀请失败:', error);
+    message.error(error.response?.data?.message || '拒绝邀请失败');
+  }
 };
 
 const formatDate = (dateString) => {
+  if (!dateString) return '未知时间';
   const date = new Date(dateString);
   return date.toLocaleDateString('zh-CN', {
     year: 'numeric',
@@ -851,22 +1059,39 @@ const formatDate = (dateString) => {
 };
 
 // 新增方法
-const getInviteStatusText = (status) => {
-  switch (status) {
-    case 0: return '待接受';
-    case 1: return '已接受';
-    case 2: return '已拒绝';
-    case 3: return '房间已关闭';
-    default: return '未知';
+const getInviteStatusText = (status, roomStatus) => {
+  if (status === 0) {
+    // 如果邀请状态是待接受，根据房间状态显示
+    switch (roomStatus) {
+      case 0: return '待接受';
+      case 1: return '房间进行中';
+      case 2: return '房间已结束';
+      default: return '待接受';
+    }
+  } else {
+    switch (status) {
+      case 1: return '已接受';
+      case 2: return '已拒绝';
+      default: return '未知';
+    }
   }
 };
-const getInviteStatusColor = (status) => {
-  switch (status) {
-    case 0: return 'orange';
-    case 1: return 'green';
-    case 2: return 'red';
-    case 3: return 'gray';
-    default: return 'default';
+
+const getInviteStatusColor = (status, roomStatus) => {
+  if (status === 0) {
+    // 如果邀请状态是待接受，根据房间状态显示颜色
+    switch (roomStatus) {
+      case 0: return 'orange';
+      case 1: return 'blue';
+      case 2: return 'gray';
+      default: return 'orange';
+    }
+  } else {
+    switch (status) {
+      case 1: return 'green';
+      case 2: return 'red';
+      default: return 'default';
+    }
   }
 };
 
@@ -886,7 +1111,11 @@ const panelExpandIcon = ({ isActive }) => {
 
 // 生命周期
 onMounted(() => {
-  mockData();
+  // 检查token是否存在
+  if (checkTokenExpired()) {
+    return;
+  }
+  refreshData();
 });
 </script>
 
@@ -1116,7 +1345,6 @@ onMounted(() => {
   border-radius: 12px;
   overflow: hidden;
   transition: all 0.3s ease;
-  cursor: pointer;
   border: 1px solid rgba(0, 0, 0, 0.06);
   background: rgba(255, 255, 255, 0.95);
   min-width: 380px;
@@ -1313,6 +1541,38 @@ onMounted(() => {
   border-top: 1px solid #f0f0f0;
 }
 
+/* 邀请详情样式 */
+.invite-detail {
+  padding: 16px 0;
+}
+
+.invite-detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.invite-detail-header h3 {
+  margin: 0;
+  color: #1677ff;
+  font-size: 1.3rem;
+}
+
+.invite-detail-content {
+  margin-bottom: 20px;
+}
+
+.invite-detail-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding-top: 16px;
+  border-top: 1px solid #f0f0f0;
+}
+
 /* 响应式设计 */
 @media (max-width: 768px) {
   .header {
@@ -1384,6 +1644,19 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.invite-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.invite-enter-room {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
 }
 .invitation-section .ant-collapse-item {
   transition: border-color 0.3s, box-shadow 0.3s, background 0.3s, border-radius 0.3s;
