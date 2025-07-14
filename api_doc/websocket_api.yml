@@ -1,0 +1,284 @@
+openapi: '3.0.3'
+info:
+  title: PopQuiz WebSocket API
+  version: '1.0'
+  description: |
+    PopQuiz演讲室实时通信WebSocket API
+    
+    ## 连接信息
+    - **WebSocket URL**: `ws://localhost:5000/socket.io/`
+    - **传输方式**: WebSocket + Polling (自动降级)
+    - **认证**: 通过auth参数传递token
+    
+    ## 连接示例
+    ```javascript
+    const socket = io('http://localhost:5000', {
+      auth: {
+        token: 'your-session-token'
+      },
+      transports: ['websocket', 'polling']
+    });
+    ```
+
+servers:
+  - url: ws://localhost:5000
+    description: WebSocket服务器
+
+components:
+  schemas:
+    # 基础消息格式
+    BaseMessage:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+          description: 消息时间戳
+          example: "2024-01-01T10:00:00Z"
+    
+    # 用户信息
+    UserInfo:
+      type: object
+      properties:
+        user_id:
+          type: integer
+          description: 用户ID
+          example: 1
+        username:
+          type: string
+          description: 用户名
+          example: "张三"
+        role:
+          type: integer
+          description: 用户角色（0-创建者，1-演讲者，2-听众）
+          enum: [0, 1, 2]
+          example: 0
+    
+    # 用户加入事件
+    UserJoinedEvent:
+      allOf:
+        - $ref: '#/components/schemas/BaseMessage'
+        - type: object
+          properties:
+            user_id:
+              type: integer
+              description: 加入用户的ID
+              example: 1
+            username:
+              type: string
+              description: 加入用户的用户名
+              example: "张三"
+            role:
+              type: integer
+              description: 用户角色
+              enum: [0, 1, 2]
+              example: 2
+    
+    # 用户离开事件
+    UserLeftEvent:
+      allOf:
+        - $ref: '#/components/schemas/BaseMessage'
+        - type: object
+          properties:
+            user_id:
+              type: integer
+              description: 离开用户的ID
+              example: 1
+            username:
+              type: string
+              description: 离开用户的用户名
+              example: "张三"
+    
+    # 房间用户列表更新
+    RoomUsersUpdatedEvent:
+      type: object
+      properties:
+        users:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserInfo'
+          description: 房间内所有用户列表
+        total_online:
+          type: integer
+          description: 在线总人数
+          example: 12
+        timestamp:
+          type: string
+          format: date-time
+          description: 更新时间戳
+          example: "2024-01-01T10:00:00Z"
+    
+    # 新消息事件
+    NewMessageEvent:
+      allOf:
+        - $ref: '#/components/schemas/BaseMessage'
+        - type: object
+          properties:
+            user_id:
+              type: integer
+              description: 发送消息的用户ID
+              example: 1
+            username:
+              type: string
+              description: 发送消息的用户名
+              example: "张三"
+            message:
+              type: string
+              description: 消息内容
+              example: "大家好，我是今天的演讲者"
+    
+    # 加入房间请求
+    JoinRoomRequest:
+      type: object
+      required:
+        - room_id
+        - user_id
+        - username
+      properties:
+        room_id:
+          type: integer
+          description: 房间ID
+          example: 1
+        user_id:
+          type: integer
+          description: 用户ID
+          example: 1
+        username:
+          type: string
+          description: 用户名
+          example: "张三"
+        role:
+          type: integer
+          description: 用户角色（0-创建者，1-演讲者，2-听众）
+          enum: [0, 1, 2]
+          example: 2
+    
+    # 离开房间请求
+    LeaveRoomRequest:
+      type: object
+      required:
+        - room_id
+        - user_id
+      properties:
+        room_id:
+          type: integer
+          description: 房间ID
+          example: 1
+        user_id:
+          type: integer
+          description: 用户ID
+          example: 1
+    
+    # 发送消息请求
+    SendMessageRequest:
+      type: object
+      required:
+        - room_id
+        - user_id
+        - username
+        - message
+      properties:
+        room_id:
+          type: integer
+          description: 房间ID
+          example: 1
+        user_id:
+          type: integer
+          description: 用户ID
+          example: 1
+        username:
+          type: string
+          description: 用户名
+          example: "张三"
+        message:
+          type: string
+          description: 消息内容
+          example: "大家好，我是今天的演讲者"
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        通过WebSocket连接时的auth参数传递token进行认证
+        
+        ```javascript
+        const socket = io('http://localhost:5000', {
+          auth: {
+            token: 'your-session-token'
+          }
+        });
+        ```
+
+# WebSocket连接端点
+paths:
+  /socket.io/:
+    get:
+      tags:
+        - WebSocket
+      summary: WebSocket连接
+      description: |
+        建立WebSocket连接
+        
+        ## 连接参数
+        - **auth.token**: 用户session token
+        - **transports**: 传输方式，支持['websocket', 'polling']
+        
+        ## 连接事件
+        连接建立后会自动触发以下事件：
+        - `connect`: 连接成功
+        - `disconnect`: 连接断开
+        - `connect_error`: 连接错误
+        
+        ## 客户端事件
+        客户端可以发送以下事件：
+        - `join_room`: 加入房间
+        - `leave_room`: 离开房间
+        - `send_message`: 发送消息
+        
+        ## 服务器事件
+        服务器会发送以下事件：
+        - `user_joined`: 用户加入
+        - `user_left`: 用户离开
+        - `room_users`: 房间用户列表更新
+        - `new_message`: 新消息
+      parameters:
+        - name: auth
+          in: query
+          schema:
+            type: object
+            properties:
+              token:
+                type: string
+                description: 用户session token
+                example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        - name: transports
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+              enum: [websocket, polling]
+            default: [websocket, polling]
+          description: 传输方式
+      responses:
+        '101':
+          description: WebSocket连接升级成功
+          headers:
+            Upgrade:
+              schema:
+                type: string
+                example: "websocket"
+            Connection:
+              schema:
+                type: string
+                example: "Upgrade"
+        '400':
+          description: 连接参数错误
+        '401':
+          description: 认证失败
+
+# 安全定义
+security:
+  - bearerAuth: [] 
