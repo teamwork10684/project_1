@@ -20,8 +20,13 @@ const router = createRouter({
       component: Auth,
     },
     {
-      path: '/main',
-      name: 'Main',
+      path: '/home',
+      name: 'Home',
+      component: Home,
+    },
+    {
+      path: '/test',
+      name: 'Test',
       component: Main,
       children: [
         {
@@ -35,16 +40,31 @@ const router = createRouter({
           component: Demo,
         },
         {
-          path: 'room',
+          path: 'room/:roomId',
           name: 'Room',
           component: Room,
+          props: true
         },
         {
-          path: 'speakerroom',
+          path: 'speakerroom/:roomId',
           name: 'Speakerroom',
           component: Speakerroom,
+          props: true
         }
       ]
+    },
+    // 直接访问房间的路由
+    {
+      path: '/room/:roomId',
+      name: 'DirectRoom',
+      component: Room,
+      props: true
+    },
+    {
+      path: '/speakerroom/:roomId',
+      name: 'DirectSpeakerroom',
+      component: Speakerroom,
+      props: true
     }
   ],
 })
