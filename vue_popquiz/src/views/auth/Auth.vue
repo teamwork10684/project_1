@@ -9,7 +9,7 @@
         <span class="auth-divider-icon">★</span>
         <span class="auth-divider-line"></span>
       </div>
-      <a-form :model="form" :rules="rules" @submit.prevent="mode === 'login' ? handleLogin() : handleRegister()" layout="vertical">
+      <a-form ref="formRef" :model="form" :rules="rules" @submit.prevent="handleSubmit" layout="vertical">
         <a-form-item label="用户名" name="username" :rules="rules.username">
           <a-input v-model:value="form.username" size="large" placeholder="请输入用户名" allow-clear />
         </a-form-item>
@@ -36,9 +36,11 @@
 import { ref, computed, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { message } from 'ant-design-vue';
+import { userAPI } from '@/api';
 
 const router = useRouter();
 const route = useRoute();
+const formRef = ref();
 const mode = ref(route.name === 'Register' || route.path === '/register' ? 'register' : 'login');
 const loading = ref(false);
 const form = ref({ username: '', password: '', confirmPassword: '' });
@@ -55,41 +57,85 @@ const validateConfirmPassword = (rule, value) => {
   return Promise.resolve();
 };
 
-const rules = computed(() => ({
+const rules = ref({
   username: [ { required: true, message: '请输入用户名', trigger: 'blur' } ],
   password: [ { required: true, message: '请输入密码', trigger: 'blur' } ],
-  confirmPassword: mode.value === 'register' ? [
-    { validator: validateConfirmPassword, trigger: 'blur' }
-  ] : []
-}));
+  confirmPassword: []
+});
+
+// 监听模式变化，更新验证规则
+watch(mode, (newMode) => {
+  if (newMode === 'register') {
+    rules.value.confirmPassword = [
+      { validator: validateConfirmPassword, trigger: 'blur' }
+    ];
+  } else {
+    rules.value.confirmPassword = [];
+  }
+}, { immediate: true });
+
+const handleSubmit = async () => {
+  // 手动验证表单数据
+  if (!form.value.username.trim()) {
+    message.error('请输入用户名');
+    return;
+  }
+  
+  if (!form.value.password.trim()) {
+    message.error('请输入密码');
+    return;
+  }
+  
+  if (mode.value === 'register') {
+    if (!form.value.confirmPassword.trim()) {
+      message.error('请再次输入密码');
+      return;
+    }
+    if (form.value.password !== form.value.confirmPassword) {
+      message.error('两次输入的密码不一致');
+      return;
+    }
+  }
+  
+  // 验证通过后，根据模式调用相应的处理函数
+  if (mode.value === 'login') {
+    await handleLogin();
+  } else {
+    await handleRegister();
+  }
+};
 
 const handleLogin = async () => {
   loading.value = true;
   try {
-    const res = await app.config.globalProperties.$axios.post('/login', {
+    const res = await userAPI.login({
       username: form.value.username,
       password: form.value.password
     });
     const data = res.data;
     if (data.token) {
       localStorage.setItem('token', data.token);
+      localStorage.setItem('username', form.value.username);
       message.success('登录成功');
-      router.push('/main')
+      router.push('/home');
     } else {
       message.error(data.message || '登录失败');
     }
-  } catch (e) {
-    message.error('网络错误');
+  } catch (error) {
+    if (error.response?.data?.message) {
+      message.error(error.response.data.message);
+    } else {
+      message.error('网络错误，请稍后重试');
+    }
   } finally {
     loading.value = false;
-    router.push('/main')
   }
 };
 
 const handleRegister = async () => {
   loading.value = true;
   try {
-    const res = await app.config.globalProperties.$axios.post('/register', {
+    const res = await userAPI.register({
       username: form.value.username,
       password: form.value.password
     });
@@ -103,8 +149,12 @@ const handleRegister = async () => {
     } else {
       message.error(data.message || '注册失败');
     }
-  } catch (e) {
-    message.error('网络错误');
+  } catch (error) {
+    if (error.response?.data?.message) {
+      message.error(error.response.data.message);
+    } else {
+      message.error('网络错误，请稍后重试');
+    }
   } finally {
     loading.value = false;
   }
@@ -119,6 +169,8 @@ const toggleMode = () => {
     router.replace({ name: 'Auth', path: '/' });
   }
   form.value = { username: '', password: '', confirmPassword: '' };
+  // 清除表单验证状态
+  formRef.value?.clearValidate();
 };
 
 watch(() => route.path, (newPath) => {
