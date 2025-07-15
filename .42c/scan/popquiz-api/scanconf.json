@@ -1,0 +1,1759 @@
+{
+    "version": "2.0.0",
+    "runtimeConfiguration": {
+        "environment": "default",
+        "laxTestingModeEnabled": false,
+        "apiConnectivityCheck": true,
+        "logLevel": "error",
+        "logDestination": "stdout+platform",
+        "logMaxFileSize": 2147483648,
+        "requestHeaderNameRequestId": "x-scan-request-id",
+        "requestHeaderNameScenarioId": "x-scan-scenario-id",
+        "requestHeaderNameRequestType": "x-scan-request-type",
+        "requestFlowrate": 100,
+        "requestTimeout": 30,
+        "requestTlsInsecureSkipVerify": true,
+        "responseFollowRedirection": false,
+        "responseMaxBodySizeScan": 10485760,
+        "happyPathOnly": false,
+        "maxRequestRetryAttempts": 5,
+        "maxScanDuration": 1800,
+        "memoryLimit": 2147483648,
+        "memoryTimeSpan": 10,
+        "reportMaxRequestSizeHappyPath": 8092,
+        "reportMaxRequestSizeTest": 8092,
+        "reportIncludeRequestBody": true,
+        "reportIncludeResponseBody": true,
+        "reportMaxHttpResponseSizeHappyPath": 8092,
+        "reportMaxBodySizeHappyPath": 8092,
+        "reportMaxHttpResponseSizeTest": 8092,
+        "reportMaxBodySizeTest": 8092,
+        "reportIssuesOnly": false,
+        "reportMaxIssues": 1000,
+        "reportMaxSize": 20971520,
+        "reportGenerateCurlCommand": true,
+        "normalizeServerUrls": true
+    },
+    "customizations": {
+        "happyPaths": {
+            "retry": 1,
+            "responsePolicy": {
+                "httpStatusExpected": true,
+                "mustBeConformant": true
+            },
+            "httpStatusExpected": []
+        },
+        "tests": {
+            "responsePolicy": {
+                "httpStatusExpected": true,
+                "mustBeConformant": true
+            }
+        }
+    },
+    "authenticationDetails": [
+        {
+            "bearerAuth": {
+                "type": "bearer",
+                "default": "bearerAuth",
+                "credentials": {
+                    "bearerAuth": {
+                        "description": "bearerAuth security",
+                        "credential": "{{bearerAuth}}"
+                    }
+                }
+            }
+        }
+    ],
+    "operations": {
+        "/discussions:get": {
+            "operationId": "/discussions:get",
+            "scenarios": [
+                {
+                    "key": "happy.path",
+                    "fuzzing": true,
+                    "requests": [
+                        {
+                            "$ref": "#/operations/~1discussions:get/request",
+                            "fuzzing": true
+                        }
+                    ]
+                }
+            ],
+            "request": {
+                "operationId": "/discussions:get",
+                "request": {
+                    "type": "42c",
+                    "details": {
+                        "url": "{{host}}/discussions",
+                        "method": "GET",
+                        "queries": [
+                            {
+                                "key": "room_id",
+                                "value": 2135226540391744641
+                            },
+                            {
+                                "key": "token",
+                                "value": "xvhkpkjmdcjugbdeoxzjcpjcmnoqewyd"
+                            }
+                        ]
+                    }
+                },
+                "defaultResponse": "200",
+                "responses": {
+                    "200": {
+                        "expectations": {
+                            "httpStatus": 200
+                        }
+                    },
+                    "400": {
+                        "expectations": {
+                            "httpStatus": 400
+                        }
+                    },
+                    "401": {
+                        "expectations": {
+                            "httpStatus": 401
+                        }
+                    },
+                    "404": {
+                        "expectations": {
+                            "httpStatus": 404
+                        }
+                    }
+                }
+            }
+        },
+        "/discussions:post": {
+            "operationId": "/discussions:post",
+            "scenarios": [
+                {
+                    "key": "happy.path",
+                    "fuzzing": true,
+                    "requests": [
+                        {
+                            "$ref": "#/operations/~1discussions:post/request",
+                            "fuzzing": true
+                        }
+                    ]
+                }
+            ],
+            "request": {
+                "operationId": "/discussions:post",
+                "request": {
+                    "type": "42c",
+                    "details": {
+                        "url": "{{host}}/discussions",
+                        "method": "POST",
+                        "headers": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "requestBody": {
+                            "mode": "json",
+                            "json": {
+                                "content": "这个题目很有意思，我想分享一下我的想法...",
+                                "question_id": 5,
+                                "room_id": 1,
+                                "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                            }
+                        }
+                    }
+                },
+                "defaultResponse": "201",
+                "responses": {
+                    "201": {
+                        "expectations": {
+                            "httpStatus": 201
+                        }
+                    },
+                    "400": {
+                        "expectations": {
+                            "httpStatus": 400
+                        }
+                    },
+                    "401": {
+                        "expectations": {
+                            "httpStatus": 401
+                        }
+                    },
+                    "403": {
+                        "expectations": {
+                            "httpStatus": 403
+                        }
+                    },
+                    "404": {
+                        "expectations": {
+                            "httpStatus": 404
+                        }
+                    }
+                }
+            }
+        },
+        "/getQuestionByTextOllamaDemo:post": {
+            "operationId": "/getQuestionByTextOllamaDemo:post",
+            "scenarios": [
+                {
+                    "key": "happy.path",
+                    "fuzzing": true,
+                    "requests": [
+                        {
+                            "$ref": "#/operations/~1getQuestionByTextOllamaDemo:post/request",
+                            "fuzzing": true
+                        }
+                    ]
+                }
+            ],
+            "request": {
+                "operationId": "/getQuestionByTextOllamaDemo:post",
+                "request": {
+                    "type": "42c",
+                    "details": {
+                        "url": "{{host}}/getQuestionByTextOllamaDemo",
+                        "method": "POST",
+                        "headers": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "requestBody": {
+                            "mode": "json",
+                            "json": {
+                                "original_prompt": "请根据以下内容出一道选择题：太阳从哪边升起？"
+                            }
+                        }
+                    }
+                },
+                "defaultResponse": "200",
+                "responses": {
+                    "200": {
+                        "expectations": {
+                            "httpStatus": 200
+                        }
+                    },
+                    "400": {
+                        "expectations": {
+                            "httpStatus": 400
+                        }
+                    }
+                }
+            }
+        },
+        "/invitations/accept:post": {
+            "operationId": "/invitations/accept:post",
+            "scenarios": [
+                {
+                    "key": "happy.path",
+                    "fuzzing": true,
+                    "requests": [
+                        {
+                            "$ref": "#/operations/~1invitations~1accept:post/request",
+                            "fuzzing": true
+                        }
+                    ]
+                }
+            ],
+            "request": {
+                "operationId": "/invitations/accept:post",
+                "request": {
+                    "type": "42c",
+                    "details": {
+                        "url": "{{host}}/invitations/accept",
+                        "method": "POST",
+                        "headers": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "requestBody": {
+                            "mode": "json",
+                            "json": {
+                                "id": 6802850233253429692,
+                                "token": "fjbbvjnyoighmdaufygsdtlefoygyhra"
+                            }
+                        }
+                    }
+                },
+                "defaultResponse": "200",
+                "responses": {
+                    "200": {
+                        "expectations": {
+                            "httpStatus": 200
+                        }
+                    },
+                    "400": {
+                        "expectations": {
+                            "httpStatus": 400
+                        }
+                    },
+                    "401": {
+                        "expectations": {
+                            "httpStatus": 401
+                        }
+                    }
+                }
+            }
+        },
+        "/invitations/reject:post": {
+            "operationId": "/invitations/reject:post",
+            "scenarios": [
+                {
+                    "key": "happy.path",
+                    "fuzzing": true,
+                    "requests": [
+                        {
+                            "$ref": "#/operations/~1invitations~1reject:post/request",
+                            "fuzzing": true
+                        }
+                    ]
+                }
+            ],
+            "request": {
+                "operationId": "/invitations/reject:post",
+                "request": {
+                    "type": "42c",
+                    "details": {
+                        "url": "{{host}}/invitations/reject",
+                        "method": "POST",
+                        "headers": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "requestBody": {
+                            "mode": "json",
+                            "json": {
+                                "id": 481655057582613656,
+                                "token": "fgadgijfhbonktzbljovmcpkvvtyaahy"
+                            }
+                        }
+                    }
+                },
+                "defaultResponse": "200",
+                "responses": {
+                    "200": {
+                        "expectations": {
+                            "httpStatus": 200
+                        }
+                    },
+                    "400": {
+                        "expectations": {
+                            "httpStatus": 400
+                        }
+                    },
+                    "401": {
+                        "expectations": {
+                            "httpStatus": 401
+                        }
+                    }
+                }
+            }
+        },
+        "/invitations:post": {
+            "operationId": "/invitations:post",
+            "scenarios": [
+                {
+                    "key": "happy.path",
+                    "fuzzing": true,
+                    "requests": [
+                        {
+                            "$ref": "#/operations/~1invitations:post/request",
+                            "fuzzing": true
+                        }
+                    ]
+                }
+            ],
+            "request": {
+                "operationId": "/invitations:post",
+                "request": {
+                    "type": "42c",
+                    "details": {
+                        "url": "{{host}}/invitations",
+                        "method": "POST",
+                        "headers": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "requestBody": {
+                            "mode": "json",
+                            "json": {
+                                "invitee_username": "nlvwgabjuucsijlxckpcjsixicrmbqyo",
+                                "role": 4850316117505964716,
+                                "room_id": 2117646377955563621,
+                                "token": "clzativvxxwqdrdgoniycyseobdntksp"
+                            }
+                        }
+                    }
+                },
+                "defaultResponse": "201",
+                "responses": {
+                    "201": {
+                        "expectations": {
+                            "httpStatus": 201
+                        }
+                    },
+                    "400": {
+                        "expectations": {
+                            "httpStatus": 400
+                        }
+                    },
+                    "401": {
+                        "expectations": {
+                            "httpStatus": 401
+                        }
+                    }
+                }
+            }
+        },
+        "/join-room:post": {
+            "operationId": "/join-room:post",
+            "scenarios": [
+                {
+                    "key": "happy.path",
+                    "fuzzing": true,
+                    "requests": [
+                        {
+                            "$ref": "#/operations/~1join-room:post/request",
+                            "fuzzing": true
+                        }
+                    ]
+                }
+            ],
+            "request": {
+                "operationId": "/join-room:post",
+                "request": {
+                    "type": "42c",
+                    "details": {
+                        "url": "{{host}}/join-room",
+                        "method": "POST",
+                        "headers": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "requestBody": {
+                            "mode": "json",
+                            "json": {
+                                "invite_code": "kkircrxswyhhcmmgahenairkbvkucorn",
+                                "token": "wuqlfhuafigfloecodsuyjwdelmnaqaf"
+                            }
+                        }
+                    }
+                },
+                "defaultResponse": "200",
+                "responses": {
+                    "200": {
+                        "expectations": {
+                            "httpStatus": 200
+                        }
+                    },
+                    "400": {
+                        "expectations": {
+                            "httpStatus": 400
+                        }
+                    },
+                    "401": {
+                        "expectations": {
+                            "httpStatus": 401
+                        }
+                    }
+                }
+            }
+        },
+        "/login:post": {
+            "operationId": "/login:post",
+            "scenarios": [
+                {
+                    "key": "happy.path",
+                    "fuzzing": true,
+                    "requests": [
+                        {
+                            "$ref": "#/operations/~1login:post/request",
+                            "fuzzing": true
+                        }
+                    ]
+                }
+            ],
+            "request": {
+                "operationId": "/login:post",
+                "request": {
+                    "type": "42c",
+                    "details": {
+                        "url": "{{host}}/login",
+                        "method": "POST",
+                        "headers": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "requestBody": {
+                            "mode": "json",
+                            "json": {
+                                "password": "123456",
+                                "username": "user001"
+                            }
+                        }
+                    }
+                },
+                "defaultResponse": "200",
+                "responses": {
+                    "200": {
+                        "expectations": {
+                            "httpStatus": 200
+                        }
+                    },
+                    "401": {
+                        "expectations": {
+                            "httpStatus": 401
+                        }
+                    }
+                }
+            }
+        },
+        "/logout:post": {
+            "operationId": "/logout:post",
+            "scenarios": [
+                {
+                    "key": "happy.path",
+                    "fuzzing": true,
+                    "requests": [
+                        {
+                            "$ref": "#/operations/~1logout:post/request",
+                            "fuzzing": true
+                        }
+                    ]
+                }
+            ],
+            "request": {
+                "operationId": "/logout:post",
+                "request": {
+                    "type": "42c",
+                    "details": {
+                        "url": "{{host}}/logout",
+                        "method": "POST",
+                        "headers": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "requestBody": {
+                            "mode": "json",
+                            "json": {
+                                "token": "puoorcduznjaxwqjznzmeqteruppcvgv"
+                            }
+                        }
+                    }
+                },
+                "defaultResponse": "200",
+                "responses": {
+                    "200": {
+                        "expectations": {
+                            "httpStatus": 200
+                        }
+                    },
+                    "401": {
+                        "expectations": {
+                            "httpStatus": 401
+                        }
+                    }
+                }
+            }
+        },
+        "/published-questions/{published_question_id}/statistics-for-audience:get": {
+            "operationId": "/published-questions/{published_question_id}/statistics-for-audience:get",
+            "scenarios": [
+                {
+                    "key": "happy.path",
+                    "fuzzing": true,
+                    "requests": [
+                        {
+                            "$ref": "#/operations/~1published-questions~1{published_question_id}~1statistics-for-audience:get/request",
+                            "fuzzing": true
+                        }
+                    ]
+                }
+            ],
+            "request": {
+                "operationId": "/published-questions/{published_question_id}/statistics-for-audience:get",
+                "request": {
+                    "type": "42c",
+                    "details": {
+                        "url": "{{host}}/published-questions/{published_question_id}/statistics-for-audience",
+                        "method": "GET",
+                        "paths": [
+                            {
+                                "key": "published_question_id",
+                                "value": 5548959725694908741
+                            }
+                        ],
+                        "queries": [
+                            {
+                                "key": "token",
+                                "value": "mrcwbnwqgqlxczodusvtsztsrcjjttna"
+                            }
+                        ]
+                    }
+                },
+                "defaultResponse": "200",
+                "responses": {
+                    "200": {
+                        "expectations": {
+                            "httpStatus": 200
+                        }
+                    },
+                    "400": {
+                        "expectations": {
+                            "httpStatus": 400
+                        }
+                    },
+                    "401": {
+                        "expectations": {
+                            "httpStatus": 401
+                        }
+                    },
+                    "403": {
+                        "expectations": {
+                            "httpStatus": 403
+                        }
+                    },
+                    "404": {
+                        "expectations": {
+                            "httpStatus": 404
+                        }
+                    }
+                }
+            }
+        },
+        "/published-questions/{published_question_id}/statistics-for-speaker-and-organizer:get": {
+            "operationId": "/published-questions/{published_question_id}/statistics-for-speaker-and-organizer:get",
+            "scenarios": [
+                {
+                    "key": "happy.path",
+                    "fuzzing": true,
+                    "requests": [
+                        {
+                            "$ref": "#/operations/~1published-questions~1{published_question_id}~1statistics-for-speaker-and-organizer:get/request",
+                            "fuzzing": true
+                        }
+                    ]
+                }
+            ],
+            "request": {
+                "operationId": "/published-questions/{published_question_id}/statistics-for-speaker-and-organizer:get",
+                "request": {
+                    "type": "42c",
+                    "details": {
+                        "url": "{{host}}/published-questions/{published_question_id}/statistics-for-speaker-and-organizer",
+                        "method": "GET",
+                        "paths": [
+                            {
+                                "key": "published_question_id",
+                                "value": 2645262638992625079
+                            }
+                        ],
+                        "queries": [
+                            {
+                                "key": "token",
+                                "value": "mgzqbmirlqtyjulvczdcgfecuinuksyj"
+                            }
+                        ]
+                    }
+                },
+                "defaultResponse": "200",
+                "responses": {
+                    "200": {
+                        "expectations": {
+                            "httpStatus": 200
+                        }
+                    },
+                    "400": {
+                        "expectations": {
+                            "httpStatus": 400
+                        }
+                    },
+                    "401": {
+                        "expectations": {
+                            "httpStatus": 401
+                        }
+                    },
+                    "403": {
+                        "expectations": {
+                            "httpStatus": 403
+                        }
+                    },
+                    "404": {
+                        "expectations": {
+                            "httpStatus": 404
+                        }
+                    }
+                }
+            }
+        },
+        "/questions/{question_id}/discussions:get": {
+            "operationId": "/questions/{question_id}/discussions:get",
+            "scenarios": [
+                {
+                    "key": "happy.path",
+                    "fuzzing": true,
+                    "requests": [
+                        {
+                            "$ref": "#/operations/~1questions~1{question_id}~1discussions:get/request",
+                            "fuzzing": true
+                        }
+                    ]
+                }
+            ],
+            "request": {
+                "operationId": "/questions/{question_id}/discussions:get",
+                "request": {
+                    "type": "42c",
+                    "details": {
+                        "url": "{{host}}/questions/{question_id}/discussions",
+                        "method": "GET",
+                        "paths": [
+                            {
+                                "key": "question_id",
+                                "value": 3817423377244873327
+                            }
+                        ],
+                        "queries": [
+                            {
+                                "key": "token",
+                                "value": "npybhsqktrjlpucsdvypgjhcmxrkafaz"
+                            }
+                        ]
+                    }
+                },
+                "defaultResponse": "200",
+                "responses": {
+                    "200": {
+                        "expectations": {
+                            "httpStatus": 200
+                        }
+                    },
+                    "400": {
+                        "expectations": {
+                            "httpStatus": 400
+                        }
+                    },
+                    "401": {
+                        "expectations": {
+                            "httpStatus": 401
+                        }
+                    },
+                    "404": {
+                        "expectations": {
+                            "httpStatus": 404
+                        }
+                    }
+                }
+            }
+        },
+        "/register:post": {
+            "operationId": "/register:post",
+            "scenarios": [
+                {
+                    "key": "happy.path",
+                    "fuzzing": true,
+                    "requests": [
+                        {
+                            "$ref": "#/operations/~1register:post/request",
+                            "fuzzing": true
+                        }
+                    ]
+                }
+            ],
+            "request": {
+                "operationId": "/register:post",
+                "request": {
+                    "type": "42c",
+                    "details": {
+                        "url": "{{host}}/register",
+                        "method": "POST",
+                        "headers": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "requestBody": {
+                            "mode": "json",
+                            "json": {
+                                "password": "123456",
+                                "username": "user001"
+                            }
+                        }
+                    }
+                },
+                "defaultResponse": "201",
+                "responses": {
+                    "201": {
+                        "expectations": {
+                            "httpStatus": 201
+                        }
+                    },
+                    "400": {
+                        "expectations": {
+                            "httpStatus": 400
+                        }
+                    }
+                }
+            }
+        },
+        "/speech-rooms/{room_id}/answer-question:post": {
+            "operationId": "/speech-rooms/{room_id}/answer-question:post",
+            "scenarios": [
+                {
+                    "key": "happy.path",
+                    "fuzzing": true,
+                    "requests": [
+                        {
+                            "$ref": "#/operations/~1speech-rooms~1{room_id}~1answer-question:post/request",
+                            "fuzzing": true
+                        }
+                    ]
+                }
+            ],
+            "request": {
+                "operationId": "/speech-rooms/{room_id}/answer-question:post",
+                "request": {
+                    "type": "42c",
+                    "details": {
+                        "url": "{{host}}/speech-rooms/{room_id}/answer-question",
+                        "method": "POST",
+                        "paths": [
+                            {
+                                "key": "room_id",
+                                "value": 8565363372343449982
+                            }
+                        ],
+                        "headers": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "requestBody": {
+                            "mode": "json",
+                            "json": {
+                                "answer": "A",
+                                "question_id": 5,
+                                "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                            }
+                        }
+                    }
+                },
+                "defaultResponse": "200",
+                "responses": {
+                    "200": {
+                        "expectations": {
+                            "httpStatus": 200
+                        }
+                    },
+                    "400": {
+                        "expectations": {
+                            "httpStatus": 400
+                        }
+                    },
+                    "401": {
+                        "expectations": {
+                            "httpStatus": 401
+                        }
+                    },
+                    "403": {
+                        "expectations": {
+                            "httpStatus": 403
+                        }
+                    },
+                    "404": {
+                        "expectations": {
+                            "httpStatus": 404
+                        }
+                    },
+                    "409": {
+                        "expectations": {
+                            "httpStatus": 409
+                        }
+                    },
+                    "500": {
+                        "expectations": {
+                            "httpStatus": 500
+                        }
+                    }
+                }
+            }
+        },
+        "/speech-rooms/{room_id}/current-question-for-audience:get": {
+            "operationId": "/speech-rooms/{room_id}/current-question-for-audience:get",
+            "scenarios": [
+                {
+                    "key": "happy.path",
+                    "fuzzing": true,
+                    "requests": [
+                        {
+                            "$ref": "#/operations/~1speech-rooms~1{room_id}~1current-question-for-audience:get/request",
+                            "fuzzing": true
+                        }
+                    ]
+                }
+            ],
+            "request": {
+                "operationId": "/speech-rooms/{room_id}/current-question-for-audience:get",
+                "request": {
+                    "type": "42c",
+                    "details": {
+                        "url": "{{host}}/speech-rooms/{room_id}/current-question-for-audience",
+                        "method": "GET",
+                        "paths": [
+                            {
+                                "key": "room_id",
+                                "value": 606985988892608787
+                            }
+                        ],
+                        "queries": [
+                            {
+                                "key": "token",
+                                "value": "jfbpypgthxhvduphlspbwhiqofvdungf"
+                            }
+                        ]
+                    }
+                },
+                "defaultResponse": "200",
+                "responses": {
+                    "200": {
+                        "expectations": {
+                            "httpStatus": 200
+                        }
+                    },
+                    "204": {
+                        "expectations": {
+                            "httpStatus": 204
+                        }
+                    },
+                    "400": {
+                        "expectations": {
+                            "httpStatus": 400
+                        }
+                    },
+                    "401": {
+                        "expectations": {
+                            "httpStatus": 401
+                        }
+                    },
+                    "403": {
+                        "expectations": {
+                            "httpStatus": 403
+                        }
+                    },
+                    "404": {
+                        "expectations": {
+                            "httpStatus": 404
+                        }
+                    }
+                }
+            }
+        },
+        "/speech-rooms/{room_id}/current-question-for-speaker-and-organizer:get": {
+            "operationId": "/speech-rooms/{room_id}/current-question-for-speaker-and-organizer:get",
+            "scenarios": [
+                {
+                    "key": "happy.path",
+                    "fuzzing": true,
+                    "requests": [
+                        {
+                            "$ref": "#/operations/~1speech-rooms~1{room_id}~1current-question-for-speaker-and-organizer:get/request",
+                            "fuzzing": true
+                        }
+                    ]
+                }
+            ],
+            "request": {
+                "operationId": "/speech-rooms/{room_id}/current-question-for-speaker-and-organizer:get",
+                "request": {
+                    "type": "42c",
+                    "details": {
+                        "url": "{{host}}/speech-rooms/{room_id}/current-question-for-speaker-and-organizer",
+                        "method": "GET",
+                        "paths": [
+                            {
+                                "key": "room_id",
+                                "value": 579418286291153309
+                            }
+                        ],
+                        "queries": [
+                            {
+                                "key": "token",
+                                "value": "mbpsapufsbrcjhmhuspzftdihsvelfoq"
+                            }
+                        ]
+                    }
+                },
+                "defaultResponse": "200",
+                "responses": {
+                    "200": {
+                        "expectations": {
+                            "httpStatus": 200
+                        }
+                    },
+                    "204": {
+                        "expectations": {
+                            "httpStatus": 204
+                        }
+                    },
+                    "400": {
+                        "expectations": {
+                            "httpStatus": 400
+                        }
+                    },
+                    "401": {
+                        "expectations": {
+                            "httpStatus": 401
+                        }
+                    },
+                    "403": {
+                        "expectations": {
+                            "httpStatus": 403
+                        }
+                    },
+                    "404": {
+                        "expectations": {
+                            "httpStatus": 404
+                        }
+                    }
+                }
+            }
+        },
+        "/speech-rooms/{room_id}/end:post": {
+            "operationId": "/speech-rooms/{room_id}/end:post",
+            "scenarios": [
+                {
+                    "key": "happy.path",
+                    "fuzzing": true,
+                    "requests": [
+                        {
+                            "$ref": "#/operations/~1speech-rooms~1{room_id}~1end:post/request",
+                            "fuzzing": true
+                        }
+                    ]
+                }
+            ],
+            "request": {
+                "operationId": "/speech-rooms/{room_id}/end:post",
+                "request": {
+                    "type": "42c",
+                    "details": {
+                        "url": "{{host}}/speech-rooms/{room_id}/end",
+                        "method": "POST",
+                        "paths": [
+                            {
+                                "key": "room_id",
+                                "value": 5374003699890385283
+                            }
+                        ],
+                        "headers": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "requestBody": {
+                            "mode": "json",
+                            "json": {
+                                "token": "shragdtitbxnvuoldwuaonvicyjgrsdr"
+                            }
+                        }
+                    }
+                },
+                "defaultResponse": "200",
+                "responses": {
+                    "200": {
+                        "expectations": {
+                            "httpStatus": 200
+                        }
+                    },
+                    "400": {
+                        "expectations": {
+                            "httpStatus": 400
+                        }
+                    },
+                    "401": {
+                        "expectations": {
+                            "httpStatus": 401
+                        }
+                    },
+                    "403": {
+                        "expectations": {
+                            "httpStatus": 403
+                        }
+                    },
+                    "404": {
+                        "expectations": {
+                            "httpStatus": 404
+                        }
+                    }
+                }
+            }
+        },
+        "/speech-rooms/{room_id}/enter:get": {
+            "operationId": "/speech-rooms/{room_id}/enter:get",
+            "scenarios": [
+                {
+                    "key": "happy.path",
+                    "fuzzing": true,
+                    "requests": [
+                        {
+                            "$ref": "#/operations/~1speech-rooms~1{room_id}~1enter:get/request",
+                            "fuzzing": true
+                        }
+                    ]
+                }
+            ],
+            "request": {
+                "operationId": "/speech-rooms/{room_id}/enter:get",
+                "request": {
+                    "type": "42c",
+                    "details": {
+                        "url": "{{host}}/speech-rooms/{room_id}/enter",
+                        "method": "GET",
+                        "paths": [
+                            {
+                                "key": "room_id",
+                                "value": 2647297846379994065
+                            }
+                        ],
+                        "queries": [
+                            {
+                                "key": "token",
+                                "value": "pmuqskfwkkxoknxsjemvcczoflwagmvn"
+                            }
+                        ]
+                    }
+                },
+                "defaultResponse": "200",
+                "responses": {
+                    "200": {
+                        "expectations": {
+                            "httpStatus": 200
+                        }
+                    },
+                    "400": {
+                        "expectations": {
+                            "httpStatus": 400
+                        }
+                    },
+                    "401": {
+                        "expectations": {
+                            "httpStatus": 401
+                        }
+                    },
+                    "403": {
+                        "expectations": {
+                            "httpStatus": 403
+                        }
+                    },
+                    "404": {
+                        "expectations": {
+                            "httpStatus": 404
+                        }
+                    }
+                }
+            }
+        },
+        "/speech-rooms/{room_id}/online-participants:get": {
+            "operationId": "/speech-rooms/{room_id}/online-participants:get",
+            "scenarios": [
+                {
+                    "key": "happy.path",
+                    "fuzzing": true,
+                    "requests": [
+                        {
+                            "$ref": "#/operations/~1speech-rooms~1{room_id}~1online-participants:get/request",
+                            "fuzzing": true
+                        }
+                    ]
+                }
+            ],
+            "request": {
+                "operationId": "/speech-rooms/{room_id}/online-participants:get",
+                "request": {
+                    "type": "42c",
+                    "details": {
+                        "url": "{{host}}/speech-rooms/{room_id}/online-participants",
+                        "method": "GET",
+                        "paths": [
+                            {
+                                "key": "room_id",
+                                "value": 8538600895397137955
+                            }
+                        ],
+                        "queries": [
+                            {
+                                "key": "token",
+                                "value": "genqqdqovnwlwvfqnafccqrgefdpphbr"
+                            }
+                        ]
+                    }
+                },
+                "defaultResponse": "200",
+                "responses": {
+                    "200": {
+                        "expectations": {
+                            "httpStatus": 200
+                        }
+                    },
+                    "401": {
+                        "expectations": {
+                            "httpStatus": 401
+                        }
+                    },
+                    "403": {
+                        "expectations": {
+                            "httpStatus": 403
+                        }
+                    },
+                    "404": {
+                        "expectations": {
+                            "httpStatus": 404
+                        }
+                    }
+                }
+            }
+        },
+        "/speech-rooms/{room_id}/participants/count:get": {
+            "operationId": "/speech-rooms/{room_id}/participants/count:get",
+            "scenarios": [
+                {
+                    "key": "happy.path",
+                    "fuzzing": true,
+                    "requests": [
+                        {
+                            "$ref": "#/operations/~1speech-rooms~1{room_id}~1participants~1count:get/request",
+                            "fuzzing": true
+                        }
+                    ]
+                }
+            ],
+            "request": {
+                "operationId": "/speech-rooms/{room_id}/participants/count:get",
+                "request": {
+                    "type": "42c",
+                    "details": {
+                        "url": "{{host}}/speech-rooms/{room_id}/participants/count",
+                        "method": "GET",
+                        "paths": [
+                            {
+                                "key": "room_id",
+                                "value": 6259547727334901978
+                            }
+                        ],
+                        "queries": [
+                            {
+                                "key": "token",
+                                "value": "tarizpgnmkydglluglyyqlbxqiaicsqv"
+                            }
+                        ]
+                    }
+                },
+                "defaultResponse": "200",
+                "responses": {
+                    "200": {
+                        "expectations": {
+                            "httpStatus": 200
+                        }
+                    },
+                    "401": {
+                        "expectations": {
+                            "httpStatus": 401
+                        }
+                    },
+                    "404": {
+                        "expectations": {
+                            "httpStatus": 404
+                        }
+                    }
+                }
+            }
+        },
+        "/speech-rooms/{room_id}/publish-question:post": {
+            "operationId": "/speech-rooms/{room_id}/publish-question:post",
+            "scenarios": [
+                {
+                    "key": "happy.path",
+                    "fuzzing": true,
+                    "requests": [
+                        {
+                            "$ref": "#/operations/~1speech-rooms~1{room_id}~1publish-question:post/request",
+                            "fuzzing": true
+                        }
+                    ]
+                }
+            ],
+            "request": {
+                "operationId": "/speech-rooms/{room_id}/publish-question:post",
+                "request": {
+                    "type": "42c",
+                    "details": {
+                        "url": "{{host}}/speech-rooms/{room_id}/publish-question",
+                        "method": "POST",
+                        "paths": [
+                            {
+                                "key": "room_id",
+                                "value": 1297445854715870052
+                            }
+                        ],
+                        "headers": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "requestBody": {
+                            "mode": "json",
+                            "json": {
+                                "question_id": 5,
+                                "time_limit": 60,
+                                "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                            }
+                        }
+                    }
+                },
+                "defaultResponse": "201",
+                "responses": {
+                    "201": {
+                        "expectations": {
+                            "httpStatus": 201
+                        }
+                    },
+                    "400": {
+                        "expectations": {
+                            "httpStatus": 400
+                        }
+                    },
+                    "401": {
+                        "expectations": {
+                            "httpStatus": 401
+                        }
+                    },
+                    "403": {
+                        "expectations": {
+                            "httpStatus": 403
+                        }
+                    },
+                    "404": {
+                        "expectations": {
+                            "httpStatus": 404
+                        }
+                    },
+                    "409": {
+                        "expectations": {
+                            "httpStatus": 409
+                        }
+                    },
+                    "500": {
+                        "expectations": {
+                            "httpStatus": 500
+                        }
+                    }
+                }
+            }
+        },
+        "/speech-rooms/{room_id}/questions:get": {
+            "operationId": "/speech-rooms/{room_id}/questions:get",
+            "scenarios": [
+                {
+                    "key": "happy.path",
+                    "fuzzing": true,
+                    "requests": [
+                        {
+                            "$ref": "#/operations/~1speech-rooms~1{room_id}~1questions:get/request",
+                            "fuzzing": true
+                        }
+                    ]
+                }
+            ],
+            "request": {
+                "operationId": "/speech-rooms/{room_id}/questions:get",
+                "request": {
+                    "type": "42c",
+                    "details": {
+                        "url": "{{host}}/speech-rooms/{room_id}/questions",
+                        "method": "GET",
+                        "paths": [
+                            {
+                                "key": "room_id",
+                                "value": 7821425509043528553
+                            }
+                        ],
+                        "queries": [
+                            {
+                                "key": "token",
+                                "value": "ioxjjnintvaidxiyryrwkcfvjolrcoop"
+                            }
+                        ]
+                    }
+                },
+                "defaultResponse": "200",
+                "responses": {
+                    "200": {
+                        "expectations": {
+                            "httpStatus": 200
+                        }
+                    },
+                    "400": {
+                        "expectations": {
+                            "httpStatus": 400
+                        }
+                    },
+                    "401": {
+                        "expectations": {
+                            "httpStatus": 401
+                        }
+                    },
+                    "403": {
+                        "expectations": {
+                            "httpStatus": 403
+                        }
+                    },
+                    "404": {
+                        "expectations": {
+                            "httpStatus": 404
+                        }
+                    }
+                }
+            }
+        },
+        "/speech-rooms/{room_id}/start:post": {
+            "operationId": "/speech-rooms/{room_id}/start:post",
+            "scenarios": [
+                {
+                    "key": "happy.path",
+                    "fuzzing": true,
+                    "requests": [
+                        {
+                            "$ref": "#/operations/~1speech-rooms~1{room_id}~1start:post/request",
+                            "fuzzing": true
+                        }
+                    ]
+                }
+            ],
+            "request": {
+                "operationId": "/speech-rooms/{room_id}/start:post",
+                "request": {
+                    "type": "42c",
+                    "details": {
+                        "url": "{{host}}/speech-rooms/{room_id}/start",
+                        "method": "POST",
+                        "paths": [
+                            {
+                                "key": "room_id",
+                                "value": 5778844428973393241
+                            }
+                        ],
+                        "headers": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "requestBody": {
+                            "mode": "json",
+                            "json": {
+                                "token": "apqinrswndonzlcedvzqceqxqguilujm"
+                            }
+                        }
+                    }
+                },
+                "defaultResponse": "200",
+                "responses": {
+                    "200": {
+                        "expectations": {
+                            "httpStatus": 200
+                        }
+                    },
+                    "400": {
+                        "expectations": {
+                            "httpStatus": 400
+                        }
+                    },
+                    "401": {
+                        "expectations": {
+                            "httpStatus": 401
+                        }
+                    },
+                    "403": {
+                        "expectations": {
+                            "httpStatus": 403
+                        }
+                    },
+                    "404": {
+                        "expectations": {
+                            "httpStatus": 404
+                        }
+                    }
+                }
+            }
+        },
+        "/speech-rooms:post": {
+            "operationId": "/speech-rooms:post",
+            "scenarios": [
+                {
+                    "key": "happy.path",
+                    "fuzzing": true,
+                    "requests": [
+                        {
+                            "$ref": "#/operations/~1speech-rooms:post/request",
+                            "fuzzing": true
+                        }
+                    ]
+                }
+            ],
+            "request": {
+                "operationId": "/speech-rooms:post",
+                "request": {
+                    "type": "42c",
+                    "details": {
+                        "url": "{{host}}/speech-rooms",
+                        "method": "POST",
+                        "headers": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "requestBody": {
+                            "mode": "json",
+                            "json": {
+                                "description": "介绍Python编程语言的基础知识",
+                                "is_speaker": false,
+                                "name": "Python基础教程",
+                                "session_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                            }
+                        }
+                    }
+                },
+                "defaultResponse": "201",
+                "responses": {
+                    "201": {
+                        "expectations": {
+                            "httpStatus": 201
+                        }
+                    },
+                    "400": {
+                        "expectations": {
+                            "httpStatus": 400
+                        }
+                    },
+                    "401": {
+                        "expectations": {
+                            "httpStatus": 401
+                        }
+                    },
+                    "500": {
+                        "expectations": {
+                            "httpStatus": 500
+                        }
+                    }
+                }
+            }
+        },
+        "/user/created-rooms:get": {
+            "operationId": "/user/created-rooms:get",
+            "scenarios": [
+                {
+                    "key": "happy.path",
+                    "fuzzing": true,
+                    "requests": [
+                        {
+                            "$ref": "#/operations/~1user~1created-rooms:get/request",
+                            "fuzzing": true
+                        }
+                    ]
+                }
+            ],
+            "request": {
+                "operationId": "/user/created-rooms:get",
+                "request": {
+                    "type": "42c",
+                    "details": {
+                        "url": "{{host}}/user/created-rooms",
+                        "method": "GET",
+                        "queries": [
+                            {
+                                "key": "status",
+                                "value": 2
+                            },
+                            {
+                                "key": "token",
+                                "value": "dtkwnyyfwwnobjortnwmfzknzhlxreoz"
+                            },
+                            {
+                                "key": "page",
+                                "value": 1
+                            },
+                            {
+                                "key": "per_page",
+                                "value": 10
+                            },
+                            {
+                                "key": "sort_by",
+                                "value": "created_at"
+                            },
+                            {
+                                "key": "order",
+                                "value": "desc"
+                            }
+                        ]
+                    }
+                },
+                "defaultResponse": "200",
+                "responses": {
+                    "200": {
+                        "expectations": {
+                            "httpStatus": 200
+                        }
+                    },
+                    "400": {
+                        "expectations": {
+                            "httpStatus": 400
+                        }
+                    },
+                    "401": {
+                        "expectations": {
+                            "httpStatus": 401
+                        }
+                    },
+                    "500": {
+                        "expectations": {
+                            "httpStatus": 500
+                        }
+                    }
+                }
+            }
+        },
+        "/user/invitations:get": {
+            "operationId": "/user/invitations:get",
+            "scenarios": [
+                {
+                    "key": "happy.path",
+                    "fuzzing": true,
+                    "requests": [
+                        {
+                            "$ref": "#/operations/~1user~1invitations:get/request",
+                            "fuzzing": true
+                        }
+                    ]
+                }
+            ],
+            "request": {
+                "operationId": "/user/invitations:get",
+                "request": {
+                    "type": "42c",
+                    "details": {
+                        "url": "{{host}}/user/invitations",
+                        "method": "GET",
+                        "queries": [
+                            {
+                                "key": "token",
+                                "value": "jycagpkbszezrfvpjhswuwqnqyjwyrrv"
+                            }
+                        ]
+                    }
+                },
+                "defaultResponse": "200",
+                "responses": {
+                    "200": {
+                        "expectations": {
+                            "httpStatus": 200
+                        }
+                    },
+                    "400": {
+                        "expectations": {
+                            "httpStatus": 400
+                        }
+                    },
+                    "401": {
+                        "expectations": {
+                            "httpStatus": 401
+                        }
+                    }
+                }
+            }
+        },
+        "/user/speech-rooms:get": {
+            "operationId": "/user/speech-rooms:get",
+            "scenarios": [
+                {
+                    "key": "happy.path",
+                    "fuzzing": true,
+                    "requests": [
+                        {
+                            "$ref": "#/operations/~1user~1speech-rooms:get/request",
+                            "fuzzing": true
+                        }
+                    ]
+                }
+            ],
+            "request": {
+                "operationId": "/user/speech-rooms:get",
+                "request": {
+                    "type": "42c",
+                    "details": {
+                        "url": "{{host}}/user/speech-rooms",
+                        "method": "GET",
+                        "queries": [
+                            {
+                                "key": "token",
+                                "value": "sverkxgcrsdarlqyzhcxrxuzthczddic"
+                            }
+                        ]
+                    }
+                },
+                "defaultResponse": "200",
+                "responses": {
+                    "200": {
+                        "expectations": {
+                            "httpStatus": 200
+                        }
+                    },
+                    "400": {
+                        "expectations": {
+                            "httpStatus": 400
+                        }
+                    },
+                    "401": {
+                        "expectations": {
+                            "httpStatus": 401
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "environments": {
+        "default": {
+            "variables": {
+                "bearerAuth": {
+                    "from": "environment",
+                    "name": "SCAN42C_SECURITY_BEARERAUTH",
+                    "required": false,
+                    "default": "secret_to_be_overridden"
+                },
+                "host": {
+                    "from": "environment",
+                    "name": "SCAN42C_HOST",
+                    "required": false,
+                    "default": "http://localhost:5000/popquiz"
+                }
+            }
+        }
+    }
+}
