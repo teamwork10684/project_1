@@ -5,6 +5,7 @@ import Demo from '../views/main/Demo.vue'
 import Home from '../views/main/Home.vue'
 import Room from '../views/main/Room.vue'
 import Speakerroom from '../views/main/Speakerroom.vue'
+import StudentProfile from '../views/main/StudentProfile.vue';
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -65,7 +66,12 @@ const router = createRouter({
       name: 'DirectSpeakerroom',
       component: Speakerroom,
       props: true
-    }
+    },
+    {
+      path: '/student/profile',
+      name: 'StudentProfile',
+      component: StudentProfile,
+    },
   ],
 })
 
