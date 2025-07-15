@@ -1,0 +1,3 @@
+apis:
+  api_doc/popquiz_api.yml:
+    alias: popquiz-api
