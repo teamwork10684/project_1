@@ -17,7 +17,7 @@ socketio.init_app(app, cors_allowed_origins="*")
 OLLAMA_MODEL = 'deepseek-r1:7b'
 
 # SQLAlchemy配置
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:3335335353533m5@localhost:3306/popquiz?charset=utf8mb4'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:7661282cjyCJY@localhost:3306/popquiz?charset=utf8mb4'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db.init_app(app)
@@ -1674,5 +1674,29 @@ def get_question_statistics_for_audience(published_question_id):
         }
     }), 200
 
+@app.route('/popquiz/users', methods=['GET'])
+def get_all_users():
+    """获取所有用户列表，供管理后台使用"""
+    users = User.query.all()
+    result = []
+    for user in users:
+        result.append({
+            'id': user.id,
+            'username': user.username,
+            'created_at': user.created_at.isoformat() if user.created_at else None,
+            'updated_at': user.updated_at.isoformat() if user.updated_at else None
+        })
+    return jsonify({'users': result}), 200
+
+@app.route('/popquiz/users/<int:user_id>', methods=['DELETE'])
+def delete_user(user_id):
+    """删除指定ID的用户，管理后台用"""
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({'message': '用户不存在'}), 404
+    db.session.delete(user)
+    db.session.commit()
+    return jsonify({'message': '删除成功', 'id': user_id}), 200
+
 if __name__ == '__main__':
-    socketio.run(app, host='0.0.0.0', port=5000, debug=True)
+    socketio.run(app, host='0.0.0.0', port=5000, debug=True,allow_unsafe_werkzeug=True)

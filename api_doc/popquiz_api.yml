@@ -681,7 +681,6 @@ paths:
                   message:
                     type: string
                     example: "token无效或已过期"
-
   /invitations/reject:
     post:
       tags:
@@ -3075,3 +3074,166 @@ paths:
                   message:
                     type: string
                     example: "答题失败"
+
+  # cjy添加：删除演讲室API
+  /speech-rooms/{room_id}:
+    delete:
+      tags:
+        - 演讲室管理
+      summary: 删除演讲室  # cjy添加
+      description: |
+        删除指定ID的演讲室，仅限房间创建者或管理员操作。删除后相关成员、题目、讨论等数据一并清理。
+      parameters:
+        - name: room_id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: 演讲室ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - token
+              properties:
+                token:
+                  type: string
+                  description: 用户身份token
+      responses:
+        '200':
+          description: 删除成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  room_id:
+                    type: integer
+                    description: 被删除的演讲室ID
+                  message:
+                    type: string
+                    example: "演讲室删除成功"
+        '400':
+          description: 参数错误
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "参数错误"
+        '401':
+          description: 未授权或token无效
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "token无效或已过期"
+        '403':
+          description: 权限不足
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "只有房间创建者或管理员才能删除演讲室"
+        '404':
+          description: 演讲室不存在
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "演讲室不存在"
+        '500':
+          description: 服务器错误
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "删除失败"
+
+  /users:
+    get:
+      tags:
+        - 用户管理
+      summary: 获取所有用户列表（管理后台用）
+      description: 获取所有用户的基本信息，供管理后台用户管理表格使用。
+      responses:
+        '200':
+          description: 成功返回用户列表
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  users:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                          example: 1
+                        username:
+                          type: string
+                          example: "admin"
+                        created_at:
+                          type: string
+                          format: date-time
+                          example: "2024-01-01T10:00:00Z"
+                        updated_at:
+                          type: string
+                          format: date-time
+                          example: "2024-01-01T10:00:00Z"
+  /users/{user_id}:
+    delete:
+      tags:
+        - 用户管理
+      summary: 删除指定ID的用户（管理后台用）
+      description: 根据用户ID删除用户，管理后台操作。
+      parameters:
+        - in: path
+          name: user_id
+          required: true
+          schema:
+            type: integer
+          description: 用户ID
+      responses:
+        '200':
+          description: 删除成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: 删除成功
+                  id:
+                    type: integer
+                    example: 1
+        '404':
+          description: 用户不存在
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: 用户不存在
