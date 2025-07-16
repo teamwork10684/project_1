@@ -79,22 +79,16 @@
     <div class="quick-actions">
       <a-card title="快捷操作" class="action-card">
         <a-row :gutter="16">
-          <a-col :span="8">
+          <a-col :span="12">
             <a-button type="primary" size="large" block>
               <i class="anticon anticon-plus"></i>
               新增用户
             </a-button>
           </a-col>
-          <a-col :span="8">
-            <a-button size="large" block>
-              <i class="anticon anticon-export"></i>
-              导出数据
-            </a-button>
-          </a-col>
-          <a-col :span="8">
-            <a-button size="large" block>
-              <i class="anticon anticon-setting"></i>
-              系统设置
+          <a-col :span="12">
+            <a-button type="danger" size="large" block>
+              <i class="anticon anticon-delete"></i>
+              删除演讲室
             </a-button>
           </a-col>
         </a-row>
@@ -107,48 +101,31 @@
         <a-tab-pane key="users" tab="用户管理">
           <a-card title="用户信息" :bodyStyle="{padding: '0'}" :headStyle="{padding: '0 24px'}">
             <a-table :columns="userColumns" :data-source="userData" row-key="id" bordered :pagination="{ position: ['bottomCenter'] }" style="width: 100%">
+              <template #bodyCell="{ column, record }">
+                <template v-if="column.key === 'action'">
+                  <a-space>
+                    <a-button type="link">编辑</a-button>
+                    <a-button type="link" danger @click="handleDeleteUser(record.id)">删除</a-button>
+                  </a-space>
+                </template>
+              </template>
+            </a-table>
+          </a-card>
+        </a-tab-pane>
+        <a-tab-pane key="speeches" tab="演讲室管理">
+          <a-card title="演讲室信息" :bodyStyle="{padding: '0'}" :headStyle="{padding: '0 24px'}">
+            <a-table :columns="roomColumns" :data-source="roomData" row-key="id" bordered :pagination="{ position: ['bottomCenter'] }" style="width: 100%">
               <template #bodyCell="{ column }">
                 <template v-if="column.key === 'action'">
                   <a-space>
                     <a-button type="link">编辑</a-button>
                     <a-button type="link" danger>删除</a-button>
+                    <a-button type="link">查看成员</a-button>
+                    <a-button type="link" danger>强制关闭</a-button>
                   </a-space>
                 </template>
               </template>
             </a-table>
-          </a-card>
-        </a-tab-pane>
-        <a-tab-pane key="speeches" tab="演讲管理">
-          <a-card title="演讲信息" :bodyStyle="{padding: '0'}" :headStyle="{padding: '0 24px'}">
-            <a-table :columns="speechColumns" :data-source="speechData" row-key="id" bordered :pagination="{ position: ['bottomCenter'] }" style="width: 100%">
-              <template #bodyCell="{ column }">
-                <template v-if="column.key === 'action'">
-                  <a-space>
-                    <a-button type="link">编辑</a-button>
-                    <a-button type="link" danger>删除</a-button>
-                  </a-space>
-                </template>
-              </template>
-            </a-table>
-          </a-card>
-        </a-tab-pane>
-        <a-tab-pane key="feedback" tab="反馈管理">
-          <a-card title="反馈信息" :bodyStyle="{padding: '0'}" :headStyle="{padding: '0 24px'}">
-            <a-table :columns="feedbackColumns" :data-source="feedbackData" row-key="id" bordered :pagination="{ position: ['bottomCenter'] }" style="width: 100%">
-              <template #bodyCell="{ column }">
-                <template v-if="column.key === 'action'">
-                  <a-space>
-                    <a-button type="link">查看</a-button>
-                    <a-button type="link" danger>删除</a-button>
-                  </a-space>
-                </template>
-              </template>
-            </a-table>
-          </a-card>
-        </a-tab-pane>
-        <a-tab-pane key="settings" tab="系统设置">
-          <a-card title="系统设置" :bodyStyle="{padding: '24px'}" :headStyle="{padding: '0 24px'}">
-            <div>这里可以放置系统相关的设置项。</div>
           </a-card>
         </a-tab-pane>
       </a-tabs>
@@ -158,7 +135,9 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
+import api from '@/api'
+import { message, Modal } from 'ant-design-vue'
 
 const activeTab = ref('users')
 
@@ -174,39 +153,52 @@ const stats = ref({
 const userColumns = [
   { title: 'ID', dataIndex: 'id', key: 'id' },
   { title: '用户名', dataIndex: 'username', key: 'username' },
-  { title: '邮箱', dataIndex: 'email', key: 'email' },
-  { title: '角色', dataIndex: 'role', key: 'role' },
+  { title: '注册时间', dataIndex: 'created_at', key: 'created_at' },
+  { title: '更新时间', dataIndex: 'updated_at', key: 'updated_at' },
   { title: '操作', key: 'action' }
 ]
-const userData = [
-  { id: 1, username: 'admin', email: 'admin@example.com', role: '管理员' },
-  { id: 2, username: 'user1', email: 'user1@example.com', role: '普通用户' }
-]
+const userData = ref([])
+const fetchUsers = async () => {
+  try {
+    const res = await api.get('/users')
+    userData.value = res.data.users
+  } catch (e) {
+    message.error('获取用户列表失败')
+  }
+}
+onMounted(fetchUsers)
 
-// 演讲信息表头
-const speechColumns = [
+const handleDeleteUser = (id) => {
+  Modal.confirm({
+    title: '确认删除该用户？',
+    content: '删除后不可恢复，确定要删除吗？',
+    okText: '删除',
+    okType: 'danger',
+    cancelText: '取消',
+    async onOk() {
+      try {
+        await api.delete(`/users/${id}`)
+        message.success('删除成功')
+        fetchUsers()
+      } catch (e) {
+        message.error(e?.response?.data?.message || '删除失败')
+      }
+    }
+  })
+}
+
+// 演讲室信息表头
+const roomColumns = [
   { title: 'ID', dataIndex: 'id', key: 'id' },
-  { title: '演讲主题', dataIndex: 'topic', key: 'topic' },
+  { title: '演讲室名称', dataIndex: 'name', key: 'name' },
   { title: '创建者', dataIndex: 'creator', key: 'creator' },
   { title: '状态', dataIndex: 'status', key: 'status' },
+  { title: '人数', dataIndex: 'members', key: 'members' },
   { title: '操作', key: 'action' }
 ]
-const speechData = [
-  { id: 101, topic: 'AI与未来', creator: 'admin', status: '进行中' },
-  { id: 102, topic: 'Vue3实战', creator: 'user1', status: '已结束' }
-]
-
-// 反馈信息表头
-const feedbackColumns = [
-  { title: 'ID', dataIndex: 'id', key: 'id' },
-  { title: '反馈内容', dataIndex: 'content', key: 'content' },
-  { title: '用户', dataIndex: 'user', key: 'user' },
-  { title: '时间', dataIndex: 'time', key: 'time' },
-  { title: '操作', key: 'action' }
-]
-const feedbackData = [
-  { id: 1, content: '系统很棒！', user: 'user1', time: '2024-06-01 10:00' },
-  { id: 2, content: '希望增加更多功能。', user: 'user2', time: '2024-06-02 14:30' }
+const roomData = [
+  { id: 201, name: 'AI前沿', creator: 'admin', status: '进行中', members: 12 },
+  { id: 202, name: 'Vue3实战', creator: 'user1', status: '已结束', members: 8 }
 ]
 </script>
 
