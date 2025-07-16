@@ -277,6 +277,7 @@ const formatDate = (dateString) => {
 .question-publish-panel-outer {
   width: 100%;
   height: 100%;
+  min-width: 0;
   overflow: hidden;
   position: relative;
   background: #fafafa;
@@ -286,6 +287,7 @@ const formatDate = (dateString) => {
 .question-publish-panel-slider {
   display: flex;
   width: 300%;
+  min-width: 0;
   height: 100%;
   transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
   will-change: transform;
