@@ -1847,7 +1847,5 @@ def get_file_url():
     from flask import request as flask_request
     url = flask_request.host_url.rstrip('/') + url
     return jsonify({'url': url}), 200
-
->>>>>>> Stashed changes
 if __name__ == '__main__':
     socketio.run(app, host='0.0.0.0', port=5000, debug=True)
