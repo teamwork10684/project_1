@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 import ollama
 from flask_cors import CORS
 from module.aifilter.aifilter import filter_markdown
@@ -9,6 +9,8 @@ from datetime import datetime
 from sqlalchemy import and_
 from sqlalchemy import text
 from websocket_handler import socketio
+from models.uploaded_file import UploadedFile
+import os
 
 app = Flask(__name__)
 CORS(app, supports_credentials=True)
@@ -21,6 +23,8 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:3335335353533m5@lo
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db.init_app(app)
+# 文件上传存放路径
+UPLOAD_ROOT = 'C:/popquiz_file'
 
 @app.route('/popquiz/getQuestionByTextOllamaDemo', methods=['POST'])
 def get_question_by_text_demo():
@@ -1674,5 +1678,176 @@ def get_question_statistics_for_audience(published_question_id):
         }
     }), 200
 
+<<<<<<< Updated upstream
+=======
+@app.route('/popquiz/users', methods=['GET'])
+def get_all_users():
+    """获取所有用户列表，供管理后台使用"""
+    users = User.query.all()
+    result = []
+    for user in users:
+        result.append({
+            'id': user.id,
+            'username': user.username,
+            'created_at': user.created_at.isoformat() if user.created_at else None,
+            'updated_at': user.updated_at.isoformat() if user.updated_at else None
+        })
+    return jsonify({'users': result}), 200
+
+@app.route('/popquiz/users/<int:user_id>', methods=['DELETE'])
+def delete_user(user_id):
+    """删除指定ID的用户，管理后台用"""
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({'message': '用户不存在'}), 404
+    db.session.delete(user)
+    db.session.commit()
+    return jsonify({'message': '删除成功', 'id': user_id}), 200
+
+# 文件上传接口
+@app.route('/popquiz/uploaded-files', methods=['POST'])
+def upload_file():
+    token = request.form.get('token', '').strip()
+    room_id = request.form.get('room_id', type=int)
+    file = request.files.get('file')
+    print(token, room_id, file)
+    if not token or not room_id or not file:
+        return jsonify({'message': '参数错误'}), 400
+    # 校验token
+    session = UserSession.query.filter_by(session_token=token, is_expired=False).first()
+    if not session:
+        return jsonify({'message': 'token无效或已过期'}), 401
+    uploader_id = session.user_id
+    # 校验用户是否为该演讲室的创建者或演讲者
+    room = SpeechRoom.query.get(room_id)
+    if not room:
+        return jsonify({'message': '演讲室不存在'}), 404
+    if room.creator_id != uploader_id and room.speaker_id != uploader_id:
+        return jsonify({'message': '无权限上传文件'}), 403
+    # 检查文件类型
+    allowed_ext = {'pdf', 'ppt', 'pptx'}
+    filename = file.filename
+    ext = filename.rsplit('.', 1)[-1].lower() if '.' in filename else ''
+    if ext not in allowed_ext:
+        return jsonify({'message': '文件类型不支持'}), 415
+    # 检查文件大小（如有需要，可限制）
+    max_size = 50 * 1024 * 1024  # 50MB
+    file.seek(0, os.SEEK_END)
+    size = file.tell()
+    file.seek(0)
+    if size > max_size:
+        return jsonify({'message': '文件大小超出限制'}), 413
+    # 保存文件
+    upload_dir = os.path.join(UPLOAD_ROOT, str(room_id))
+    os.makedirs(upload_dir, exist_ok=True)
+    save_path = os.path.join(upload_dir, filename)
+    file.save(save_path)
+    # 入库
+    uploaded = UploadedFile(
+        room_id=room_id,
+        filename=filename,
+        file_path=save_path,
+        file_size=size,
+        file_type=file.mimetype,
+        file_extension=ext,
+        uploader_id=uploader_id,
+        status=1
+    )
+    db.session.add(uploaded)
+    db.session.commit()
+    return jsonify({
+        'id': uploaded.id,
+        'room_id': uploaded.room_id,
+        'filename': uploaded.filename,
+        'file_path': uploaded.file_path,
+        'file_size': uploaded.file_size,
+        'file_type': uploaded.file_type,
+        'file_extension': uploaded.file_extension,
+        'uploader_id': uploaded.uploader_id,
+        'status': uploaded.status,
+        'created_at': uploaded.created_at.isoformat() if uploaded.created_at else None
+    }), 201
+
+# 文件删除接口
+@app.route('/popquiz/uploaded-files/<int:file_id>', methods=['DELETE'])
+def delete_file(file_id):
+    data = request.get_json() or {}
+    token = data.get('token', '').strip()
+    if not token:
+        return jsonify({'message': '参数错误'}), 400
+    session = UserSession.query.filter_by(session_token=token, is_expired=False).first()
+    if not session:
+        return jsonify({'message': 'token无效或已过期'}), 401
+    user_id = session.user_id
+    file_obj = UploadedFile.query.get(file_id)
+    if not file_obj or file_obj.status == 0:
+        return jsonify({'message': '文件不存在'}), 404
+    if file_obj.uploader_id != user_id:
+        return jsonify({'message': '无权限删除该文件'}), 403
+    # 逻辑删除
+    file_obj.status = 0
+    db.session.commit()
+    return jsonify({'id': file_id, 'message': '文件删除成功'}), 200
+
+@app.route('/popquiz/uploaded-files/list', methods=['POST'])
+def list_uploaded_files():
+    data = request.get_json() or {}
+    room_id = data.get('room_id')
+    token = data.get('token', '').strip()
+    if not room_id or not token:
+        return jsonify({'message': '参数错误'}), 400
+    session = UserSession.query.filter_by(session_token=token, is_expired=False).first()
+    if not session:
+        return jsonify({'message': 'token无效或已过期'}), 401
+    user_id = session.user_id
+    room = SpeechRoom.query.get(room_id)
+    if not room:
+        return jsonify({'message': '房间不存在'}), 404
+    # 只有房间的创建者或演讲者可查看
+    if room.creator_id != user_id and room.speaker_id != user_id:
+        return jsonify({'message': '无权限查看该房间文件'}), 403
+    files = UploadedFile.query.filter_by(room_id=room_id, status=1).all()
+    result = []
+    for f in files:
+        result.append({
+            'id': f.id,
+            'filename': f.filename,
+            'file_type': f.file_type,
+            'file_extension': f.file_extension,
+            'file_size': f.file_size,
+            'uploader_id': f.uploader_id,
+            'status': f.status,
+            'created_at': f.created_at.isoformat() if f.created_at else None
+        })
+    return jsonify({'files': result}), 200
+
+@app.route('/popquiz/static-files/<int:room_id>/<path:filename>')
+def serve_uploaded_file(room_id, filename):
+    """静态访问上传文件"""
+    upload_dir = os.path.join(UPLOAD_ROOT, str(room_id))
+    file_path = os.path.join(upload_dir, filename)
+    if not os.path.isfile(file_path):
+        return jsonify({'message': '文件不存在'}), 404
+    return send_from_directory(upload_dir, filename)
+
+@app.route('/popquiz/get-file-url', methods=['POST'])
+def get_file_url():
+    data = request.get_json() or {}
+    room_id = data.get('room_id')
+    file_id = data.get('file_id')
+    if not room_id or not file_id:
+        return jsonify({'message': '参数错误'}), 400
+    file_obj = UploadedFile.query.get(file_id)
+    if not file_obj or file_obj.status != 1:
+        return jsonify({'message': '文件不存在'}), 404
+    if file_obj.room_id != int(room_id):
+        return jsonify({'message': '文件与房间不匹配'}), 400
+    filename = file_obj.filename
+    url = f"/popquiz/static-files/{room_id}/{filename}"
+    from flask import request as flask_request
+    url = flask_request.host_url.rstrip('/') + url
+    return jsonify({'url': url}), 200
+
+>>>>>>> Stashed changes
 if __name__ == '__main__':
     socketio.run(app, host='0.0.0.0', port=5000, debug=True)

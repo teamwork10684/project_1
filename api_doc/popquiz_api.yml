@@ -3074,7 +3074,7 @@ paths:
                 properties:
                   message:
                     type: string
-                    example: "答题失败"                    example: "答题失败"
+                    example: "答题失败"
 
   # cjy添加：删除演讲室API
   /speech-rooms/{room_id}:
