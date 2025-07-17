@@ -64,6 +64,10 @@ export const userAPI = {
         const queryParams = new URLSearchParams({ token, ...params });
         return api.get(`/user/created-rooms?${queryParams}`);
     },
+    // 新增用户（cjy新增）
+    addUser: (data) => api.post('/users', data),
+    // 编辑用户（cjy新增）
+    editUser: (userId, data) => api.put(`/users/${userId}`, data),
 };
 
 // 演讲室管理API

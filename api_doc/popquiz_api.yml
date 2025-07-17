@@ -3170,7 +3170,7 @@ paths:
   /users:
     get:
       tags:
-        - 用户管理
+        - 用户管理  # cjy修改
       summary: 获取所有用户列表（管理后台用）
       description: 获取所有用户的基本信息，供管理后台用户管理表格使用。
       responses:
@@ -3203,7 +3203,7 @@ paths:
   /users/{user_id}:
     delete:
       tags:
-        - 用户管理
+        - 用户管理  # cjy修改
       summary: 删除指定ID的用户（管理后台用）
       description: 根据用户ID删除用户，管理后台操作。
       parameters:
@@ -3237,3 +3237,108 @@ paths:
                   message:
                     type: string
                     example: 用户不存在
+  /users:
+    post:
+      tags:
+        - 用户管理
+      summary: 新增用户  # cjy修改
+      description: 管理后台新增用户（cjy修改）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - username
+                - password
+              properties:
+                username:
+                  type: string
+                  example: "newuser"
+                password:
+                  type: string
+                  example: "123456"
+      responses:
+        '201':
+          description: 新增成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  message:
+                    type: string
+                    example: "新增成功"
+        '400':
+          description: 参数错误或用户名已存在
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "用户名已存在"
+
+  /users/{user_id}:
+    put:
+      tags:
+        - 用户管理
+      summary: 编辑用户  # cjy修改
+      description: 管理后台编辑用户（cjy修改）
+      parameters:
+        - in: path
+          name: user_id
+          required: true
+          schema:
+            type: integer
+          description: 用户ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                  example: "newname"
+                password:
+                  type: string
+                  example: "newpassword"
+      responses:
+        '200':
+          description: 编辑成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  message:
+                    type: string
+                    example: "编辑成功"
+        '400':
+          description: 参数错误或用户名已存在
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "用户名已存在"
+        '404':
+          description: 用户不存在
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "用户不存在"

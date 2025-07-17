@@ -1698,5 +1698,51 @@ def delete_user(user_id):
     db.session.commit()
     return jsonify({'message': '删除成功', 'id': user_id}), 200
 
+# 新增用户接口（cjy修改）
+@app.route('/popquiz/users', methods=['POST'])
+def add_user():
+    """
+    管理后台新增用户（cjy修改）
+    请求参数：username, password
+    """
+    data = request.get_json()
+    username = data.get('username', '').strip()
+    password = data.get('password', '').strip()
+    if not username or not password:
+        return jsonify({'message': '参数错误'}), 400
+    # 检查用户名是否已存在
+    if User.query.filter_by(username=username).first():
+        return jsonify({'message': '用户名已存在'}), 400
+    # 创建新用户
+    from werkzeug.security import generate_password_hash
+    user = User(username=username, password=generate_password_hash(password))
+    db.session.add(user)
+    db.session.commit()
+    return jsonify({'id': user.id, 'message': '新增成功'}), 201
+
+# 编辑用户接口（cjy修改）
+@app.route('/popquiz/users/<int:user_id>', methods=['PUT'])
+def edit_user(user_id):
+    """
+    管理后台编辑用户（cjy修改）
+    请求参数：username(可选), password(可选)
+    """
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({'message': '用户不存在'}), 404
+    data = request.get_json()
+    username = data.get('username', '').strip()
+    password = data.get('password', '').strip()
+    # 检查用户名是否已存在（如果有修改）
+    if username and username != user.username:
+        if User.query.filter_by(username=username).first():
+            return jsonify({'message': '用户名已存在'}), 400
+        user.username = username
+    if password:
+        from werkzeug.security import generate_password_hash
+        user.password = generate_password_hash(password)
+    db.session.commit()
+    return jsonify({'id': user.id, 'message': '编辑成功'}), 200
+
 if __name__ == '__main__':
     socketio.run(app, host='0.0.0.0', port=5000, debug=True,allow_unsafe_werkzeug=True)

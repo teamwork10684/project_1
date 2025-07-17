@@ -80,7 +80,7 @@
       <a-card title="快捷操作" class="action-card">
         <a-row :gutter="16">
           <a-col :span="12">
-            <a-button type="primary" size="large" block>
+            <a-button type="primary" size="large" block @click="openAddUserModal">
               <i class="anticon anticon-plus"></i>
               新增用户
             </a-button>
@@ -104,7 +104,7 @@
               <template #bodyCell="{ column, record }">
                 <template v-if="column.key === 'action'">
                   <a-space>
-                    <a-button type="link">编辑</a-button>
+                    <a-button type="link" @click="openEditUserModal(record)">编辑</a-button>
                     <a-button type="link" danger @click="handleDeleteUser(record.id)">删除</a-button>
                   </a-space>
                 </template>
@@ -130,14 +130,25 @@
         </a-tab-pane>
       </a-tabs>
     </div>
+    <!-- 用户新增/编辑弹窗 -->
+    <a-modal v-model:open="userModalVisible" :title="userModalType === 'add' ? '新增用户' : '编辑用户'" :confirm-loading="userModalLoading" @ok="handleUserModalOk" @cancel="handleUserModalCancel" destroyOnClose>
+      <a-form ref="userFormRef" :model="userForm" :label-col="{span: 5}" :wrapper-col="{span: 19}" :rules="{ username: [{ required: true, message: '请输入用户名' }], password: [{ required: userModalType === 'add', message: '请输入密码' }] }">
+        <a-form-item label="用户名" name="username">
+          <a-input v-model="userForm.username" autocomplete="off" />
+        </a-form-item>
+        <a-form-item label="密码" name="password">
+          <a-input v-model="userForm.password" type="password" autocomplete="off" :placeholder="userModalType === 'add' ? '请输入密码' : '如需修改请填写新密码'" />
+        </a-form-item>
+      </a-form>
+    </a-modal>
     </div> <!-- admin-main-wrapper -->
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import api from '@/api'
-import { message, Modal } from 'ant-design-vue'
+import api, { userAPI } from '@/api'
+import { message, Modal, Form, Input } from 'ant-design-vue'
 
 const activeTab = ref('users')
 
@@ -185,6 +196,48 @@ const handleDeleteUser = (id) => {
       }
     }
   })
+}
+
+// 新增/编辑用户弹窗相关
+const userModalVisible = ref(false)
+const userModalType = ref('add') // 'add' or 'edit'
+const userModalLoading = ref(false)
+const userForm = ref({ id: null, username: '', password: '' })
+const userFormRef = ref()
+
+const openAddUserModal = () => {
+  userModalType.value = 'add'
+  userForm.value = { id: null, username: '', password: '' }
+  userModalVisible.value = true
+  console.log("点击新增用户按钮",userModalVisible.value)
+}
+// 修改 openEditUserModal 使弹窗表单默认填充用户名和密码
+const openEditUserModal = (record) => {
+  userModalType.value = 'edit'
+  userForm.value = { id: record.id, username: record.username, password: record.password || '' }
+  userModalVisible.value = true
+}
+const handleUserModalOk = async () => {
+  await userFormRef.value.validate()
+  userModalLoading.value = true
+  try {
+    if (userModalType.value === 'add') {
+      await userAPI.addUser({ username: userForm.value.username, password: userForm.value.password })
+      message.success('新增成功')
+    } else {
+      await userAPI.editUser(userForm.value.id, { username: userForm.value.username, password: userForm.value.password })
+      message.success('编辑成功')
+    }
+    userModalVisible.value = false
+    fetchUsers()
+  } catch (e) {
+    message.error(e?.response?.data?.message || (userModalType.value === 'add' ? '新增失败' : '编辑失败'))
+  } finally {
+    userModalLoading.value = false
+  }
+}
+const handleUserModalCancel = () => {
+  userModalVisible.value = false
 }
 
 // 演讲室信息表头
