@@ -80,7 +80,7 @@
       <a-card title="快捷操作" class="action-card">
         <a-row :gutter="16">
           <a-col :span="12">
-            <a-button type="primary" size="large" block>
+            <a-button type="primary" size="large" block @click="showAddUserModal">
               <i class="anticon anticon-plus"></i>
               新增用户
             </a-button>
@@ -95,6 +95,21 @@
       </a-card>
     </div>
 
+    <!-- 新增用户模态窗 -->
+    <a-modal v-model:open="addUserModalVisible" title="新增用户" :confirm-loading="addUserLoading" @ok="handleAddUserOk" @cancel="handleAddUserCancel" destroyOnClose>
+      <a-form ref="addUserFormRef" :model="addUserForm" :rules="addUserRules" :label-col="{span: 5}" :wrapper-col="{span: 19}">
+        <a-form-item label="用户名" name="username">
+          <a-input v-model="addUserForm.username" autocomplete="off" />
+        </a-form-item>
+        <a-form-item label="密码" name="password">
+          <a-input v-model="addUserForm.password" type="password" autocomplete="off" />
+        </a-form-item>
+        <a-form-item label="确认密码" name="confirmPassword">
+          <a-input v-model="addUserForm.confirmPassword" type="password" autocomplete="off" />
+        </a-form-item>
+      </a-form>
+    </a-modal>
+
     <!-- 管理入口Tab区 -->
     <div class="admin-tabs-section">
       <a-tabs v-model="activeTab" class="admin-tabs">
@@ -104,7 +119,7 @@
               <template #bodyCell="{ column, record }">
                 <template v-if="column.key === 'action'">
                   <a-space>
-                    <a-button type="link">编辑</a-button>
+                    <a-button type="link" @click="openEditUserModal(record)">编辑</a-button>
                     <a-button type="link" danger @click="handleDeleteUser(record.id)">删除</a-button>
                   </a-space>
                 </template>
@@ -130,14 +145,29 @@
         </a-tab-pane>
       </a-tabs>
     </div>
+    <!-- 用户新增/编辑弹窗 -->
+    <a-modal v-model:open="userModalVisible" :title="userModalType === 'add' ? '新增用户' : '编辑用户'" :confirm-loading="userModalLoading" @ok="handleUserModalOk" @cancel="handleUserModalCancel" destroyOnClose>
+      <a-form ref="userFormRef" :model="userForm" :label-col="{span: 5}" :wrapper-col="{span: 19}"
+        :rules="userModalType === 'add' ? { username: [{ required: true, message: '请输入用户名' }], password: [{ required: true, message: '请输入密码' }], confirmPassword: [{ required: true, message: '请确认密码' }, { validator: confirmPasswordValidator, trigger: 'blur' }] } : { username: [{ required: true, message: '请输入用户名' }], password: [{ required: true, message: '请输入新密码' }], confirmPassword: [{ required: true, message: '请确认新密码' }, { validator: confirmPasswordValidator, trigger: 'blur' }] }">
+        <a-form-item label="用户名" name="username">
+          <a-input v-model="userForm.username" autocomplete="off" />
+        </a-form-item>
+        <a-form-item label="密码" :name="'password'">
+          <a-input v-model="userForm.password" type="password" autocomplete="off" :placeholder="userModalType === 'add' ? '请输入密码' : '请输入新密码'" />
+        </a-form-item>
+        <a-form-item label="确认密码" :name="'confirmPassword'">
+          <a-input v-model="userForm.confirmPassword" type="password" autocomplete="off" :placeholder="userModalType === 'add' ? '请再次输入密码' : '请再次输入新密码'" />
+        </a-form-item>
+      </a-form>
+    </a-modal>
     </div> <!-- admin-main-wrapper -->
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import api from '@/api'
-import { message, Modal } from 'ant-design-vue'
+import api, { userAPI } from '@/api'
+import { message, Modal, Form, Input } from 'ant-design-vue'
 
 const activeTab = ref('users')
 
@@ -185,6 +215,118 @@ const handleDeleteUser = (id) => {
       }
     }
   })
+}
+
+// 新增/编辑用户弹窗相关
+const userModalVisible = ref(false)
+const userModalType = ref('add') // 'add' or 'edit'
+const userModalLoading = ref(false)
+const userForm = ref({ id: null, username: '', password: '', confirmPassword: '' })
+const userFormRef = ref()
+
+const openAddUserModal = () => {
+  userModalType.value = 'add'
+  userForm.value = { id: null, username: '', password: '', confirmPassword: '' }
+  userModalVisible.value = true
+}
+const openEditUserModal = (record) => {
+  userModalType.value = 'edit'
+  userForm.value = { id: record.id, username: record.username, password: '', confirmPassword: '' }
+  userModalVisible.value = true
+}
+const handleUserModalOk = async () => {
+  try {
+    await userFormRef.value.validate();
+  } catch (e) {
+    // 校验未通过，直接返回
+    return;
+  }
+  if (userForm.value.password !== userForm.value.confirmPassword) {
+    message.error('两次输入的密码不一致')
+    return
+  }
+  userModalLoading.value = true
+  try {
+    if (userModalType.value === 'add') {
+      await userAPI.addUser({ username: userForm.value.username, password: userForm.value.password })
+      message.success('新增成功')
+    } else {
+      // 编辑时允许用户名和密码都可修改，ID为主键
+      await userAPI.editUser(userForm.value.id, { username: userForm.value.username, password: userForm.value.password })
+      message.success('编辑成功')
+    }
+    userModalVisible.value = false
+    fetchUsers()
+  } catch (e) {
+    message.error(e?.response?.data?.message || (userModalType.value === 'add' ? '新增失败' : '编辑失败'))
+  } finally {
+    userModalLoading.value = false
+  }
+}
+const handleUserModalCancel = () => {
+  userModalVisible.value = false
+}
+
+// 密码确认校验器（Promise风格，兼容Ant Design Vue 3.x）
+const confirmPasswordValidator = (rule, value) => {
+  return new Promise((resolve, reject) => {
+    if (value === userForm.value.password) {
+      resolve();
+    } else {
+      reject('两次输入的密码不一致');
+    }
+  });
+};
+
+// 新增用户弹窗相关（重命名变量和方法，避免与编辑用户冲突）
+const addUserModalVisible = ref(false)
+const addUserLoading = ref(false)
+const addUserForm = ref({ username: '', password: '', confirmPassword: '' })
+const addUserFormRef = ref()
+
+const addUserRules = {
+  username: [
+    { required: true, message: '请输入用户名' }
+  ],
+  password: [
+    { required: true, message: '请输入密码' }
+  ],
+  confirmPassword: [
+    { required: true, message: '请确认密码' },
+    { validator: (rule, value) => {
+      if (value === addUserForm.value.password) {
+        return Promise.resolve()
+      } else {
+        return Promise.reject('两次输入的密码不一致')
+      }
+    }, trigger: 'blur' }
+  ]
+}
+
+const showAddUserModal = () => {
+  addUserForm.value = { username: '', password: '', confirmPassword: '' }
+  addUserModalVisible.value = true
+}
+const handleAddUserOk = async () => {
+  try {
+    await addUserFormRef.value.validate()
+  } catch (e) {
+    return
+  }
+  addUserLoading.value = true
+  try {
+    await userAPI.addUser({ username: addUserForm.value.username, password: addUserForm.value.password })
+    message.success('新增成功')
+    addUserModalVisible.value = false
+    fetchUsers()
+  } catch (e) {
+    message.error(e?.response?.data?.message || '新增失败')
+  } finally {
+    addUserLoading.value = false
+  }
+}
+const handleAddUserCancel = () => {
+  addUserModalVisible.value = false
 }
 
 // 演讲室信息表头
