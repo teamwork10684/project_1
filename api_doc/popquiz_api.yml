@@ -681,7 +681,6 @@ paths:
                   message:
                     type: string
                     example: "token无效或已过期"
-
   /invitations/reject:
     post:
       tags:
@@ -3171,7 +3170,7 @@ paths:
   /users:
     get:
       tags:
-        - 用户管理
+        - 用户管理  # cjy修改
       summary: 获取所有用户列表（管理后台用）
       description: 获取所有用户的基本信息，供管理后台用户管理表格使用。
       responses:
@@ -3201,43 +3200,7 @@ paths:
                           type: string
                           format: date-time
                           example: "2024-01-01T10:00:00Z"
-  /users/{user_id}:
-    delete:
-      tags:
-        - 用户管理
-      summary: 删除指定ID的用户（管理后台用）
-      description: 根据用户ID删除用户，管理后台操作。
-      parameters:
-        - in: path
-          name: user_id
-          required: true
-          schema:
-            type: integer
-          description: 用户ID
-      responses:
-        '200':
-          description: 删除成功
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                    example: 删除成功
-                  id:
-                    type: integer
-                    example: 1
-        '404':
-          description: 用户不存在
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                    example: 用户不存在
+ 
 
   /uploaded-files:
     post:
@@ -3615,4 +3578,3 @@ paths:
                   message:
                     type: string
                     example: 文件不存在
-
