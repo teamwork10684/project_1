@@ -144,6 +144,18 @@ export const discussionAPI = {
   getQuestionDiscussions: (questionId, token) => api.get(`/questions/${questionId}/discussions?token=${token}`),
 };
 
+// 文件管理API
+export const fileAPI = {
+  // 上传文件
+  uploadFile: (formData) => api.post('/uploaded-files', formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
+  // 获取房间文件列表
+  getFileList: (room_id, token) => api.post('/uploaded-files/list', { room_id, token }),
+  // 删除文件
+  deleteFile: (file_id, token) => api.delete(`/uploaded-files/${file_id}`, { data: { token } }),
+  // 获取文件url
+  getFileUrl: (room_id, file_id) => api.post('/get-file-url', { room_id, file_id }),
+};
+
 // 工具函数
 export const checkTokenExpired = () => {
   const token = localStorage.getItem('token');
