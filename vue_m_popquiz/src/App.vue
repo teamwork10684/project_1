@@ -3,7 +3,7 @@
 </template>
 
 <script setup>
-// 空脚本，路由入口
+// 仅保留路由入口
 </script>
 
 <style>
