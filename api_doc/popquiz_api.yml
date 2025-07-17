@@ -3200,19 +3200,163 @@ paths:
                           type: string
                           format: date-time
                           example: "2024-01-01T10:00:00Z"
-  /users/{user_id}:
+ 
+
+  /uploaded-files:
+    post:
+      tags:
+        - 文件管理
+      summary: 上传文件
+      description: 上传PDF、PPT、PPTX等文件
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - room_id
+                - file
+                - token
+              properties:
+                room_id:
+                  type: integer
+                  description: 所属演讲室ID
+                  example: 1
+                file:
+                  type: string
+                  format: binary
+                  description: 上传的文件
+                token:
+                  type: string
+                  description: 用户身份token
+                  example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+      responses:
+        '201':
+          description: 上传成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                    example: 1
+                  room_id:
+                    type: integer
+                    example: 1
+                  filename:
+                    type: string
+                    example: "example.pdf"
+                  file_path:
+                    type: string
+                    example: "/uploads/2024/05/01/example.pdf"
+                  file_size:
+                    type: integer
+                    example: 123456
+                  file_type:
+                    type: string
+                    example: "application/pdf"
+                  file_extension:
+                    type: string
+                    example: "pdf"
+                  uploader_id:
+                    type: integer
+                    example: 2
+                  status:
+                    type: integer
+                    example: 1
+                  created_at:
+                    type: string
+                    format: date-time
+                    example: "2024-05-01T10:00:00Z"
+        '400':
+          description: 参数错误或文件类型不支持
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "文件类型不支持"
+        '401':
+          description: 未授权或token无效
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "token无效或已过期"
+        '403':
+          description: 无权限上传
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "无权限上传文件"
+        '413':
+          description: 文件过大
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "文件大小超出限制"
+        '415':
+          description: 不支持的媒体类型
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "不支持的文件类型"
+        '500':
+          description: 服务器内部错误
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "文件上传失败"
+
+  /uploaded-files/{file_id}:
     delete:
       tags:
-        - 用户管理  # cjy修改
-      summary: 删除指定ID的用户（管理后台用）
-      description: 根据用户ID删除用户，管理后台操作。
+        - 文件管理
+      summary: 删除文件
+      description: 删除指定ID的文件（逻辑删除，status=0）
       parameters:
-        - in: path
-          name: user_id
+        - name: file_id
+          in: path
           required: true
           schema:
             type: integer
-          description: 用户ID
+          description: 文件ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - token
+              properties:
+                token:
+                  type: string
+                  description: 用户身份token
+                  example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
       responses:
         '200':
           description: 删除成功
@@ -3221,14 +3365,14 @@ paths:
               schema:
                 type: object
                 properties:
-                  message:
-                    type: string
-                    example: 删除成功
                   id:
                     type: integer
                     example: 1
-        '404':
-          description: 用户不存在
+                  message:
+                    type: string
+                    example: "文件删除成功"
+        '400':
+          description: 参数错误或无权限
           content:
             application/json:
               schema:
@@ -3236,13 +3380,24 @@ paths:
                 properties:
                   message:
                     type: string
-                    example: 用户不存在
-  /users:
+                    example: "无权限删除该文件"
+        '404':
+          description: 文件不存在
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "文件不存在"
+
+  /uploaded-files/list:
     post:
       tags:
-        - 用户管理
-      summary: 新增用户  # cjy修改
-      description: 管理后台新增用户（cjy修改）
+        - 文件管理
+      summary: 获取房间所有文件信息
+      description: 获取指定房间的所有文件信息
       requestBody:
         required: true
         content:
@@ -3250,30 +3405,57 @@ paths:
             schema:
               type: object
               required:
-                - username
-                - password
+                - room_id
+                - token
               properties:
-                username:
+                room_id:
+                  type: integer
+                  description: 房间ID
+                  example: 1
+                token:
                   type: string
-                  example: "newuser"
-                password:
-                  type: string
-                  example: "123456"
+                  description: 用户身份token
+                  example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
       responses:
-        '201':
-          description: 新增成功
+        '200':
+          description: 获取成功
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  id:
-                    type: integer
-                  message:
-                    type: string
-                    example: "新增成功"
+                  files:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                          example: 1
+                        filename:
+                          type: string
+                          example: "example.pdf"
+                        file_type:
+                          type: string
+                          example: "application/pdf"
+                        file_extension:
+                          type: string
+                          example: "pdf"
+                        file_size:
+                          type: integer
+                          example: 123456
+                        uploader_id:
+                          type: integer
+                          example: 2
+                        status:
+                          type: integer
+                          example: 1
+                        created_at:
+                          type: string
+                          format: date-time
+                          example: "2024-05-01T10:00:00Z"
         '400':
-          description: 参数错误或用户名已存在
+          description: 参数错误
           content:
             application/json:
               schema:
@@ -3281,59 +3463,113 @@ paths:
                 properties:
                   message:
                     type: string
-                    example: "用户名已存在"
+                    example: "参数错误"
+        '401':
+          description: 未授权或token无效
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "token无效或已过期"
+        '403':
+          description: 无权限
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "无权限查看该房间文件"
+        '404':
+          description: 房间不存在
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "房间不存在"
 
-  /users/{user_id}:
-    put:
+  /static-files/{room_id}/{filename}:
+    get:
       tags:
-        - 用户管理
-      summary: 编辑用户  # cjy修改
-      description: 管理后台编辑用户（cjy修改）
+        - 文件管理
+      summary: 访问静态上传文件
+      description: 通过room_id和文件名访问上传的pdf/ppt/pptx等文件，返回文件内容（Content-Type自动识别）。
       parameters:
-        - in: path
-          name: user_id
+        - name: room_id
+          in: path
           required: true
           schema:
             type: integer
-          description: 用户ID
+          description: 所属演讲室ID
+        - name: filename
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 文件名（含扩展名）
+      responses:
+        '200':
+          description: 成功返回文件内容
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: 文件不存在
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: 文件不存在
+
+  /get-file-url:
+    post:
+      tags:
+        - 文件管理
+      summary: 获取文件URL
+      description: 根据room_id和file_id获取可访问的静态文件url，前端可直接用于文件预览。
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
+              required:
+                - room_id
+                - file_id
               properties:
-                username:
-                  type: string
-                  example: "newname"
-                password:
-                  type: string
-                  example: "newpassword"
+                room_id:
+                  type: integer
+                  description: 所属演讲室ID
+                  example: 1
+                file_id:
+                  type: integer
+                  description: 文件ID
+                  example: 123
       responses:
         '200':
-          description: 编辑成功
+          description: 成功返回文件url
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  id:
-                    type: integer
-                  message:
+                  url:
                     type: string
-                    example: "编辑成功"
-        '400':
-          description: 参数错误或用户名已存在
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                    example: "用户名已存在"
+                    example: "http://localhost:5000/popquiz/static-files/1/example.pdf"
         '404':
-          description: 用户不存在
+          description: 文件不存在
           content:
             application/json:
               schema:
@@ -3341,4 +3577,4 @@ paths:
                 properties:
                   message:
                     type: string
-                    example: "用户不存在"
+                    example: 文件不存在

@@ -12,3 +12,4 @@ from .answer import QuestionAnswer
 from .speech_room_online import SpeechRoomOnline
 from .discussion import Discussion
 from .published_question import PublishedQuestion 
+from .uploaded_file import UploadedFile 

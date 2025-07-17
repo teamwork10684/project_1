@@ -25,10 +25,12 @@
     <div class="main-content">
       <!-- 左侧：演讲控制面板 -->
       <div class="control-panel">
-        <a-card title="演讲控制" class="control-card">
-          <div class="control-content">
-            <p class="control-placeholder">演讲控制功能已移除</p>
-          </div>
+        <a-card class="control-card" :bodyStyle="{padding: '0', height: '100%'}" :headStyle="{display: 'none'}">
+          <DocumentPlayerPanel
+            style="height:100%;width:100%"
+            :roomId="Number(roomId)"
+            :token="token"
+          />
         </a-card>
       </div>
 
@@ -51,7 +53,7 @@
           <a-card class="reserved-card-2">
             <div class="reserved-content-2">
               <QuestionStatsBar
-                :question="'太阳从哪边升起？'"
+                :question="'太阳从哪边升起'"
                 :options="[
                   { label: 'A', text: '长文本选项长文本选项长文本选项长文本选项长文本选项长文本选项长文本选项长文本选项长文本选项长文本选项长文本选项', count: 20 },
                   { label: 'B', text: '西边', count: 2 },
@@ -61,7 +63,9 @@
                 :unselectedCount="3"
                 :accuracy="0.75"
                 :correctLabel="'A'"
-                :endTime="'2025-07-14T18:53:00'"
+                :endTime="'2025-07-16T18:53:00'"
+                :questionList="questionListForStats"
+                :discussionMessages="discussionMessagesForStats"
               />
             </div>
           </a-card>
@@ -97,12 +101,14 @@ import eventBus from '../../utils/eventBus';
 import OnlineChatPanel from '../../components/OnlineChatPanel.vue';
 import QuestionPublishPanel from '../../components/QuestionPublishPanel.vue';
 import QuestionStatsBar from '../../components/QuestionStatsBar.vue';
+import DocumentPlayerPanel from '../../components/DocumentPlayerPanel.vue';
 
 const route = useRoute();
 const router = useRouter();
 
 // 响应式数据
 const roomId = computed(() => route.params.roomId);
+const token = computed(() => getToken());
 const roomInfo = ref({
   id: null,
   name: '加载中...',
@@ -148,47 +154,50 @@ const wsConnected = ref(false);
 const questions = ref([
   {
     id: 1,
-    raw_text: "太阳从哪边升起？",
-    prompt: "请根据以下内容出一道选择题",
     question: "太阳从哪边升起？",
     option_a: "东边",
     option_b: "西边", 
     option_c: "南边",
     option_d: "北边",
     answer: "A",
-    created: true,
     published: false,
     created_at: "2024-01-01T10:00:00Z"
   },
   {
     id: 2,
-    raw_text: "Python是一种什么类型的编程语言？",
-    prompt: "请根据以下内容出一道选择题",
     question: "Python是一种什么类型的编程语言？",
     option_a: "编译型语言",
     option_b: "解释型语言",
     option_c: "汇编语言",
     option_d: "机器语言",
     answer: "B",
-    created: true,
     published: true,
     created_at: "2024-01-01T11:00:00Z"
   },
   {
     id: 3,
-    raw_text: "Vue.js的核心特性是什么？",
-    prompt: "请根据以下内容出一道选择题",
     question: "Vue.js的核心特性是什么？",
     option_a: "响应式数据绑定",
     option_b: "组件化开发",
     option_c: "虚拟DOM",
     option_d: "以上都是",
     answer: "D",
-    created: true,
     published: false,
     created_at: "2024-01-01T12:00:00Z"
   }
 ]);
+
+const questionListForStats = [
+  { id: 1, question: '太阳从哪边升起？', status: 0, created_at: '2024-01-01T10:00:00Z' },
+  { id: 2, question: 'Python是一种什么类型的编程语言？', status: 1, created_at: '2024-01-01T11:00:00Z' },
+  { id: 3, question: 'Vue.js的核心特性是什么？', status: 1, created_at: '2024-01-01T12:00:00Z' }
+];
+
+const discussionMessagesForStats = [
+  { username: '小明', message: '我觉得选A！' },
+  { username: '小红', message: 'B也有道理，但我还是选A。' },
+  { username: '老师', message: '大家可以说说理由哦~' }
+];
 
 // 预留操作方法
 const handleAutoPublish = () => {
@@ -474,12 +483,18 @@ onUnmounted(() => {
 .reserved-card-1 {
   flex: 0 0 calc(30% - 16px);
   min-height: 120px;
+  overflow: hidden;
+  width: 100%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .reserved-card-2 {
   height: 100%;
   display: flex;
   flex-direction: column;
+  min-height: 0;
 }
 
 .reserved-card-2 :deep(.ant-card-body) {
@@ -495,6 +510,7 @@ onUnmounted(() => {
   flex: 1;
   display: flex;
   flex-direction: column;
+  min-height: 0;
 }
 
 .participants-card {
@@ -717,14 +733,12 @@ onUnmounted(() => {
 }
 
 .reserved-content-1 {
-  position: relative;
-  height: 100%;
   width: 100%;
+  min-width: 0;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  padding: 0 0 0 0;
-  min-height: 220px;
-  background: transparent;
+  height: 100%;
 }
 
 /* 按钮区域样式 */

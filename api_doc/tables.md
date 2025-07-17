@@ -170,6 +170,7 @@
 
 | 字段名         | 数据类型 | 长度 | 是否为空 | 默认值            | 说明                   |
 | -------------- | -------- | ---- | -------- | ----------------- | ---------------------- |
+| room_id        | INT      | -    | NOT NULL | -                 | 所属演讲室ID，外键     |
 | id             | INT      | -    | NOT NULL | AUTO_INCREMENT    | 主键，文件ID           |
 | filename       | VARCHAR  | 255  | NOT NULL | -                 | 原始文件名             |
 | file_path      | VARCHAR  | 500  | NOT NULL | -                 | 文件存储路径           |
