@@ -3,15 +3,19 @@
     <!-- 上栏：功能按钮 -->
     <div class="toolbar">
       <a-upload :show-upload-list="false" :before-upload="handleBeforeUpload" accept=".pdf,.ppt,.pptx">
-        <a-button type="primary">上传文件</a-button>
+        <a-button type="primary" :disabled="!props.canUpload">上传文件</a-button>
       </a-upload>
       <a-select v-model:value="selectedFileId" style="width: 320px; margin: 0 12px;" placeholder="选择文件"
         @change="handleSelectFile" :options="fileList.map(f => ({ label: f.name, value: f.id }))"
         :dropdownRender="dropdownRender" />
       <a-divider type="vertical" />
-      <button class="cool-speech-btn" @click="toggleSpeech" :class="{ 'speaking': isSpeaking }" :disabled="speechEnded">
-        <span v-if="!isSpeaking && !speechEnded">开始演讲</span>
-        <span v-else-if="isSpeaking">结束演讲</span>
+      <button
+        class="cool-speech-btn"
+        @click="handleSpeechButton"
+        :disabled="roomStatus === 2"
+      >
+        <span v-if="roomStatus === 0">开始演讲</span>
+        <span v-else-if="roomStatus === 1">结束演讲</span>
         <span v-else>演讲已结束</span>
       </button>
     </div>
@@ -34,9 +38,6 @@
         <div v-if="selectedFileType === 'pdf'" class="pdf-content" @wheel="handleWheel" @click="handleClick">
           <PdfViewer :src="selectedFileUrl" :page="currentPage" />
         </div>
-        <div v-else-if="selectedFileType === 'pptx'" @wheel="handleWheel" @click="handleClick">
-          <OfficePptx :src="selectedFileUrl" :page="currentPage" style="width: 100%; height: 60vh" />
-        </div>
         <div v-else class="empty-tip">暂不支持该文件类型预览</div>
       </div>
     </div>
@@ -49,7 +50,6 @@ import { message } from 'ant-design-vue';
 import { Modal } from 'ant-design-vue';
 import { fileAPI } from '../api/index.js';
 // 引入vue-office组件
-import OfficePptx from '@vue-office/pptx';
 import PdfViewer from './PdfViewer.vue';
 //import '@vue-office/pptx/lib/index.css';
 
@@ -61,28 +61,31 @@ const props = defineProps({
   token: {
     type: String,
     required: true
+  },
+  roomStatus: {
+    type: Number,
+    required: false,
+    default: 0
+  },
+  canUpload: {
+    type: Boolean,
+    required: false,
+    default: true
   }
 });
+
+const emit = defineEmits(['start-speech', 'end-speech']);
 
 const fileList = ref([]); // [{id, name, type, ...}]
 const selectedFileId = ref(null);
 const currentPage = ref(1);
-const isSpeaking = ref(false);
-const speechEnded = ref(false);
 const selectedFileUrl = ref('');
 const selectedFileType = ref('');
 const pdfPageCount = ref(1);
 const showPageBar = ref(true);
 // 支持pdf和pptx的统一翻页逻辑
-const isPagedType = computed(() => selectedFileType.value === 'pdf' || selectedFileType.value === 'pptx');
-const pageCount = computed(() => selectedFileType.value === 'pdf' ? pdfPageCount.value : pptxPageCount.value);
-// pptx翻页
-const pptxPageCount = ref(1);
-// 假设OfficePptx支持@loaded事件和@page-change事件
-const handlePptxLoaded = (total) => {
-  pptxPageCount.value = total;
-  currentPage.value = 1;
-};
+const isPagedType = computed(() => selectedFileType.value === 'pdf');
+const pageCount = computed(() => pdfPageCount.value);
 
 // 获取PDF总页数
 const fetchPdfPageCount = async (url) => {
@@ -100,6 +103,11 @@ watch([selectedFileUrl, selectedFileType], ([url, type]) => {
     fetchPdfPageCount(url);
     currentPage.value = 1;
   }
+});
+
+// 新增：emit page-change 事件
+watch([currentPage, selectedFileId], ([page, fileId]) => {
+  emit('page-change', { fileId, page });
 });
 
 const prevPage = () => {
@@ -127,6 +135,10 @@ const fetchFileList = async () => {
 onMounted(fetchFileList);
 
 const handleBeforeUpload = async (file) => {
+  if (!props.canUpload) {
+    message.error('演讲已结束，无法上传文件');
+    return false;
+  }
   const ext = file.name.split('.').pop().toLowerCase();
   if (!['pdf', 'ppt', 'pptx'].includes(ext)) {
     message.error('仅支持PDF、PPT、PPTX格式');
@@ -150,8 +162,8 @@ const handleSelectFile = async (id) => {
   currentPage.value = 1;
   const file = fileList.value.find(f => f.id === id);
   if (!file) return;
-  if (!['pdf', 'pptx'].includes(file.type)) {
-    message.error('仅支持PDF和PPTX文件预览');
+  if (!['pdf'].includes(file.type)) {
+    message.error('仅支持PDF文件预览');
     selectedFileUrl.value = '';
     selectedFileType.value = '';
     return;
@@ -177,22 +189,17 @@ const handleDeleteFileById = async (id) => {
   }
 };
 
-const toggleSpeech = () => {
-  if (!isSpeaking.value && !speechEnded.value) {
-    isSpeaking.value = true;
-    message.success('演讲开始');
-    // TODO: 通知后端
-  } else if (isSpeaking.value && !speechEnded.value) {
+const handleSpeechButton = () => {
+  if (props.roomStatus === 0) {
+    emit('start-speech');
+  } else if (props.roomStatus === 1) {
     Modal.confirm({
       title: '确认结束演讲',
       content: '结束后将无法再次开始演讲，确定要结束吗？',
       okText: '确定',
       cancelText: '取消',
       onOk() {
-        isSpeaking.value = false;
-        speechEnded.value = true;
-        message.info('演讲已结束');
-        // TODO: 通知后端
+        emit('end-speech');
       }
     });
   }
