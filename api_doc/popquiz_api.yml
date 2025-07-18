@@ -2352,6 +2352,11 @@ paths:
                         type: integer
                         description: 状态（0-进行中，1-已结束）
                         example: 1
+                  my_answer:
+                    type: string
+                    nullable: true
+                    description: 当前用户的答题选项（A/B/C/D），未答题为null
+                    example: "A"
               example:
                 published_question_id: 1
                 room_id: 1
@@ -2379,6 +2384,7 @@ paths:
                   end_time: "2024-01-01T10:05:00Z"
                   time_limit: 60
                   status: 1
+                  my_answer: "A"
         '400':
           description: 参数错误
           content:
@@ -3578,3 +3584,260 @@ paths:
                   message:
                     type: string
                     example: 文件不存在
+
+  /speech-rooms/{room_id}/published-questions:
+    get:
+      tags:
+        - 题目管理
+      summary: 获取房间所有被发布题目
+      description: 获取指定房间内所有被发布的题目，需传入房间ID和用户token
+      parameters:
+        - name: room_id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: 演讲室ID
+        - name: token
+          in: query
+          required: true
+          schema:
+            type: string
+          description: 用户身份token
+      responses:
+        '200':
+          description: 发布题目列表
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  published_questions:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                          description: 发布题目ID
+                        question_id:
+                          type: integer
+                          description: 题目ID
+                        question:
+                          type: string
+                          description: 题目内容
+                        status:
+                          type: integer
+                          description: 发布状态（0-进行中，1-已结束）
+                        publish_time:
+                          type: string
+                          format: date-time
+                          description: 题目发布时间
+                        created_at:
+                          type: string
+                          format: date-time
+                          description: 发布时间
+        '400':
+          description: 参数错误
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "参数错误"
+        '401':
+          description: 未授权或token无效
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "token无效或已过期"
+        '404':
+          description: 房间不存在
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "演讲室不存在"
+
+  /user-room-statistics:
+    post:
+      tags:
+        - 用户答题统计
+      summary: 获取用户在指定房间内的答题数据
+      description: 获取用户在指定房间内的分数、正确率、正确题目数、错误题目数、跳过题目数
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - token
+                - room_id
+              properties:
+                token:
+                  type: string
+                  description: 用户身份token
+                  example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                room_id:
+                  type: integer
+                  description: 房间ID
+                  example: 1
+      responses:
+        '200':
+          description: 获取成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  score:
+                    type: integer
+                    description: 分数
+                    example: 80
+                  accuracy:
+                    type: number
+                    format: float
+                    description: 正确率（百分比）
+                    example: 80.0
+                  correct_count:
+                    type: integer
+                    description: 正确题目数
+                    example: 8
+                  wrong_count:
+                    type: integer
+                    description: 错误题目数
+                    example: 2
+                  skipped_count:
+                    type: integer
+                    description: 跳过题目数
+                    example: 0
+                  message:
+                    type: string
+                    description: 提示信息
+                    example: "获取成功"
+        '400':
+          description: 参数错误
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "参数错误"
+        '401':
+          description: 未授权或token无效
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "token无效或已过期"
+        '404':
+          description: 房间不存在
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "房间不存在"
+
+  /generate-question:
+    post:
+      tags:
+        - 题目管理
+      summary: 请求生成题目
+      description: |
+        用户请求后端根据指定文件及页码生成题目。题目生成为异步操作，生成完成后通过WebSocket通知客户端。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - token
+                - file_id
+                - page
+              properties:
+                token:
+                  type: string
+                  description: 用户身份token
+                  example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                file_id:
+                  type: integer
+                  description: 文件ID
+                  example: 123
+                page:
+                  type: integer
+                  description: 文件页码
+                  example: 5
+      responses:
+        '202':
+          description: 已接收生成请求，稍后通过WebSocket通知
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  request_id:
+                    type: string
+                    description: 生成请求ID（可用于追踪，选填）
+                    example: "req_20240601_001"
+                  message:
+                    type: string
+                    example: "题目生成请求已接收，生成结果将通过WebSocket通知"
+        '400':
+          description: 参数错误
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "参数错误"
+        '401':
+          description: 未授权或token无效
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "token无效或已过期"
+        '404':
+          description: 文件不存在
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "文件不存在"
+        '500':
+          description: 服务器错误
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "题目生成请求失败"
