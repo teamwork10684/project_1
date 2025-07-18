@@ -388,8 +388,9 @@ const formatDate = (dateString) => {
   align-items: center;
   justify-content: space-between;
   transition: all 0.18s ease;
-  min-height: 36px;
+  min-height: 56px;
   cursor: pointer;
+  overflow: hidden;
 }
 
 .question-item:hover {
@@ -398,11 +399,11 @@ const formatDate = (dateString) => {
 }
 
 .question-info {
-  flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  margin-right: 8px;
+  gap: 2px;
+  margin-right: 0;
+  min-width: 0;
 }
 
 .question-title {
@@ -410,11 +411,11 @@ const formatDate = (dateString) => {
   font-weight: 500;
   color: #333;
   line-height: 1.4;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .question-status {
@@ -423,6 +424,12 @@ const formatDate = (dateString) => {
   border-radius: 10px;
   font-weight: 500;
   align-self: flex-start;
+  white-space: nowrap;
+  max-width: 60px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: left;
+  margin-top: 2px;
 }
 
 .question-status.published {
