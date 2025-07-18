@@ -109,6 +109,8 @@ export const invitationAPI = {
 export const answerAPI = {
   // 听众答题
   answerQuestion: (roomId, data) => api.post(`/speech-rooms/${roomId}/answer-question`, data),
+  // 新增：获取用户在指定房间内的答题统计
+  getUserRoomStatistics: (data) => api.post('/user-room-statistics', data),
 };
 
 // 题目管理API
@@ -130,6 +132,15 @@ export const questionAPI = {
   
   // 获取题目答题情况统计（听众）
   getQuestionStatisticsForAudience: (publishedQuestionId, token) => api.get(`/published-questions/${publishedQuestionId}/statistics-for-audience?token=${token}`),
+
+  // 获取房间内所有已创建的题目
+  getCreatedQuestions: (roomId, token) => api.get(`/speech-rooms/${roomId}/questions?token=${token}`),
+
+  // 获取房间所有被发布题目
+  getPublishedQuestions: (roomId, token) => api.get(`/speech-rooms/${roomId}/published-questions?token=${token}`),
+
+  // 新增：根据文件id和页码请求生成题目（异步，WebSocket通知结果）
+  generateQuestionByFilePage: (data) => api.post('/generate-question', data),
 };
 
 // 讨论管理API
@@ -147,7 +158,7 @@ export const discussionAPI = {
 // 文件管理API
 export const fileAPI = {
   // 上传文件
-  uploadFile: (formData) => api.post('/uploaded-files', formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
+  uploadFile: (formData) => api.post('/uploaded-files', formData, { headers: { 'Content-Type': 'multipart/form-data' }, timeout: 300000 }),
   // 获取房间文件列表
   getFileList: (room_id, token) => api.post('/uploaded-files/list', { room_id, token }),
   // 删除文件

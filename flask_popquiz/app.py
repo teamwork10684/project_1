@@ -11,6 +11,11 @@ from sqlalchemy import text
 from websocket_handler import socketio
 from models.uploaded_file import UploadedFile
 import os
+import pythoncom
+import time
+import subprocess
+import threading
+from models.raw_text import RawText
 
 app = Flask(__name__)
 CORS(app, supports_credentials=True)
@@ -19,12 +24,14 @@ socketio.init_app(app, cors_allowed_origins="*")
 OLLAMA_MODEL = 'deepseek-r1:7b'
 
 # SQLAlchemy配置
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:7661282cjyCJY@localhost:3306/popquiz?charset=utf8mb4'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:password@localhost:3306/popquiz?charset=utf8mb4'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db.init_app(app)
 # 文件上传存放路径
 UPLOAD_ROOT = 'C:/popquiz_file'
+
+LIBREOFFICE_PATH = r'C:\Program Files\LibreOffice\program\soffice.exe'  # 如有需要请修改为实际路径
 
 @app.route('/popquiz/getQuestionByTextOllamaDemo', methods=['POST'])
 def get_question_by_text_demo():
@@ -1315,6 +1322,34 @@ def publish_question(room_id):
     db.session.add(published_question)
     db.session.commit()
     
+    # WebSocket通知前端有新题目被发布
+    from websocket_handler import socketio
+    socketio.emit('question_published', {
+        'room_id': room_id,
+        'question_id': published_question.id,
+        'question': question.question
+    }, room=str(room_id))
+    
+    # 新增：后台自动结束题目
+    import threading
+    import time as pytime
+    def auto_end_published_question(published_question_id, room_id, time_limit):
+        with app.app_context():
+            from models import PublishedQuestion
+            from websocket_handler import socketio
+            pytime.sleep(time_limit + 1)
+            pq = PublishedQuestion.query.get(published_question_id)
+            if pq and pq.status == 0:
+                pq.status = 1
+                pq.end_time = datetime.now()
+                db.session.commit()
+                socketio.emit('question_ended', {
+                    'room_id': room_id,
+                    'published_question_id': published_question_id
+                }, room=str(room_id))
+    t = threading.Thread(target=auto_end_published_question, args=(published_question.id, room_id, time_limit))
+    t.start()
+    
     return jsonify({
         'id': published_question.id,
         'room_id': room_id,
@@ -1646,6 +1681,14 @@ def get_question_statistics_for_audience(published_question_id):
         accuracy_rate = None
         question_answer = None
     
+    # 查询当前用户的答题记录
+    user_answer_obj = QuestionAnswer.query.filter_by(
+        room_id=room_id,
+        question_id=published_question.question_id,
+        user_id=user_id
+    ).first()
+    my_answer = user_answer_obj.selected_answer if user_answer_obj else None
+
     return jsonify({
         'published_question_id': published_question_id,
         'room_id': room_id,
@@ -1675,7 +1718,8 @@ def get_question_statistics_for_audience(published_question_id):
             'end_time': published_question.end_time.isoformat() if published_question.end_time else None,
             'time_limit': published_question.time_limit,
             'status': published_question.status
-        }
+        },
+        'my_answer': my_answer  # 新增字段
     }), 200
 
 @app.route('/popquiz/users', methods=['GET'])
@@ -1737,8 +1781,45 @@ def upload_file():
     # 保存文件
     upload_dir = os.path.join(UPLOAD_ROOT, str(room_id))
     os.makedirs(upload_dir, exist_ok=True)
-    save_path = os.path.join(upload_dir, filename)
-    file.save(save_path)
+    if ext in ('ppt', 'pptx'):
+        import tempfile
+        import shutil
+        from pathlib import Path
+        import comtypes.client
+        temp_dir = tempfile.mkdtemp()
+        ppt_path = os.path.join(temp_dir, filename)
+        file.save(ppt_path)
+        pdf_filename = Path(filename).stem + '.pdf'
+        pdf_path = os.path.join(upload_dir, pdf_filename)
+        pythoncom.CoInitialize()
+        try:
+            # 全局LibreOffice路径
+            subprocess.run([
+                LIBREOFFICE_PATH, '--headless', '--convert-to', 'pdf', '--outdir', upload_dir, ppt_path
+            ], check=True)
+            # 转换后文件名可能不同，重命名为pdf_filename
+            from pathlib import Path
+            converted_pdf = os.path.join(upload_dir, Path(filename).stem + '.pdf')
+            if os.path.exists(converted_pdf) and converted_pdf != pdf_path:
+                import shutil
+                shutil.move(converted_pdf, pdf_path)
+            save_path = pdf_path
+            filename = pdf_filename
+            ext = 'pdf'
+        except Exception as e:
+            try:
+                shutil.rmtree(temp_dir)
+            except Exception as e2:
+                print(f'清理临时目录失败: {e2}')
+            return jsonify({'message': f'PPT转PDF失败: {e}'}), 500
+        time.sleep(1)
+        try:
+            shutil.rmtree(temp_dir)
+        except Exception as e:
+            print(f'清理临时目录失败: {e}')
+    else:
+        save_path = os.path.join(upload_dir, filename)
+        file.save(save_path)    
     # 入库
     uploaded = UploadedFile(
         room_id=room_id,
@@ -1889,6 +1970,236 @@ def edit_user(user_id):
         user.password = generate_password_hash(password)
     db.session.commit()
     return jsonify({'id': user.id, 'message': '编辑成功'}), 200
+
+@app.route('/popquiz/speech-rooms/<int:room_id>/published-questions', methods=['GET'])
+def get_room_published_questions(room_id):
+    """获取指定房间所有被发布题目（含题目内容和发布状态）"""
+    token = request.args.get('token', '').strip()
+    if not token:
+        return jsonify({'message': '参数错误'}), 400
+    session = UserSession.query.filter_by(session_token=token, is_expired=False).first()
+    if not session:
+        return jsonify({'message': 'token无效或已过期'}), 401
+    user_id = session.user_id
+    room = SpeechRoom.query.get(room_id)
+    if not room:
+        return jsonify({'message': '演讲室不存在'}), 404
+    # 获取所有被发布题目
+    published_questions = PublishedQuestion.query.filter_by(room_id=room_id).order_by(PublishedQuestion.created_at.desc()).all()
+    result = []
+    for pq in published_questions:
+        question = Question.query.get(pq.question_id)
+        result.append({
+            'id': pq.id,
+            'question_id': pq.question_id,
+            'question': question.question if question else None,
+            'status': pq.status,
+            'publish_time': pq.created_at.isoformat() if pq.created_at else None,
+            'created_at': pq.created_at.isoformat() if pq.created_at else None
+        })
+    return jsonify({'published_questions': result}), 200
+
+# 获取用户在指定房间内的答题数据
+@app.route('/popquiz/user-room-statistics', methods=['POST'])
+def get_user_room_statistics():
+    """获取用户在指定房间内的答题数据（分数、正确率、正确题目数、错误题目数、跳过题目数）"""
+    data = request.get_json() or {}
+    token = data.get('token', '').strip()
+    room_id = data.get('room_id')
+    if not token or not room_id:
+        return jsonify({'message': '参数错误'}), 400
+    session = UserSession.query.filter_by(session_token=token, is_expired=False).first()
+    if not session:
+        return jsonify({'message': 'token无效或已过期'}), 401
+    user_id = session.user_id
+    room = SpeechRoom.query.get(room_id)
+    if not room:
+        return jsonify({'message': '房间不存在'}), 404
+    # 获取该房间所有已发布题目
+    published_questions = PublishedQuestion.query.filter_by(room_id=room_id).all()
+    question_ids = [pq.question_id for pq in published_questions]
+    if not question_ids:
+        return jsonify({'score': 0, 'accuracy': 0.0, 'correct_count': 0, 'wrong_count': 0, 'skipped_count': 0, 'message': '无答题数据'}), 200
+    # 获取用户在该房间的所有答题记录
+    user_answers = QuestionAnswer.query.filter_by(room_id=room_id, user_id=user_id).all()
+    answer_map = {a.question_id: a.selected_answer for a in user_answers}
+    # 统计
+    correct_count = 0
+    wrong_count = 0
+    skipped_count = 0
+    total_questions = len(question_ids)
+    for qid in question_ids:
+        question = Question.query.get(qid)
+        if not question:
+            continue
+        user_answer = answer_map.get(qid)
+        if user_answer is None:
+            skipped_count += 1
+        elif user_answer == question.answer:
+            correct_count += 1
+        else:
+            wrong_count += 1
+    answered_count = correct_count + wrong_count
+    accuracy = round((correct_count / answered_count * 100), 2) if answered_count > 0 else 0.0
+    # 假设每题10分
+    score = correct_count * 10
+    return jsonify({
+        'score': score,
+        'accuracy': accuracy,
+        'correct_count': correct_count,
+        'wrong_count': wrong_count,
+        'skipped_count': skipped_count,
+        'message': '获取成功'
+    }), 200
+
+# 新增：异步任务队列（简单线程实现）
+def async_extract_text(file_id, page, room_id):
+    with app.app_context():
+        from sqlalchemy.orm import scoped_session, sessionmaker
+        import ollama
+        from module.aifilter.aifilter import filter_markdown
+        import json as pyjson
+        Session = scoped_session(sessionmaker(bind=db.engine))
+        session = Session()
+        try:
+            exists = session.query(RawText).filter_by(file_id=file_id, page=page).first()
+            if exists:
+                print(f"raw_texts已存在: file_id={file_id}, page={page}")
+                return
+            # 查找文件路径
+            file_obj = session.query(UploadedFile).get(file_id)
+            if not file_obj or file_obj.status != 1:
+                print(f"文件不存在或已删除: file_id={file_id}")
+                return
+            file_path = file_obj.file_path
+            ext = (file_obj.file_extension or '').lower()
+            # 仅支持pdf
+            if ext != 'pdf':
+                print(f"暂不支持的文件类型: {ext}")
+                return
+            # 提取pdf文本
+            try:
+                from PyPDF2 import PdfReader
+                reader = PdfReader(file_path)
+                if page < 1 or page > len(reader.pages):
+                    print(f"页码超出范围: {page}")
+                    return
+                text = reader.pages[page-1].extract_text() or ''
+            except Exception as e:
+                print(f"PDF解析失败: {e}")
+                return
+            # 入库raw_texts
+            raw = RawText(
+                room_id=room_id,
+                file_id=file_id,
+                page=page,
+                content=text,
+                source_type=0,  # 0-ppt, 1-pdf, 2-其它
+                used_count=0
+            )
+            session.add(raw)
+            session.commit()
+            print(f"raw_texts插入成功: file_id={file_id}, page={page}")
+            # 出题
+            if not text.strip():
+                print(f"文本为空，跳过出题: file_id={file_id}, page={page}")
+                return
+            prompt = (
+                "你是一名专业的教育内容生成AI，请根据用户提供的原始文本内容，生成一道单项选择题。"
+                "请严格按照以下要求输出：\n"
+                "1. 题目内容应与原始文本高度相关，简明扼要，问题长度尽可能地短。\n"
+                "2. 只生成一道题目。\n"
+                "3. 只输出JSON格式，包含三个字段：question（字符串，题目内容），options（字符串数组，长度为4，4个选项）,answer(A、B、C、D中的一个，只需要给出对应选项字母，不用重复选项内容!!!)。\n"
+                "4. 选项内容应合理且互不重复，只有一个正确答案，其余为干扰项。\n"
+                "5. 不要输出除JSON以外的任何内容。\n"
+                "6. JSON示例{\"question\":\"问题\",\"options\":[\"选项A\",\"选项B\",\"选项C\",\"选项D\"],\"answer\":\"A\"}\n"
+                f"原始文本：{text}"
+                "注意！除了返回json格式的回答外不要返回任何其他内容！！！"
+            )
+            try:
+                response = ollama.generate(
+                    model=OLLAMA_MODEL,
+                    prompt=prompt,
+                    stream=False,
+                    think=False
+                )
+                response_text = response.get('response', '')
+                response_text = filter_markdown(response_text)
+                data = pyjson.loads(response_text)
+                question = data.get('question')
+                options = data.get('options')
+                answer = data.get('answer')
+                if not question or not isinstance(options, list) or len(options) != 4 or answer not in ['A', 'B', 'C', 'D']:
+                    raise ValueError('AI返回格式不正确')
+                # 随机打乱选项并更新答案
+                import random
+                option_map = list(zip(['A', 'B', 'C', 'D'], options))
+                random.shuffle(option_map)
+                shuffled_options = [opt for _, opt in option_map]
+                # 找到原答案对应的内容
+                original_answer_content = options[ord(answer) - ord('A')]
+                # 新的answer字母
+                for idx, (_, opt) in enumerate(option_map):
+                    if opt == original_answer_content:
+                        new_answer = chr(ord('A') + idx)
+                        break
+                else:
+                    new_answer = None
+                # 插入questions表
+                from models.question import Question
+                q = Question(
+                    room_id=room_id,
+                    raw_text=text,
+                    prompt=prompt,
+                    question=question,
+                    option_a=shuffled_options[0],
+                    option_b=shuffled_options[1],
+                    option_c=shuffled_options[2],
+                    option_d=shuffled_options[3],
+                    answer=new_answer,
+                    created=True,
+                    published=False
+                )
+                session.add(q)
+                session.commit()
+                print(f"题目插入成功: file_id={file_id}, page={page}, qid={q.id}")
+                # 更新raw_texts的used_count
+                raw.used_count += 1
+                session.commit()
+                # WebSocket通知前端刷新题目
+                from websocket_handler import socketio
+                socketio.emit('question_generated', {
+                    'room_id': room_id,
+                    'question_id': q.id,
+                    'page': page
+                }, room=str(room_id))
+            except Exception as e:
+                print(f"AI出题失败或解析失败: {e}")
+        finally:
+            session.close()
+
+@app.route('/popquiz/generate-question', methods=['POST'])
+def generate_question():
+    data = request.get_json() or {}
+    token = data.get('token', '').strip()
+    file_id = data.get('file_id')
+    page = data.get('page')
+    if not token or not file_id or not page:
+        return jsonify({'message': '参数错误'}), 400
+    # 校验token
+    session = UserSession.query.filter_by(session_token=token, is_expired=False).first()
+    if not session:
+        return jsonify({'message': 'token无效或已过期'}), 401
+    user_id = session.user_id
+    # 查找文件
+    file_obj = UploadedFile.query.get(file_id)
+    if not file_obj or file_obj.status != 1:
+        return jsonify({'message': '文件不存在'}), 404
+    room_id = file_obj.room_id
+    # 启动后台线程提取文本
+    t = threading.Thread(target=async_extract_text, args=(file_id, page, room_id))
+    t.start()
+    return jsonify({'message': '提取任务已接收，稍后通过WebSocket通知'}), 202
 
 if __name__ == '__main__':
     socketio.run(app, host='0.0.0.0', port=5000, debug=True,allow_unsafe_werkzeug=True)

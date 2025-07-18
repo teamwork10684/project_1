@@ -101,6 +101,24 @@ class WebSocketManager {
       console.log('New message:', data);
       this.emit('newMessage', data);
     });
+
+    // 新增：监听题目生成事件
+    this.socket.on('question_generated', (data) => {
+      console.log('Question generated:', data);
+      this.emit('questionGenerated', data);
+    });
+
+    // 新增：监听题目发布事件
+    this.socket.on('question_published', (data) => {
+      console.log('Question published:', data);
+      this.emit('questionPublished', data);
+    });
+
+    // 新增：监听题目自动结束事件
+    this.socket.on('question_ended', (data) => {
+      console.log('Question ended:', data);
+      this.emit('questionEnded', data);
+    });
   }
 
   // 加入房间
