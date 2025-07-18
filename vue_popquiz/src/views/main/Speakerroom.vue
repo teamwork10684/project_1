@@ -26,11 +26,18 @@
       <!-- 左侧：演讲控制面板 -->
       <div class="control-panel">
         <a-card class="control-card" :bodyStyle="{padding: '0', height: '100%'}" :headStyle="{display: 'none'}">
-          <DocumentPlayerPanel
-            style="height:100%;width:100%"
-            :roomId="Number(roomId)"
-            :token="token"
-          />
+          <template v-if="!loading">
+            <DocumentPlayerPanel
+              style="height:100%;width:100%"
+              :roomId="Number(roomId)"
+              :token="token"
+              :roomStatus="roomInfo.status"
+              :canUpload="roomInfo.status !== 2"
+              @start-speech="handleStartSpeech"
+              @end-speech="handleEndSpeech"
+              @page-change="handlePageChange"
+            />
+          </template>
         </a-card>
       </div>
 
@@ -53,19 +60,16 @@
           <a-card class="reserved-card-2">
             <div class="reserved-content-2">
               <QuestionStatsBar
-                :question="'太阳从哪边升起'"
-                :options="[
-                  { label: 'A', text: '长文本选项长文本选项长文本选项长文本选项长文本选项长文本选项长文本选项长文本选项长文本选项长文本选项长文本选项', count: 20 },
-                  { label: 'B', text: '西边', count: 2 },
-                  { label: 'C', text: '南边', count: 1 },
-                  { label: 'D', text: '北边', count: 20 }
-                ]"
-                :unselectedCount="3"
-                :accuracy="0.75"
-                :correctLabel="'A'"
-                :endTime="'2025-07-16T18:53:00'"
-                :questionList="questionListForStats"
-                :discussionMessages="discussionMessagesForStats"
+                v-if="publishedQuestions.length > 0 && statsBarData.question"
+                :question="statsBarData.question"
+                :options="statsBarData.options"
+                :unselectedCount="statsBarData.unselectedCount"
+                :accuracy="statsBarData.accuracy"
+                :correctLabel="statsBarData.correctLabel"
+                :endTime="statsBarData.endTime"
+                :questionList="publishedQuestions"
+                :discussionMessages="[]"
+                @selectQuestion="handleStatsSelectQuestion"
               />
             </div>
           </a-card>
@@ -89,13 +93,13 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, onUnmounted, computed } from 'vue';
+import { ref, reactive, onMounted, onUnmounted, computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { message } from 'ant-design-vue';
 import {
   ArrowLeftOutlined,
 } from '@ant-design/icons-vue';
-import { speechRoomAPI, checkTokenExpired, getToken } from '../../api';
+import { speechRoomAPI, checkTokenExpired, getToken, questionAPI } from '../../api';
 import wsManager from '../../utils/websocket';
 import eventBus from '../../utils/eventBus';
 import OnlineChatPanel from '../../components/OnlineChatPanel.vue';
@@ -151,41 +155,8 @@ const showOnlineUsers = ref(false);
 const wsConnected = ref(false);
 
 // 题目数据
-const questions = ref([
-  {
-    id: 1,
-    question: "太阳从哪边升起？",
-    option_a: "东边",
-    option_b: "西边", 
-    option_c: "南边",
-    option_d: "北边",
-    answer: "A",
-    published: false,
-    created_at: "2024-01-01T10:00:00Z"
-  },
-  {
-    id: 2,
-    question: "Python是一种什么类型的编程语言？",
-    option_a: "编译型语言",
-    option_b: "解释型语言",
-    option_c: "汇编语言",
-    option_d: "机器语言",
-    answer: "B",
-    published: true,
-    created_at: "2024-01-01T11:00:00Z"
-  },
-  {
-    id: 3,
-    question: "Vue.js的核心特性是什么？",
-    option_a: "响应式数据绑定",
-    option_b: "组件化开发",
-    option_c: "虚拟DOM",
-    option_d: "以上都是",
-    answer: "D",
-    published: false,
-    created_at: "2024-01-01T12:00:00Z"
-  }
-]);
+const questions = ref([]);
+const publishedQuestions = ref([]);
 
 const questionListForStats = [
   { id: 1, question: '太阳从哪边升起？', status: 0, created_at: '2024-01-01T10:00:00Z' },
@@ -208,8 +179,22 @@ const handleSaveSettings = (settings) => {
   // TODO: 保存设置实现
 };
 
-const handlePublishQuestion = (question) => {
-  // TODO: 发布题目实现
+const handlePublishQuestion = async (question) => {
+  if (roomInfo.value.status !== 1) {
+    message.warning('只有在演讲进行中才能发布题目');
+    return;
+  }
+  try {
+    const res = await questionAPI.publishQuestion(roomId.value, {
+      token: token.value,
+      question_id: question.id
+    });
+    message.success('题目发布成功');
+    await fetchQuestions();
+    await fetchPublishedQuestions(); // 新增：发布成功后刷新已发布题目列表
+  } catch (e) {
+    message.error(e?.response?.data?.message || '题目发布失败');
+  }
 };
 
 // 方法
@@ -227,18 +212,14 @@ const fetchRoomInfo = async () => {
       checkTokenExpired();
       return;
     }
-
     const response = await speechRoomAPI.enterRoom(roomId.value, token);
     const { room_info, user_info } = response.data;
-    
-    // 更新房间信息
     roomInfo.value = room_info;
     participantCount.value = room_info.total_participants;
-    
-    // 更新用户信息
     userInfo.value = user_info;
     userRole.value = user_info.role;
-    
+    await fetchQuestions();
+    await fetchPublishedQuestions();
     console.log('房间信息:', room_info);
     console.log('用户信息:', user_info);
   } catch (error) {
@@ -249,6 +230,33 @@ const fetchRoomInfo = async () => {
   }
 };
 
+const fetchQuestions = async () => {
+  try {
+    const res = await questionAPI.getCreatedQuestions(roomId.value, token.value);
+    if (res.data && Array.isArray(res.data.questions)) {
+      questions.value = res.data.questions;
+    } else {
+      questions.value = [];
+    }
+  } catch (e) {
+    questions.value = [];
+    message.error(e?.response?.data?.message || '获取题目列表失败');
+  }
+};
+
+const fetchPublishedQuestions = async () => {
+  try {
+    const res = await questionAPI.getPublishedQuestions(roomId.value, token.value);
+    if (res.data && Array.isArray(res.data.published_questions)) {
+      publishedQuestions.value = res.data.published_questions;
+    } else {
+      publishedQuestions.value = [];
+    }
+  } catch (e) {
+    publishedQuestions.value = [];
+    message.error(e?.response?.data?.message || '获取已发布题目列表失败');
+  }
+};
 
 
 // 发送讨论消息
@@ -340,13 +348,125 @@ onMounted(async () => {
   );
   
   wsConnected.value = true;
+
+  // 新增：监听题目生成事件，自动刷新题目列表
+  eventBus.on('questionGenerated', (data) => {
+    if (data && String(data.room_id) === String(roomId.value)) {
+      console.log('收到题目生成事件，刷新题目列表', data);
+      fetchQuestions();
+    }
+  });
+
+  // 新增：监听题目自动结束事件，自动刷新统计
+  eventBus.on('questionEnded', (data) => {
+    if (data && String(data.room_id) === String(roomId.value)) {
+      console.log('Speakerroom.vue 收到题目结束事件，刷新统计', data);
+      fetchPublishedQuestions();
+    }
+  });
 });
 
+let pageTimer = null;
+let lastPageInfo = { fileId: null, page: null };
+let requestedPages = new Set();
+
+const handlePageChange = ({ fileId, page }) => {
+  // 只有进行中才允许自动生成题目
+  if (roomInfo.value.status !== 1) return;
+  // 清除上一个计时器
+  if (pageTimer) clearTimeout(pageTimer);
+  // 记录当前页
+  lastPageInfo = { fileId, page };
+  // 10秒后触发
+  pageTimer = setTimeout(async () => {
+    const key = `${fileId}_${page}`;
+    if (!fileId || !page || requestedPages.has(key)) return;
+    try {
+      const resp = await questionAPI.generateQuestionByFilePage({
+        token: token.value,
+        file_id: fileId,
+        page: page
+      });
+      requestedPages.add(key);
+      console.log(`已请求生成第${page}页的题目`, resp);
+    } catch (e) {
+      console.error(e?.response?.data?.message || `请求生成第${page}页题目失败`, e);
+    }
+  }, 10000);
+};
+
 onUnmounted(() => {
-  // 断开WebSocket连接
-  wsManager.disconnect();
-  wsConnected.value = false;
+  if (pageTimer) clearTimeout(pageTimer);
 });
+
+const handleStartSpeech = async () => {
+  try {
+    await speechRoomAPI.startSpeech(roomId.value, token.value);
+    message.success('演讲开始');
+    await fetchRoomInfo();
+  } catch (e) {
+    message.error(e?.response?.data?.message || '开始演讲失败');
+  }
+};
+const handleEndSpeech = async () => {
+  try {
+    await speechRoomAPI.endSpeech(roomId.value, token.value);
+    message.success('演讲已结束');
+    await fetchRoomInfo();
+  } catch (e) {
+    message.error(e?.response?.data?.message || '结束演讲失败');
+  }
+};
+
+const selectedStatsQuestion = ref(null);
+const statsBarData = ref({
+  question: '',
+  options: [],
+  unselectedCount: 0,
+  accuracy: 0,
+  correctLabel: '',
+  endTime: '',
+});
+
+const handleStatsSelectQuestion = async (item) => {
+  // item为publishedQuestions中的一项
+  try {
+    // 获取题目答题统计（演讲者和组织者可见）
+    const res = await questionAPI.getQuestionStatisticsForSpeakerAndOrganizer(item.id, token.value);
+    const data = res.data;
+    if (data && data.question_info && data.statistics) {
+      // 组装options
+      const options = [
+        { label: 'A', text: data.question_info.option_a, count: data.statistics.option_a_count },
+        { label: 'B', text: data.question_info.option_b, count: data.statistics.option_b_count },
+        { label: 'C', text: data.question_info.option_c, count: data.statistics.option_c_count },
+        { label: 'D', text: data.question_info.option_d, count: data.statistics.option_d_count },
+      ];
+      statsBarData.value = {
+        question: data.question_info.question,
+        options,
+        unselectedCount: data.statistics.unanswered_count,
+        accuracy: (data.statistics.accuracy_rate || 0) / 100,
+        correctLabel: data.question_info.answer,
+        endTime: data.time_info.end_time,
+      };
+      selectedStatsQuestion.value = item;
+    }
+  } catch (e) {
+    message.error(e?.response?.data?.message || '获取题目统计失败');
+  }
+};
+
+// 默认加载第一个题目的统计
+watch(
+  () => publishedQuestions.value,
+  (val) => {
+    if (val && val.length > 0) {
+      handleStatsSelectQuestion(val[0]);
+    }
+  },
+  { immediate: true }
+);
 </script>
 
 <style scoped>
