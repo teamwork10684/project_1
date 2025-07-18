@@ -1,5 +1,5 @@
 <template>
-  <div class="question-stats-bar-outer" :class="{ 'show-list': showList }">
+  <div class="question-stats-bar-outer" :class="{ 'show-question': showQuestion }">
     <div class="question-list-panel">
       <div class="question-list-header">题目列表</div>
       <div class="question-list-body">
@@ -222,20 +222,20 @@ function updateCountdown() {
   }
 }
 const emit = defineEmits(['back', 'selectQuestion']);
-const showList = ref(false);
+const showQuestion = ref(false); // 初始为false，显示题目列表
 function handleBack() {
-  showList.value = true;
+  showQuestion.value = false;
   setTimeout(() => {
     emit('back');
   }, 350); // 动画时长与css一致
 }
 function handleSelectQuestion(item, idx) {
-  showList.value = false;
+  showQuestion.value = true;
   emit('selectQuestion', item, idx);
 }
 const sortedQuestionList = computed(() => {
   if (!props.questionList) return [];
-  return props.questionList.slice().sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  return props.questionList.slice().sort((a, b) => new Date(b.publish_time) - new Date(a.publish_time));
 });
 onMounted(() => {
   renderChart();
@@ -284,10 +284,11 @@ watch(() => props.endTime, (val) => {
   box-shadow: 0 2px 8px rgba(22, 119, 255, 0.06);
   transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
   will-change: transform;
-  transform: translateX(-100%);
-}
-.show-list .question-list-panel {
   transform: translateX(0);
+}
+/* 只有在show-question时，题目列表平移出视图 */
+.show-question .question-list-panel {
+  transform: translateX(-100%);
 }
 .question-stats-bar {
   width: 100%;
@@ -305,7 +306,10 @@ watch(() => props.endTime, (val) => {
   height: 100%;
   min-height: 0;
 }
-.show-list .question-stats-bar {
+.show-question .question-stats-bar {
+  transform: translateX(0);
+}
+.question-stats-bar-outer:not(.show-question) .question-stats-bar {
   transform: translateX(100%);
 }
 .question-list-panel {
@@ -319,10 +323,6 @@ watch(() => props.endTime, (val) => {
   border-radius: 14px;
   box-shadow: 0 2px 8px rgba(22, 119, 255, 0.06);
   animation: slideInRight 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-}
-@keyframes slideInRight {
-  from { transform: translateX(100%); }
-  to { transform: translateX(0); }
 }
 .slide-right-enter-active, .slide-right-leave-active {
   transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
