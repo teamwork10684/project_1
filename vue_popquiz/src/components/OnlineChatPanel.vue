@@ -33,9 +33,9 @@
         v-for="msg in messages"
         :key="msg.timestamp + msg.username"
         class="msg"
-        :class="{ self: msg.username === myName, system: msg.user_id === 'system' }"
+        :class="{ self: msg.username === myName, system: msg.is_system === true }"
       >
-        <template v-if="msg.user_id !== 'system'">
+        <template v-if="!msg.is_system">
           <span class="bubble-avatar">{{ msg.username?.charAt(0) || 'U' }}</span>
           <span class="bubble" :class="{ self: msg.username === myName }">
             {{ msg.message }}
