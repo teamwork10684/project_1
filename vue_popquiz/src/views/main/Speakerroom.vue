@@ -60,16 +60,12 @@
           <a-card class="reserved-card-2">
             <div class="reserved-content-2">
               <QuestionStatsBar
-                v-if="publishedQuestions.length > 0 && statsBarData.question"
-                :question="statsBarData.question"
-                :options="statsBarData.options"
-                :unselectedCount="statsBarData.unselectedCount"
-                :accuracy="statsBarData.accuracy"
-                :correctLabel="statsBarData.correctLabel"
-                :endTime="statsBarData.endTime"
                 :questionList="publishedQuestions"
                 :discussionMessages="[]"
+                :roomId="roomId"
+                :token="token"
                 @selectQuestion="handleStatsSelectQuestion"
+                @back="handleStatsBack"
               />
             </div>
           </a-card>
@@ -99,7 +95,7 @@ import { message } from 'ant-design-vue';
 import {
   ArrowLeftOutlined,
 } from '@ant-design/icons-vue';
-import { speechRoomAPI, checkTokenExpired, getToken, questionAPI } from '../../api';
+import { speechRoomAPI, checkTokenExpired, getToken, questionAPI, discussionAPI } from '../../api';
 import wsManager from '../../utils/websocket';
 import eventBus from '../../utils/eventBus';
 import OnlineChatPanel from '../../components/OnlineChatPanel.vue';
@@ -139,14 +135,101 @@ const participants = ref([]);
 const onlineCount = ref(0);
 
 // 讨论相关
-const discussionMessages = ref([
-  {
-    user_id: 'system',
-    username: '系统',
-    message: '欢迎来到讨论区，开始您的讨论吧！',
-    timestamp: new Date().toISOString()
+const initialTip = {
+  user_id: 'system',
+  username: '系统',
+  message: '欢迎来到讨论区，开始您的讨论吧！',
+  timestamp: new Date().toISOString(),
+  is_system: true
+};
+const discussionMessages = ref([]);
+
+// 获取房间讨论列表
+const fetchRoomDiscussions = async () => {
+  try {
+    const token = getToken();
+    if (!token) return;
+    const res = await discussionAPI.getDiscussions(roomId.value, token);
+    let msgs = (res.data.discussions || []).map(d => ({
+      user_id: d.user_id,
+      username: d.username,
+      message: d.content,
+      timestamp: d.created_at,
+      is_system: d.is_system
+    }));
+    msgs.push(initialTip);
+    discussionMessages.value = msgs;
+  } catch (e) {
+    discussionMessages.value = [initialTip];
   }
-]);
+};
+
+// 事件处理函数定义
+function handleUserJoined(data) {
+  if (!participants.value.some(p => p.user_id === data.user_id)) {
+    participants.value.push({
+      user_id: data.user_id,
+      username: data.username,
+      role: data.role
+    });
+    onlineCount.value = participants.value.length;
+    // discussionMessages.value.push({
+    //   user_id: 'system',
+    //   username: '系统',
+    //   message: `${data.username} 加入了房间`,
+    //   timestamp: data.timestamp
+    // });
+  }
+}
+function handleUserLeft(data) {
+  const index = participants.value.findIndex(p => p.user_id === data.user_id);
+  if (index > -1) {
+    participants.value.splice(index, 1);
+    onlineCount.value = participants.value.length;
+    // discussionMessages.value.push({
+    //   user_id: 'system',
+    //   username: '系统',
+    //   message: `${data.username} 离开了房间`,
+    //   timestamp: data.timestamp
+    // });
+  }
+}
+function handleRoomUsersUpdated(data) {
+  // 去重赋值
+  const uniqueUsers = [];
+  const seen = new Set();
+  for (const u of data.users) {
+    if (!seen.has(u.user_id)) {
+      uniqueUsers.push(u);
+      seen.add(u.user_id);
+    }
+  }
+  participants.value = uniqueUsers;
+  onlineCount.value = data.total_online;
+}
+function handleNewMessage(data) {
+  discussionMessages.value.push({
+    user_id: data.user_id,
+    username: data.username,
+    message: data.message,
+    timestamp: data.timestamp,
+    is_system: data.is_system
+  });
+}
+
+function setupWebSocketEvents() {
+  eventBus.on('userJoined', handleUserJoined);
+  eventBus.on('userLeft', handleUserLeft);
+  eventBus.on('roomUsersUpdated', handleRoomUsersUpdated);
+  eventBus.on('newMessage', handleNewMessage);
+}
+
+function cleanupWebSocketEvents() {
+  eventBus.off('userJoined', handleUserJoined);
+  eventBus.off('userLeft', handleUserLeft);
+  eventBus.off('roomUsersUpdated', handleRoomUsersUpdated);
+  eventBus.off('newMessage', handleNewMessage);
+}
 
 // 在线人员显示控制
 const showOnlineUsers = ref(false);
@@ -158,25 +241,12 @@ const wsConnected = ref(false);
 const questions = ref([]);
 const publishedQuestions = ref([]);
 
-const questionListForStats = [
-  { id: 1, question: '太阳从哪边升起？', status: 0, created_at: '2024-01-01T10:00:00Z' },
-  { id: 2, question: 'Python是一种什么类型的编程语言？', status: 1, created_at: '2024-01-01T11:00:00Z' },
-  { id: 3, question: 'Vue.js的核心特性是什么？', status: 1, created_at: '2024-01-01T12:00:00Z' }
-];
-
-const discussionMessagesForStats = [
-  { username: '小明', message: '我觉得选A！' },
-  { username: '小红', message: 'B也有道理，但我还是选A。' },
-  { username: '老师', message: '大家可以说说理由哦~' }
-];
-
 // 预留操作方法
 const handleAutoPublish = () => {
   // TODO: 自动发布实现
 };
 const handleSaveSettings = (settings) => {
   console.log('保存设置:', settings);
-  // TODO: 保存设置实现
 };
 
 const handlePublishQuestion = async (question) => {
@@ -185,9 +255,12 @@ const handlePublishQuestion = async (question) => {
     return;
   }
   try {
+    // 获取本地存储的答题限时
+    const answerTimeLimit = parseInt(localStorage.getItem('answerTimeLimit')) || 60;
     const res = await questionAPI.publishQuestion(roomId.value, {
       token: token.value,
-      question_id: question.id
+      question_id: question.id,
+      time_limit: answerTimeLimit
     });
     message.success('题目发布成功');
     await fetchQuestions();
@@ -267,65 +340,7 @@ const sendDiscussion = (msg) => {
 
 
 // WebSocket事件处理
-const setupWebSocketEvents = () => {
-  // 用户加入房间
-  eventBus.on('userJoined', (data) => {
-    console.log('用户加入:', data);
-    // 添加新用户到参与者列表
-    const newParticipant = {
-      user_id: data.user_id,
-      username: data.username,
-      role: data.role
-    };
-    participants.value.push(newParticipant);
-    onlineCount.value = participants.value.length;
-    
-    // 添加系统消息
-    discussionMessages.value.push({
-      user_id: 'system',
-      username: '系统',
-      message: `${data.username} 加入了房间`,
-      timestamp: data.timestamp
-    });
-  });
-
-  // 用户离开房间
-  eventBus.on('userLeft', (data) => {
-    console.log('用户离开:', data);
-    // 从参与者列表中移除用户
-    const index = participants.value.findIndex(p => p.user_id === data.user_id);
-    if (index > -1) {
-      participants.value.splice(index, 1);
-      onlineCount.value = participants.value.length;
-    }
-    
-    // 添加系统消息
-    discussionMessages.value.push({
-      user_id: 'system',
-      username: '系统',
-      message: `${data.username} 离开了房间`,
-      timestamp: data.timestamp
-    });
-  });
-
-  // 房间用户列表更新
-  eventBus.on('roomUsersUpdated', (data) => {
-    console.log('房间用户更新:', data);
-    participants.value = data.users;
-    onlineCount.value = data.total_online;
-  });
-
-  // 新消息
-  eventBus.on('newMessage', (data) => {
-    console.log('新消息:', data);
-    discussionMessages.value.push({
-      user_id: data.user_id,
-      username: data.username,
-      message: data.message,
-      timestamp: data.timestamp
-    });
-  });
-};
+// setupWebSocketEvents 和 cleanupWebSocketEvents 现在在 onMounted 和 onUnmounted 中调用
 
 // 生命周期
 onMounted(async () => {
@@ -335,6 +350,8 @@ onMounted(async () => {
 
   // 先获取房间信息
   await fetchRoomInfo();
+  // 获取房间讨论列表
+  await fetchRoomDiscussions();
   
   // 设置WebSocket事件监听
   setupWebSocketEvents();
@@ -397,6 +414,9 @@ const handlePageChange = ({ fileId, page }) => {
 
 onUnmounted(() => {
   if (pageTimer) clearTimeout(pageTimer);
+  wsManager.disconnect();
+  wsConnected.value = false;
+  cleanupWebSocketEvents();
 });
 
 const handleStartSpeech = async () => {
@@ -418,55 +438,15 @@ const handleEndSpeech = async () => {
   }
 };
 
-const selectedStatsQuestion = ref(null);
-const statsBarData = ref({
-  question: '',
-  options: [],
-  unselectedCount: 0,
-  accuracy: 0,
-  correctLabel: '',
-  endTime: '',
-});
-
-const handleStatsSelectQuestion = async (item) => {
-  // item为publishedQuestions中的一项
-  try {
-    // 获取题目答题统计（演讲者和组织者可见）
-    const res = await questionAPI.getQuestionStatisticsForSpeakerAndOrganizer(item.id, token.value);
-    const data = res.data;
-    if (data && data.question_info && data.statistics) {
-      // 组装options
-      const options = [
-        { label: 'A', text: data.question_info.option_a, count: data.statistics.option_a_count },
-        { label: 'B', text: data.question_info.option_b, count: data.statistics.option_b_count },
-        { label: 'C', text: data.question_info.option_c, count: data.statistics.option_c_count },
-        { label: 'D', text: data.question_info.option_d, count: data.statistics.option_d_count },
-      ];
-      statsBarData.value = {
-        question: data.question_info.question,
-        options,
-        unselectedCount: data.statistics.unanswered_count,
-        accuracy: (data.statistics.accuracy_rate || 0) / 100,
-        correctLabel: data.question_info.answer,
-        endTime: data.time_info.end_time,
-      };
-      selectedStatsQuestion.value = item;
-    }
-  } catch (e) {
-    message.error(e?.response?.data?.message || '获取题目统计失败');
-  }
+const handleStatsSelectQuestion = (item) => {
+  // 现在QuestionStatsBar组件自己处理数据获取，这里只需要处理其他逻辑
+  console.log('题目被选择:', item);
 };
 
-// 默认加载第一个题目的统计
-watch(
-  () => publishedQuestions.value,
-  (val) => {
-    if (val && val.length > 0) {
-      handleStatsSelectQuestion(val[0]);
-    }
-  },
-  { immediate: true }
-);
+const handleStatsBack = () => {
+  // 现在QuestionStatsBar组件自己处理返回逻辑，这里只需要处理其他逻辑
+  console.log('返回题目列表');
+};
 </script>
 
 <style scoped>
