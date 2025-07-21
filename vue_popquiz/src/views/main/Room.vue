@@ -71,7 +71,7 @@ import { message } from 'ant-design-vue';
 import {
   ArrowLeftOutlined
 } from '@ant-design/icons-vue';
-import { speechRoomAPI, checkTokenExpired, getToken, questionAPI, answerAPI } from '../../api';
+import { speechRoomAPI, checkTokenExpired, getToken, questionAPI, answerAPI, discussionAPI } from '../../api';
 import wsManager from '../../utils/websocket';
 import eventBus from '../../utils/eventBus';
 import OnlineChatPanel from '../../components/OnlineChatPanel.vue';
@@ -110,15 +110,101 @@ const participants = ref([]);
 const onlineCount = ref(0);
 
 // 讨论相关
-const discussionInput = ref('');
-const discussionMessages = ref([
-  {
-    user_id: 'system',
-    username: '系统',
-    message: '欢迎来到讨论区，开始您的讨论吧！',
-    timestamp: new Date().toISOString()
+const initialTip = {
+  user_id: 'system',
+  username: '系统',
+  message: '欢迎来到讨论区，开始您的讨论吧！',
+  timestamp: new Date().toISOString(),
+  is_system: true
+};
+const discussionMessages = ref([]);
+
+// 获取房间讨论列表
+const fetchRoomDiscussions = async () => {
+  try {
+    const token = getToken();
+    if (!token) return;
+    const res = await discussionAPI.getDiscussions(roomId.value, token);
+    let msgs = (res.data.discussions || []).map(d => ({
+      user_id: d.user_id,
+      username: d.username,
+      message: d.content,
+      timestamp: d.created_at,
+      is_system: d.is_system
+    }));
+    msgs.push(initialTip);
+    discussionMessages.value = msgs;
+  } catch (e) {
+    discussionMessages.value = [initialTip];
   }
-]);
+};
+
+// 事件处理函数定义
+function handleUserJoined(data) {
+  if (!participants.value.some(p => p.user_id === data.user_id)) {
+    participants.value.push({
+      user_id: data.user_id,
+      username: data.username,
+      role: data.role
+    });
+    onlineCount.value = participants.value.length;
+    // discussionMessages.value.push({
+    //   user_id: 'system',
+    //   username: '系统',
+    //   message: `${data.username} 加入了房间`,
+    //   timestamp: data.timestamp
+    // });
+  }
+}
+function handleUserLeft(data) {
+  const index = participants.value.findIndex(p => p.user_id === data.user_id);
+  if (index > -1) {
+    participants.value.splice(index, 1);
+    onlineCount.value = participants.value.length;
+    // discussionMessages.value.push({
+    //   user_id: 'system',
+    //   username: '系统',
+    //   message: `${data.username} 离开了房间`,
+    //   timestamp: data.timestamp
+    // });
+  }
+}
+function handleRoomUsersUpdated(data) {
+  // 去重赋值
+  const uniqueUsers = [];
+  const seen = new Set();
+  for (const u of data.users) {
+    if (!seen.has(u.user_id)) {
+      uniqueUsers.push(u);
+      seen.add(u.user_id);
+    }
+  }
+  participants.value = uniqueUsers;
+  onlineCount.value = data.total_online;
+}
+function handleNewMessage(data) {
+  discussionMessages.value.push({
+    user_id: data.user_id,
+    username: data.username,
+    message: data.message,
+    timestamp: data.timestamp,
+    is_system: data.is_system
+  });
+}
+
+function setupWebSocketEvents() {
+  eventBus.on('userJoined', handleUserJoined);
+  eventBus.on('userLeft', handleUserLeft);
+  eventBus.on('roomUsersUpdated', handleRoomUsersUpdated);
+  eventBus.on('newMessage', handleNewMessage);
+}
+
+function cleanupWebSocketEvents() {
+  eventBus.off('userJoined', handleUserJoined);
+  eventBus.off('userLeft', handleUserLeft);
+  eventBus.off('roomUsersUpdated', handleRoomUsersUpdated);
+  eventBus.off('newMessage', handleNewMessage);
+}
 
 // 展示数据提升到Room.vue
 const answerBoardQuestion = ref(null); // 结构见下
@@ -222,65 +308,7 @@ const sendDiscussion = (msg) => {
 
 
 // WebSocket事件处理
-const setupWebSocketEvents = () => {
-  // 用户加入房间
-  eventBus.on('userJoined', (data) => {
-    console.log('用户加入:', data);
-    // 添加新用户到参与者列表
-    const newParticipant = {
-      user_id: data.user_id,
-      username: data.username,
-      role: data.role
-    };
-    participants.value.push(newParticipant);
-    onlineCount.value = participants.value.length;
-    
-    // 添加系统消息
-    discussionMessages.value.push({
-      user_id: 'system',
-      username: '系统',
-      message: `${data.username} 加入了房间`,
-      timestamp: data.timestamp
-    });
-  });
 
-  // 用户离开房间
-  eventBus.on('userLeft', (data) => {
-    console.log('用户离开:', data);
-    // 从参与者列表中移除用户
-    const index = participants.value.findIndex(p => p.user_id === data.user_id);
-    if (index > -1) {
-      participants.value.splice(index, 1);
-      onlineCount.value = participants.value.length;
-    }
-    
-    // 添加系统消息
-    discussionMessages.value.push({
-      user_id: 'system',
-      username: '系统',
-      message: `${data.username} 离开了房间`,
-      timestamp: data.timestamp
-    });
-  });
-
-  // 房间用户列表更新
-  eventBus.on('roomUsersUpdated', (data) => {
-    console.log('房间用户更新:', data);
-    participants.value = data.users;
-    onlineCount.value = data.total_online;
-  });
-
-  // 新消息
-  eventBus.on('newMessage', (data) => {
-    console.log('新消息:', data);
-    discussionMessages.value.push({
-      user_id: data.user_id,
-      username: data.username,
-      message: data.message,
-      timestamp: data.timestamp
-    });
-  });
-};
 
 // 获取当前进行中题目及其统计
 const fetchCurrentQuestionAndStats = async () => {
@@ -288,8 +316,22 @@ const fetchCurrentQuestionAndStats = async () => {
   // 获取所有被发布题目
   const res = await questionAPI.getPublishedQuestions(roomId.value, token);
   const publishedQuestions = res.data.published_questions || [];
-  // 找到进行中的题目
-  const current = publishedQuestions.find(q => q.status === 0);
+  // 先找进行中的题目
+  let current = publishedQuestions.find(q => q.status === 0);
+  let status = 0;
+  // 如果没有进行中的题目，找最新已结束的题目
+  if (!current && publishedQuestions.length > 0) {
+    // 假设题目有end_time字段，否则用id最大
+    current = publishedQuestions
+      .filter(q => q.status === 1)
+      .sort((a, b) => {
+        if (a.end_time && b.end_time) {
+          return new Date(b.end_time) - new Date(a.end_time);
+        }
+        return b.id - a.id;
+      })[0];
+    status = 1;
+  }
   if (!current) {
     answerBoardState.value = 'no-question';
     answerBoardQuestion.value = null;
@@ -301,10 +343,11 @@ const fetchCurrentQuestionAndStats = async () => {
   // 组装答题板数据
   const qinfo = data.question_info;
   const stat = data.statistics;
-  const status = data.time_info.status; // 0进行中 1已结束
+  // 以接口返回的status为准
+  status = data.time_info?.status ?? status;
   answerBoardState.value = status === 1 ? 'ended' : 'in-progress';
   answerBoardQuestion.value = {
-    id: qinfo.id, // 新增
+    id: qinfo.id,
     question: qinfo.question,
     options: [
       { value: 'A', text: qinfo.option_a, count: stat.option_a_count },
@@ -319,10 +362,10 @@ const fetchCurrentQuestionAndStats = async () => {
     showCorrect: status === 1,
     showMyAnswer: !!data.my_answer,
     accuracy: stat.accuracy_rate,
-    countdown: data.time_info.time_limit, // 可根据需要调整
-    start_time: data.time_info.start_time, // 新增
-    end_time: data.time_info.end_time, // 新增
-    discussions: [] // 可后续补充
+    countdown: data.time_info.time_limit,
+    start_time: data.time_info.start_time,
+    end_time: data.time_info.end_time,
+    discussions: []
   };
 };
 
@@ -353,6 +396,8 @@ onMounted(async () => {
 
   // 先获取房间信息
   await fetchRoomInfo();
+  // 获取房间讨论列表
+  await fetchRoomDiscussions();
   // 获取用户房间统计
   await fetchUserRoomStats();
   // 设置WebSocket事件监听
@@ -437,9 +482,25 @@ onMounted(async () => {
           question: q.question,
           status: q.status
         }));
+        // 新增：刷新答题板
+        await fetchCurrentQuestionAndStats();
       } catch (err) {
         message.error('获取题目列表失败');
+        // 即使失败也要尝试刷新答题板
+        try {
+          await fetchCurrentQuestionAndStats();
+        } catch {}
       }
+    }
+  });
+  // 新增：监听答题事件，自动刷新答题板
+  eventBus.on('answerSubmitted', async (data) => {
+    // 判断当前答题板的题目id和事件中的published_question_id是否一致
+    if (
+      answerBoardQuestion.value &&
+      data.published_question_id === (questionList.value.find(q => q.status === 0)?.id)
+    ) {
+      await fetchCurrentQuestionAndStats();
     }
   });
 });
@@ -448,6 +509,8 @@ onUnmounted(() => {
   // 断开WebSocket连接
   wsManager.disconnect();
   wsConnected.value = false;
+  cleanupWebSocketEvents();
+  eventBus.off('answerSubmitted');
 });
 
 const handleQuestionSelect = async (item) => {
