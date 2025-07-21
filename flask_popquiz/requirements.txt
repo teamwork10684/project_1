@@ -1,0 +1,11 @@
+flask 
+flask-cors
+flask-socketio
+flask_sqlalchemy
+sqlalchemy
+pymysql
+werkzeug
+ollama
+pywin32
+comtypes
+PyPDF2

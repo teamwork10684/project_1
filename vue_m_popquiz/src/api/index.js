@@ -31,13 +31,15 @@ api.interceptors.response.use(
     return response;
   },
   (error) => {
-    if (error.response?.status === 401) {
-      // token过期或无效
+    const token = localStorage.getItem('token');
+    if (error.response?.status === 401 && token) {
+      // 只有有token时才认为是token过期
       localStorage.removeItem('token');
       localStorage.removeItem('username');
       message.error('登录已过期，请重新登录');
       router.push('/auth');
     }
+    // 其他401（如登录/注册失败）交给页面自己处理
     return Promise.reject(error);
   }
 );

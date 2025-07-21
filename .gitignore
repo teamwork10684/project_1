@@ -1,0 +1,7 @@
+.github
+.idea
+.vscode
+test_ollama
+__pycache__/
+__pycache__
+report
