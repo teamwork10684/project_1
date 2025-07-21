@@ -24,7 +24,7 @@ socketio.init_app(app, cors_allowed_origins="*")
 OLLAMA_MODEL = 'deepseek-r1:7b'
 
 # SQLAlchemy配置
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:password@localhost:3306/popquiz?charset=utf8mb4'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:3335335353533m5@localhost:3306/popquiz?charset=utf8mb4'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db.init_app(app)
@@ -963,7 +963,7 @@ def get_discussions():
         return jsonify({'message': '您不是该演讲室的成员'}), 403
     
     # 获取讨论列表
-    discussions = Discussion.query.filter_by(room_id=room_id).order_by(Discussion.created_at.desc()).all()
+    discussions = Discussion.query.filter_by(room_id=room_id).order_by(Discussion.created_at.asc()).all()
     
     result = []
     for discussion in discussions:
@@ -1330,6 +1330,29 @@ def publish_question(room_id):
         'question': question.question
     }, room=str(room_id))
     
+    # 新增：发布题目后激活系统消息
+    system_message = f'新题目已发布,接下来的讨论被视为对本题的讨论!'
+    socketio.emit('new_message', {
+        'user_id': 'system',
+        'username': '系统',
+        'message': system_message,
+        'timestamp': datetime.now().isoformat(),
+        'is_system': True
+    }, room=str(room_id))
+    # 新增：插入到Discussion表
+    try:
+        discussion = Discussion(
+            room_id=room_id,
+            user_id=-1,
+            content=system_message,
+            is_system=True,
+            question_id=-1
+        )
+        db.session.add(discussion)
+        db.session.commit()
+    except Exception as e:
+        print(f"[PublishQuestion] Discussion insert error: {e}")
+    
     # 新增：后台自动结束题目
     import threading
     import time as pytime
@@ -1452,7 +1475,18 @@ def answer_question(room_id):
     
     db.session.add(answer_record)
     db.session.commit()
-    
+
+    # WebSocket通知前端有用户答题
+    from websocket_handler import socketio
+    socketio.emit('answer_submitted', {
+        'room_id': room_id,
+        'question_id': question_id,
+        'published_question_id': published_question.id,
+        'user_id': user_id,
+        'selected_answer': answer,
+        'created_at': answer_record.created_at.isoformat()
+    }, room=str(room_id))
+
     return jsonify({
         'id': answer_record.id,
         'room_id': room_id,
@@ -2065,41 +2099,42 @@ def async_extract_text(file_id, page, room_id):
             exists = session.query(RawText).filter_by(file_id=file_id, page=page).first()
             if exists:
                 print(f"raw_texts已存在: file_id={file_id}, page={page}")
-                return
-            # 查找文件路径
-            file_obj = session.query(UploadedFile).get(file_id)
-            if not file_obj or file_obj.status != 1:
-                print(f"文件不存在或已删除: file_id={file_id}")
-                return
-            file_path = file_obj.file_path
-            ext = (file_obj.file_extension or '').lower()
-            # 仅支持pdf
-            if ext != 'pdf':
-                print(f"暂不支持的文件类型: {ext}")
-                return
-            # 提取pdf文本
-            try:
-                from PyPDF2 import PdfReader
-                reader = PdfReader(file_path)
-                if page < 1 or page > len(reader.pages):
-                    print(f"页码超出范围: {page}")
+                text = exists.content or ''
+            else:
+                # 查找文件路径
+                file_obj = session.query(UploadedFile).get(file_id)
+                if not file_obj or file_obj.status != 1:
+                    print(f"文件不存在或已删除: file_id={file_id}")
                     return
-                text = reader.pages[page-1].extract_text() or ''
-            except Exception as e:
-                print(f"PDF解析失败: {e}")
-                return
-            # 入库raw_texts
-            raw = RawText(
-                room_id=room_id,
-                file_id=file_id,
-                page=page,
-                content=text,
-                source_type=0,  # 0-ppt, 1-pdf, 2-其它
-                used_count=0
-            )
-            session.add(raw)
-            session.commit()
-            print(f"raw_texts插入成功: file_id={file_id}, page={page}")
+                file_path = file_obj.file_path
+                ext = (file_obj.file_extension or '').lower()
+                # 仅支持pdf
+                if ext != 'pdf':
+                    print(f"暂不支持的文件类型: {ext}")
+                    return
+                # 提取pdf文本
+                try:
+                    from PyPDF2 import PdfReader
+                    reader = PdfReader(file_path)
+                    if page < 1 or page > len(reader.pages):
+                        print(f"页码超出范围: {page}")
+                        return
+                    text = reader.pages[page-1].extract_text() or ''
+                except Exception as e:
+                    print(f"PDF解析失败: {e}")
+                    return
+                # 入库raw_texts
+                raw = RawText(
+                    room_id=room_id,
+                    file_id=file_id,
+                    page=page,
+                    content=text,
+                    source_type=0,  # 0-ppt, 1-pdf, 2-其它
+                    used_count=0
+                )
+                session.add(raw)
+                session.commit()
+                print(f"raw_texts插入成功: file_id={file_id}, page={page}")
             # 出题
             if not text.strip():
                 print(f"文本为空，跳过出题: file_id={file_id}, page={page}")
@@ -2164,8 +2199,12 @@ def async_extract_text(file_id, page, room_id):
                 session.commit()
                 print(f"题目插入成功: file_id={file_id}, page={page}, qid={q.id}")
                 # 更新raw_texts的used_count
-                raw.used_count += 1
-                session.commit()
+                if exists:
+                    exists.used_count += 1
+                    session.commit()
+                else:
+                    raw.used_count += 1
+                    session.commit()
                 # WebSocket通知前端刷新题目
                 from websocket_handler import socketio
                 socketio.emit('question_generated', {
