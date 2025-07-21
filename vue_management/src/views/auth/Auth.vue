@@ -22,18 +22,14 @@
         <a-form-item>
           <a-button type="primary" html-type="submit" block size="large" :loading="loading">{{ mode === 'login' ? '登录' : '注册' }}</a-button>
         </a-form-item>
-        <a-form-item>
-          <a-button type="link" block size="large" @click="toggleMode">
-            {{ mode === 'login' ? '没有账号？去注册' : '已有账号？去登录' }}
-          </a-button>
-        </a-form-item>
+        <!-- 删除了切换注册/登录的按钮 -->
       </a-form>
     </a-card>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { message } from 'ant-design-vue';
 import { userAPI } from '@/api';
@@ -176,6 +172,13 @@ const toggleMode = () => {
 watch(() => route.path, (newPath) => {
   if (newPath === '/register') mode.value = 'register';
   else mode.value = 'login';
+});
+
+onMounted(() => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    router.replace('/admin');
+  }
 });
 </script>
 
