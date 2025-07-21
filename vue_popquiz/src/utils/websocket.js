@@ -119,6 +119,12 @@ class WebSocketManager {
       console.log('Question ended:', data);
       this.emit('questionEnded', data);
     });
+
+    // 新增：监听答题事件
+    this.socket.on('answer_submitted', (data) => {
+      console.log('Answer submitted:', data);
+      this.emit('answerSubmitted', data);
+    });
   }
 
   // 加入房间
