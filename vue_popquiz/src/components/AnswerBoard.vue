@@ -1,53 +1,55 @@
 <template>
-  <a-card title="答题板" class="answer-board-card" :body-style="{height: '100%', padding: '0', minHeight: '0'}">
+  <a-card class="answer-board-card" :body-style="{height: '100%', padding: '0', minHeight: '0'}">
     <div class="answer-board-content">
-      <!-- 答题区 -->
-      <div class="question-section">
-        <div class="question-header">
-          <div class="question-title">{{ question }}</div>
-          <div class="timer">
-            <span class="countdown-timer" :class="{ 'ended': realCountdown <= 0 }">
-              <svg class="timer-icon" viewBox="0 0 20 20" width="18" height="18">
-                <circle cx="10" cy="10" r="8" :stroke="realCountdown <= 0 ? '#b88600' : '#1677ff'" stroke-width="2" fill="none"/>
-                <path d="M10 5v5l3 2" :stroke="realCountdown <= 0 ? '#b88600' : '#1677ff'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-              </svg>
-              {{ countdownText }}
+      <div class="main-board-flex">
+        <!-- 答题区 -->
+        <div class="question-section">
+          <div class="question-header">
+            <div class="question-title">{{ question }}</div>
+            <div class="timer">
+              <span class="countdown-timer" :class="{ 'ended': realCountdown <= 0 }">
+                <svg class="timer-icon" viewBox="0 0 20 20" width="18" height="18">
+                  <circle cx="10" cy="10" r="8" :stroke="realCountdown <= 0 ? '#b88600' : '#1677ff'" stroke-width="2" fill="none"/>
+                  <path d="M10 5v5l3 2" :stroke="realCountdown <= 0 ? '#b88600' : '#1677ff'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                </svg>
+                {{ countdownText }}
+              </span>
+            </div>
+          </div>
+          <div class="options-group">
+            <div
+              v-for="opt in options"
+              :key="opt.value"
+              :class="optionClass(opt.value)"
+              @click="selectOption(opt.value)"
+            >
+              <span class="option-label">{{ opt.value }}.</span> {{ opt.text }}
+              <span v-if="showCorrect && correctValue === opt.value" class="correct-badge">正确答案</span>
+              <span v-if="showMyAnswer && myAnswer === opt.value" class="my-badge">我的选择</span>
+            </div>
+          </div>
+          <a-button v-if="status === 0 && !myAnswer" type="primary" class="submit-btn" :disabled="!selected" @click="submitAnswer">提交答案</a-button>
+        </div>
+        <!-- 统计区 -->
+        <div class="stats-section">
+          <div ref="chartRef" class="bar-chart"></div>
+          <div class="stats-info">
+            <span class="stats-info-item accuracy" v-if="showCorrect && accuracy !== undefined && accuracy !== null">
+              正确率：<span class="stats-number">{{ accuracy }}%</span>
+            </span>
+            <span class="stats-info-item total">
+              答题人数：<span class="stats-number">{{ statistics.answered_count }}</span>
             </span>
           </div>
         </div>
-        <div class="options-group">
-          <div
-            v-for="opt in options"
-            :key="opt.value"
-            :class="optionClass(opt.value)"
-            @click="selectOption(opt.value)"
-          >
-            <span class="option-label">{{ opt.value }}.</span> {{ opt.text }}
-            <span v-if="showCorrect && correctValue === opt.value" class="correct-badge">正确答案</span>
-            <span v-if="showMyAnswer && myAnswer === opt.value" class="my-badge">我的选择</span>
-          </div>
-        </div>
-        <a-button v-if="status === 0 && !myAnswer" type="primary" class="submit-btn" :disabled="!selected" @click="submitAnswer">提交答案</a-button>
-      </div>
-      <!-- 统计区 -->
-      <div class="stats-section">
-        <div ref="chartRef" class="bar-chart"></div>
-        <div class="stats-info">
-          <span class="stats-info-item accuracy" v-if="showCorrect && accuracy !== undefined && accuracy !== null">
-            正确率：<span class="stats-number">{{ accuracy }}%</span>
-          </span>
-          <span class="stats-info-item total">
-            答题人数：<span class="stats-number">{{ statistics.answered_count }}</span>
-          </span>
-        </div>
-      </div>
-      <!-- 讨论区 -->
-      <div class="discussion-section">
-        <div class="discussion-title">讨论区</div>
-        <div class="discussion-list">
-          <div class="discussion-item" v-for="(msg, idx) in discussions" :key="idx">
-            <span class="author">{{ msg.author }}:</span>
-            <span class="content">{{ msg.content }}</span>
+        <!-- 讨论区 -->
+        <div class="discussion-section">
+          <div class="discussion-title">讨论区</div>
+          <div class="discussion-list">
+            <div class="discussion-item" v-for="(msg, idx) in discussions" :key="idx">
+              <span class="author">{{ msg.author }}:</span>
+              <span class="content">{{ msg.content }}</span>
+            </div>
           </div>
         </div>
       </div>
@@ -225,6 +227,16 @@ watch(() => [props.start_time, props.end_time, props.status], () => {
     calcCountdown();
   }
 }, { immediate: true });
+
+// 监听options和statistics变化，刷新图表
+watch(
+  () => [props.options, props.statistics],
+  () => {
+    nextTick(renderChart);
+  },
+  { deep: true }
+);
+
 onUnmounted(stopTimer);
 
 const countdownText = computed(() => {
@@ -251,18 +263,36 @@ const countdownText = computed(() => {
   height: 100%;
   min-height: 0;
   flex: 1 1 0%;
-  overflow: hidden;
+  overflow: auto;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+  border-radius: 12px;
 }
-.question-section {
-  flex: 0 0 45%;
-  min-height: 45%;
-  max-height: none;
+.answer-board-content::-webkit-scrollbar {
+  display: none;
+}
+.main-board-flex {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  height: 100%;
+  min-height: 0;
+  overflow: auto;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+}
+.main-board-flex::-webkit-scrollbar {
+  display: none;
+}
+.question-section {
+  flex: 0 0 auto;
+  min-height: 35%;
+  display: flex;
+  flex-direction: column;
   justify-content: flex-start;
   padding: 24px 24px 8px 24px;
   background: #fff;
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
 }
 .question-header {
   display: flex;
@@ -287,21 +317,23 @@ const countdownText = computed(() => {
   flex-direction: column;
   gap: 16px;
   margin-top: 12px;
+  flex: 0 0 auto;
 }
 .custom-option {
   background: #fff;
   color: #222;
-  border: 1.5px solid #e6e6e6;
+  border: 2.5px solid #e6e6e6; /* 默认灰色边框 */
   border-radius: 10px;
   padding: 14px 18px;
   font-size: 1.15em;
-  font-weight: 500;
+  font-weight: 700; /* 所有状态都加粗，避免字体抖动 */
   cursor: pointer;
   transition: all 0.2s;
   user-select: none;
   box-shadow: 0 2px 8px rgba(22,119,255,0.03);
   display: flex;
   align-items: center;
+  min-height: 44px; /* 保证高度一致 */
 }
 .custom-option.selected {
   background: #1677ff;
@@ -322,16 +354,12 @@ const countdownText = computed(() => {
   margin-right: 10px;
 }
 .submit-btn {
+  margin-top: 16px;
   align-self: flex-end;
-  margin-top: 12px;
 }
 .stats-section {
-  flex: 0 0 45%;
-  min-height: 45%;
-  max-height: none;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
+  flex: 0 0 auto;
+  min-height: 120px;
   padding: 8px 24px 8px 24px;
   background: #fafcff;
   border-top: 1px solid #f0f0f0;
@@ -395,12 +423,11 @@ const countdownText = computed(() => {
   font-size: 1em;
 }
 .discussion-section {
-  flex: 1 1 0%;
+  flex: 1 1 0;
+  min-height: 120px;
   display: flex;
   flex-direction: column;
   padding: 12px 24px 24px 24px;
-  min-height: 0;
-  max-height: none;
   overflow: auto;
 }
 .discussion-title {
@@ -435,38 +462,31 @@ const countdownText = computed(() => {
   background: #eaffea;
   color: #52c41a;
   border-color: #52c41a;
-  font-weight: 700;
 }
 .custom-option.my-selected {
-  /* 进行中未答题时选中项：蓝底白字 */
-  border: none;
   background: #1677ff;
   color: #fff;
-  font-weight: 700;
+  border-color: #1677ff;
 }
 /* 进行中已答题时我的选项：蓝色内边框，白底蓝字 */
 .custom-option.my-selected.my-answered {
-  border: 2.5px solid #1677ff;
   background: #fff;
   color: #1677ff;
-  font-weight: 700;
+  border-color: #1677ff;
 }
 .custom-option.my-selected.wrong {
-  border: 2.5px solid #ff4d4f;
   background: #fff1f0;
   color: #ff4d4f;
+  border-color: #ff4d4f;
 }
-.correct-badge {
-  margin-left: 10px;
-  color: #52c41a;
-  font-size: 0.95em;
-  font-weight: 600;
-}
+.correct-badge,
 .my-badge {
   margin-left: 10px;
-  color: #1677ff;
   font-size: 0.95em;
   font-weight: 600;
+  line-height: 1.5;
+  min-height: 1.5em;
+  display: inline-block;
 }
 .countdown-timer {
   display: inline-flex;
