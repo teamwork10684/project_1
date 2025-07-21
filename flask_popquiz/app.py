@@ -24,7 +24,7 @@ socketio.init_app(app, cors_allowed_origins="*")
 OLLAMA_MODEL = 'deepseek-r1:7b'
 
 # SQLAlchemy配置
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:password@localhost:3306/popquiz?charset=utf8mb4'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:7661282cjyCJY@localhost:3306/popquiz?charset=utf8mb4'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db.init_app(app)
