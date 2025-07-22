@@ -18,12 +18,7 @@
           </a-button>
           <template #overlay>
             <a-menu>
-              <a-menu-item key="switch">
-                <i class="anticon anticon-user-switch"></i>
-                切换用户
-              </a-menu-item>
-              <a-menu-divider />
-              <a-menu-item key="logout">
+              <a-menu-item key="logout" @click="handleLogout">
                 <i class="anticon anticon-logout"></i>
                 退出登录
               </a-menu-item>
@@ -86,7 +81,7 @@
             </a-button>
           </a-col>
           <a-col :span="12">
-            <a-button type="danger" size="large" block>
+            <a-button type="danger" size="large" block @click="handleQuickDeleteRoom">
               <i class="anticon anticon-delete"></i>
               删除演讲室
             </a-button>
@@ -130,13 +125,13 @@
         <a-tab-pane key="speeches" tab="演讲室管理">
           <a-card title="演讲室信息" :bodyStyle="{padding: '0'}" :headStyle="{padding: '0 24px'}">
             <a-table :columns="roomColumns" :data-source="roomData" row-key="id" bordered :pagination="{ position: ['bottomCenter'] }" style="width: 100%">
-              <template #bodyCell="{ column }">
+              <template #bodyCell="{ column, record }">
                 <template v-if="column.key === 'action'">
                   <a-space>
-                    <a-button type="link">编辑</a-button>
-                    <a-button type="link" danger>删除</a-button>
-                    <a-button type="link">查看成员</a-button>
-                    <a-button type="link" danger>强制关闭</a-button>
+                    <!-- 删除编辑按钮 -->
+                    <a-button type="link" danger @click="handleRoomDelete(record)">删除</a-button>
+                    <a-button type="link" @click="handleRoomViewMembers(record)">查看成员</a-button>
+                    <a-button type="link" danger @click="handleRoomForceClose(record)">强制关闭</a-button>
                   </a-space>
                 </template>
               </template>
@@ -166,18 +161,36 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import api, { userAPI } from '@/api'
+import api, { userAPI, adminAPI } from '@/api'
 import { message, Modal, Form, Input } from 'ant-design-vue'
+import { useRouter } from 'vue-router'
+const router = useRouter()
 
 const activeTab = ref('users')
 
 // 统计数据
 const stats = ref({
-  users: 128,
-  speeches: 56,
-  active: 8,
-  ended: 48
+  users: 0,
+  speeches: 0,
+  active: 0,
+  ended: 0
 })
+
+const fetchAdminStats = async () => {
+  try {
+    const token = localStorage.getItem('token')
+    const res = await adminAPI.getStats(token)
+    stats.value = {
+      users: res.data.user_count,
+      speeches: res.data.room_count,
+      active: res.data.active_room_count,
+      ended: res.data.ended_room_count
+    }
+  } catch (e) {
+    message.error('获取统计数据失败')
+  }
+}
+onMounted(fetchAdminStats)
 
 // 用户信息表头
 const userColumns = [
@@ -190,7 +203,8 @@ const userColumns = [
 const userData = ref([])
 const fetchUsers = async () => {
   try {
-    const res = await api.get('/users')
+    const token = localStorage.getItem('token')
+    const res = await adminAPI.getUsers(token)
     userData.value = res.data.users
   } catch (e) {
     message.error('获取用户列表失败')
@@ -207,7 +221,8 @@ const handleDeleteUser = (id) => {
     cancelText: '取消',
     async onOk() {
       try {
-        await api.delete(`/users/${id}`)
+        const token = localStorage.getItem('token')
+        await adminAPI.deleteUser(id, token)
         message.success('删除成功')
         fetchUsers()
       } catch (e) {
@@ -329,6 +344,11 @@ const handleAddUserCancel = () => {
   addUserModalVisible.value = false
 }
 
+const handleLogout = () => {
+  localStorage.clear();
+  router.push('/');
+}
+
 // 演讲室信息表头
 const roomColumns = [
   { title: 'ID', dataIndex: 'id', key: 'id' },
@@ -338,10 +358,73 @@ const roomColumns = [
   { title: '人数', dataIndex: 'members', key: 'members' },
   { title: '操作', key: 'action' }
 ]
-const roomData = [
-  { id: 201, name: 'AI前沿', creator: 'admin', status: '进行中', members: 12 },
-  { id: 202, name: 'Vue3实战', creator: 'user1', status: '已结束', members: 8 }
-]
+const roomData = ref([])
+const fetchRooms = async () => {
+  try {
+    const token = localStorage.getItem('token')
+    const res = await adminAPI.getRooms(token)
+    roomData.value = res.data.rooms
+  } catch (e) {
+    message.error('获取演讲室列表失败')
+  }
+}
+onMounted(fetchRooms)
+
+const handleRoomDelete = (room) => {
+  Modal.confirm({
+    title: `确认删除演讲室「${room.name}」？`,
+    content: '删除后不可恢复，确定要删除吗？',
+    okText: '删除',
+    okType: 'danger',
+    cancelText: '取消',
+    onOk: async () => {
+      try {
+        const token = localStorage.getItem('token')
+        await api.delete(`/speech-rooms/${room.id}`, { data: { token } })
+        message.success('删除成功')
+        fetchRooms()
+      } catch (e) {
+        message.error(e?.response?.data?.message || '删除失败')
+      }
+    }
+  })
+}
+
+const handleRoomViewMembers = async (room) => {
+  try {
+    const token = localStorage.getItem('token')
+    const res = await adminAPI.getRoomMembers(room.id, token)
+    Modal.info({
+      title: `查看「${room.name}」成员`,
+      content: res.data.members.map(m => `${m.username}（角色：${m.role}）`).join(', '),
+      okText: '关闭'
+    })
+  } catch (e) {
+    message.error('获取成员失败')
+  }
+}
+const handleRoomForceClose = (room) => {
+  Modal.confirm({
+    title: `强制关闭演讲室「${room.name}」？`,
+    content: '此操作将强制结束演讲室，确定要继续吗？',
+    okText: '强制关闭',
+    okType: 'danger',
+    cancelText: '取消',
+    onOk: async () => {
+      // TODO: 调用强制关闭接口
+      message.info('已预留强制关闭接口实现')
+    }
+  })
+}
+const handleQuickDeleteRoom = () => {
+  Modal.confirm({
+    title: '删除演讲室',
+    content: '请在表格中选择要删除的演讲室',
+    okText: '知道了',
+    cancelButtonProps: { style: { display: 'none' } },
+    onOk: () => {}
+  })
+}
 </script>
 
 <style scoped>

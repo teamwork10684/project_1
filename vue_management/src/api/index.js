@@ -148,6 +148,20 @@ export const discussionAPI = {
     getQuestionDiscussions: (questionId, token) => api.get(`/questions/${questionId}/discussions?token=${token}`),
 };
 
+// 管理后台API
+export const adminAPI = {
+    // 获取统计数据
+    getStats: (token) => api.get('/admin/statistics', { params: { token } }),
+    // 获取所有用户
+    getUsers: (token) => api.get('/admin/users', { params: { token } }),
+    // 删除用户
+    deleteUser: (id, token) => api.delete(`/admin/users/${id}`, { data: { token } }),
+    // 获取所有演讲室
+    getRooms: (token) => api.get('/admin/speech-rooms/all', { params: { token } }),
+    // 获取演讲室成员
+    getRoomMembers: (roomId, token) => api.get(`/admin/speech-rooms/${roomId}/members`, { params: { token } }),
+}
+
 // 工具函数
 export const checkTokenExpired = () => {
     const token = localStorage.getItem('token');

@@ -73,6 +73,18 @@ source api_doc/create_tables.sql;
 - [Python 3.11 下载地址](https://www.python.org/downloads/release/python-3110/)
 - 安装时请勾选“Add Python to PATH”。
 
+**本地AI题目生成功能需安装 [Ollama](https://ollama.com/)，并下载/运行 deepseek-r1:7b 模型。**
+
+- 安装 Ollama 后，在命令行执行，确保可以进行对话：
+
+```bash
+ollama run deepseek-r1:7b
+```
+
+**PPT转PDF功能需安装 [LibreOffice](https://www.libreoffice.org/download/download/)。**
+
+- 安装后请确保 `flask_popquiz/config.yaml` 中的 `libreoffice_executable` 路径与实际安装路径一致。
+
 1. 进入后端目录：
 
 ```bash
@@ -151,6 +163,9 @@ npm run dev
 - 若修改请同步修改 `vue_popquiz/src/api/index.js`与 `vue_popquiz/src/utils/websocket.js`中对应请求端口
 
 如需修改配置，请编辑 `flask_popquiz/config.yaml`，修改后重启后端服务生效。
+
+- 如需本地AI题目生成，需提前安装并运行 Ollama，确保 `ollama_model_name` 与实际模型一致。
+- 如需PPT转PDF，需提前安装 LibreOffice 并配置好 `libreoffice_executable` 路径。
 
 ---
 
