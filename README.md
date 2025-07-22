@@ -47,7 +47,7 @@ cd popquiz
 mysql -u root -p
 ```
 
-    执行后在提示下输入密码
+ 执行后在提示下输入密码
 
 2. 创建数据库（如 popquiz）：
 
