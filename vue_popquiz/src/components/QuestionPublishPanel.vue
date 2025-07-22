@@ -236,10 +236,10 @@ const autoPublishOnce = () => {
   const toPublish = props.questions.find(q => !q.published);
   if (toPublish) {
     emit('publishQuestion', toPublish);
-    message.success('已自动发布题目');
+    console.log('已自动发布题目');
   } else {
-    message.info('没有可自动发布的题目');
-    stopAutoPublish();
+    console.log('没有可自动发布的题目');
+    // stopAutoPublish();
   }
 };
 
