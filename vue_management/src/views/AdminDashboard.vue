@@ -161,7 +161,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import api, { userAPI } from '@/api'
+import api, { userAPI, adminAPI } from '@/api'
 import { message, Modal, Form, Input } from 'ant-design-vue'
 import { useRouter } from 'vue-router'
 const router = useRouter()
@@ -170,11 +170,27 @@ const activeTab = ref('users')
 
 // 统计数据
 const stats = ref({
-  users: 128,
-  speeches: 56,
-  active: 8,
-  ended: 48
+  users: 0,
+  speeches: 0,
+  active: 0,
+  ended: 0
 })
+
+const fetchAdminStats = async () => {
+  try {
+    const token = localStorage.getItem('token')
+    const res = await adminAPI.getStats(token)
+    stats.value = {
+      users: res.data.user_count,
+      speeches: res.data.room_count,
+      active: res.data.active_room_count,
+      ended: res.data.ended_room_count
+    }
+  } catch (e) {
+    message.error('获取统计数据失败')
+  }
+}
+onMounted(fetchAdminStats)
 
 // 用户信息表头
 const userColumns = [
@@ -187,7 +203,8 @@ const userColumns = [
 const userData = ref([])
 const fetchUsers = async () => {
   try {
-    const res = await api.get('/users')
+    const token = localStorage.getItem('token')
+    const res = await adminAPI.getUsers(token)
     userData.value = res.data.users
   } catch (e) {
     message.error('获取用户列表失败')
@@ -204,7 +221,8 @@ const handleDeleteUser = (id) => {
     cancelText: '取消',
     async onOk() {
       try {
-        await api.delete(`/users/${id}`)
+        const token = localStorage.getItem('token')
+        await adminAPI.deleteUser(id, token)
         message.success('删除成功')
         fetchUsers()
       } catch (e) {
@@ -340,12 +358,17 @@ const roomColumns = [
   { title: '人数', dataIndex: 'members', key: 'members' },
   { title: '操作', key: 'action' }
 ]
-const roomData = [
-  { id: 201, name: 'AI前沿', creator: 'admin', status: '进行中', members: 12 },
-  { id: 202, name: 'Vue3实战', creator: 'user1', status: '已结束', members: 8 }
-]
-
-// 预留接口和弹窗逻辑
+const roomData = ref([])
+const fetchRooms = async () => {
+  try {
+    const token = localStorage.getItem('token')
+    const res = await adminAPI.getRooms(token)
+    roomData.value = res.data.rooms
+  } catch (e) {
+    message.error('获取演讲室列表失败')
+  }
+}
+onMounted(fetchRooms)
 
 const handleRoomDelete = (room) => {
   Modal.confirm({
@@ -355,17 +378,30 @@ const handleRoomDelete = (room) => {
     okType: 'danger',
     cancelText: '取消',
     onOk: async () => {
-      // TODO: 调用删除演讲室接口
-      message.info('已预留删除演讲室接口实现')
+      try {
+        const token = localStorage.getItem('token')
+        await api.delete(`/speech-rooms/${room.id}`, { data: { token } })
+        message.success('删除成功')
+        fetchRooms()
+      } catch (e) {
+        message.error(e?.response?.data?.message || '删除失败')
+      }
     }
   })
 }
-const handleRoomViewMembers = (room) => {
-  Modal.info({
-    title: `查看「${room.name}」成员`,
-    content: 'TODO: 这里弹出成员列表（接口预留）',
-    okText: '关闭'
-  })
+
+const handleRoomViewMembers = async (room) => {
+  try {
+    const token = localStorage.getItem('token')
+    const res = await adminAPI.getRoomMembers(room.id, token)
+    Modal.info({
+      title: `查看「${room.name}」成员`,
+      content: res.data.members.map(m => `${m.username}（角色：${m.role}）`).join(', '),
+      okText: '关闭'
+    })
+  } catch (e) {
+    message.error('获取成员失败')
+  }
 }
 const handleRoomForceClose = (room) => {
   Modal.confirm({
