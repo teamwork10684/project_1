@@ -1,41 +1,76 @@
-# PopQuiz 部署教程
+# PopQuiz 智能弹出测验系统
 
-本项目包含前端（Vue3）和后端两部分，需分别部署。
+## 项目简介
 
----
-
-## 一、前端部署（vue_popquiz）
-
-### 1. 安装 Node.js
-
-- 请前往 [Node.js 官网](https://nodejs.org/) 下载并安装最新版 Node.js（建议 LTS 版本）。
-
-### 2. 安装依赖
-
-- 打开终端（命令行），切换到前端项目目录，或者直接在vue_popquiz中打开终端：
-  ```bash
-  cd 你的路径/vue_popquiz
-  ```
-- 安装依赖包：
-  ```bash
-  npm install
-  ```
-
-### 3. 启动前端项目
-
-- 启动开发服务器：
-  ```bash
-  npm run dev
-  ```
-- 启动后，终端会显示本地访问地址，使用浏览器访问即可预览和开发。
+PopQuiz 是一个基于 AI 的智能弹出测验系统，支持实时题目生成、答题互动、数据统计和多端支持，适用于演讲互动和学习场景。项目采用前后端分离架构，前端基于 Vue3，后端基于 Flask，支持本地和远程 AI 题目生成。
 
 ---
 
-## 二、后端部署（flask_popquiz）
+## 1. 获取项目源码
 
-### 1. 安装 Python 3.11
+### 方式一：下载压缩包
 
-- 请前往 [Python 官网](https://www.python.org/downloads/) 下载并安装 Python 3.11。
+1. 访问项目 GitHub 主页，点击右上角“代码”按钮，选择“下载 ZIP”
+2. 解压后，使用终端 `cd` 到项目目录
+
+### 方式二：使用 Git 克隆
+
+1. 安装 [Git](https://git-scm.com/downloads)
+2. 打开终端，输入：
+
+```bash
+git clone https://github.com/teamwork10684/project_1.git
+```
+
+3. 进入项目目录：
+
+```bash
+cd popquiz
+```
+
+---
+
+## 2. 数据库安装与创建
+
+### 2.1 安装 MySQL
+
+- Windows 用户可参考：[MySQL 官方安装教程](https://dev.mysql.com/doc/refman/8.0/en/windows-installation.html)
+
+### 2.2 创建数据库
+
+推荐：双击 `api_doc/create_tables.bat`根据提示创建数据库并导入表结构，以下为手动创建导入方式：
+在本项目文件夹中打开终端
+
+1. 登录 MySQL：
+
+```bash
+mysql -u root -p
+```
+
+ 执行后在提示下输入密码
+
+2. 创建数据库（如 popquiz）：
+
+```sql
+CREATE DATABASE popquiz DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+```
+
+3. 导入表结构：
+
+```sql
+use popquiz;
+source api_doc/create_tables.sql;
+```
+
+---
+
+## 3. 安装依赖与启动
+
+### 3.1 后端
+
+**请确保已安装 Python 3.11。**
+
+- [Python 3.11 下载地址](https://www.python.org/downloads/release/python-3110/)
 - 安装时请勾选“Add Python to PATH”。
 
 **本地AI题目生成功能需安装 [Ollama](https://ollama.com/)，并下载/运行 deepseek-r1:7b 模型。**
@@ -52,49 +87,86 @@ ollama run deepseek-r1:7b
 
 1. 进入后端目录：
 
-- 打开终端，切换到后端目录：
-  ```bash
-  cd flask_popquiz
-  ```
-- 安装依赖包：
-  ```bash
-  pip install -r requirements.txt
-  ```
+```bash
+cd flask_popquiz
+```
 
-### 3. 安装 Ollama 并下载模型
+2. 安装依赖：
 
-- 访问 [Ollama 官网](https://ollama.com/) 下载并安装 Ollama。
-- 安装完成后，在命令行运行，确保能在命令行对话：
-  ```bash
-  ollama run deepseek-r1:7b
-  ```
-- 确保 Ollama 服务已启动在默认端口。
+```bash
+pip install -r requirements.txt
+```
 
-### 4. 安装 LibreOffice
+3. 启动后端服务：
 
-- 前往 [LibreOffice 官网](https://www.libreoffice.org/download/download/) 下载并安装 LibreOffice。
-- 安装完成后，确保 `soffice.exe` 路径与 `app.py` 中的 `LIBREOFFICE_PATH` 配置一致(app.py中为默认安装路径)。
+```bash
+python app.py
+```
 
-### 5. 启动后端服务
+### 3.2 前端
 
-- 在 `flask_popquiz` 目录下运行：
-  ```bash
-  python app.py
-  ```
-- 后端服务默认监听 5000 端口,若需修改请在`flask_popquiz/app.py`的最后一行将`port`改为你所需的端口,同时修改 `vue_popquiz/src/api/index.js`和 `vue_popquiz/src/utils/websocket.js`中对应端口。
+**请确保已安装 Node.js（建议 LTS 版本）。**
+
+- [Node.js 官网下载](https://nodejs.org/)
+
+1. 进入前端目录：
+
+```bash
+cd vue_popquiz
+```
+
+2. 安装依赖：
+
+```bash
+npm install
+```
+
+3. 启动前端服务：
+
+```bash
+npm run dev
+```
 
 ---
 
-## 其他说明（非常重要）!!!
+## 4. 配置文件说明
 
-- 数据库需提前创建并配置好（建表命令详见 `api_doc/create_tables.sql` ）。
-- 在app.py中修改本地数据库连接密码和数据库名称 `app.config['SQLALCHEMY_DATABASE_URI'] ='mysql+pymysql://你的账户！！！(默认为root):你的密码！！！@localhost:3306/你的数据库名称！！！?charset=utf8mb4'`
-- 如需修改端口或其他参数，请在 `app.py` 中调整。
-- 如遇依赖安装问题，请确保 pip 已升级到最新版。
+后端配置文件位于 `flask_popquiz/config.yaml`，主要包含以下内容：
+
+### 4.1 题目生成相关配置（question_generate）
+
+- `ollama_model_name`：本地 ollama 模型名称（如 deepseek-r1:7b）。
+- `use_api`：是否使用 API 提供商（如 OpenAI、阿里云等）。
+- `api.api_key`：如使用 API，需填写对应的 API Key。
+- `api.model_name`：API 模型名称（如 qwen-max）。
+- `api.base_url`：API 基础地址（如 OpenAI 兼容接口地址）。
+
+### 4.2 数据库配置（database）
+
+- `host`：数据库主机地址（如 localhost）。
+- `port`：数据库端口（默认 3306）。
+- `user`：数据库用户名（如 root）。
+- `password`：数据库密码。
+- `name`：数据库名（如 popquiz）。
+
+### 4.3 上传目录（upload_dir）
+
+- 上传文件的根目录，需确保该目录存在且有写入权限（如 C:/popquiz_file）。
+
+### 4.4 LibreOffice 路径（libreoffice_executable）
+
+- 用于 PPT 转 PDF 的 LibreOffice 可执行文件路径（默认路径为 C:/Program Files/LibreOffice/program/soffice.exe）。
+
+### 4.5 Flask 端口（flask_port）
+
+- 后端 Flask 服务监听的端口（默认 5000）。
+- 若修改请同步修改 `vue_popquiz/src/api/index.js`与 `vue_popquiz/src/utils/websocket.js`中对应请求端口
+
+如需修改配置，请编辑 `flask_popquiz/config.yaml`，修改后重启后端服务生效。
 
 - 如需本地AI题目生成，需提前安装并运行 Ollama，确保 `ollama_model_name` 与实际模型一致。
 - 如需PPT转PDF，需提前安装 LibreOffice 并配置好 `libreoffice_executable` 路径。
 
 ---
 
-如有问题请联系开发者。
+如有问题欢迎提 issue 或联系开发团队。
