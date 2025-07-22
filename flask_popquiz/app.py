@@ -1,9 +1,6 @@
 from flask import Flask, request, jsonify, send_from_directory
-import ollama
 from flask_cors import CORS
-from module.aifilter.aifilter import filter_markdown
 from models import db, User, UserSession, SpeechRoom, SpeechRoomMember, SpeechRoomInvitation, Question,QuestionAnswer, SpeechRoomOnline, Discussion, PublishedQuestion
-from werkzeug.security import generate_password_hash
 import uuid
 from datetime import datetime
 from sqlalchemy import and_
@@ -16,8 +13,6 @@ from models.raw_text import RawText
 from module.aifilter.file_parser import extract_text_from_pdf, save_and_convert_upload_file, extract_text_from_whole_pdf
 from module.aifilter.ai_question import generate_question
 import yaml
-from flask import Response
-from threading import Thread
 
 app = Flask(__name__)
 CORS(app, supports_credentials=True)

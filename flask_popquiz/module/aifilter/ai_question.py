@@ -2,7 +2,6 @@ import ollama
 from module.aifilter.aifilter import filter_markdown
 import json as pyjson
 import random
-import requests
 import os
 import yaml
 import openai
