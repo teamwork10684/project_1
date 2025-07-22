@@ -2184,5 +2184,110 @@ def async_extract_file_and_generate(file_id, count, room_id):
         finally:
             session.close()
 
+# =========================
+# cjy修改：管理后台专用接口
+# =========================
+
+# 管理后台-统计数据
+@app.route('/popquiz/admin/statistics', methods=['GET'])
+def admin_statistics():
+    """获取管理后台统计数据（cjy修改）"""
+    token = request.args.get('token', '').strip()
+    if not token:
+        return jsonify({'message': '参数错误'}), 400
+    # TODO: 可扩展为管理员校验
+    user_count = User.query.count()
+    room_count = SpeechRoom.query.count()
+    active_room_count = SpeechRoom.query.filter_by(status=1).count()
+    ended_room_count = SpeechRoom.query.filter_by(status=2).count()
+    return jsonify({
+        'user_count': user_count,
+        'room_count': room_count,
+        'active_room_count': active_room_count,
+        'ended_room_count': ended_room_count
+    }), 200
+
+# 管理后台-获取所有用户
+@app.route('/popquiz/admin/users', methods=['GET'])
+def admin_get_users():
+    """获取所有用户列表（管理后台用，cjy修改）"""
+    token = request.args.get('token', '').strip()
+    if not token:
+        return jsonify({'message': '参数错误'}), 400
+    users = User.query.all()
+    result = []
+    for user in users:
+        result.append({
+            'id': user.id,
+            'username': user.username,
+            'created_at': user.created_at.isoformat() if user.created_at else None,
+            'updated_at': user.updated_at.isoformat() if user.updated_at else None
+        })
+    return jsonify({'users': result}), 200
+
+# 管理后台-删除用户
+@app.route('/popquiz/admin/users/<int:user_id>', methods=['DELETE'])
+def admin_delete_user(user_id):
+    """删除指定ID的用户（管理后台用，cjy修改）"""
+    token = request.get_json().get('token', '').strip() if request.is_json else ''
+    if not token:
+        return jsonify({'message': '参数错误'}), 400
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({'message': '用户不存在'}), 404
+    db.session.delete(user)
+    db.session.commit()
+    return jsonify({'user_id': user_id, 'message': '用户删除成功'}), 200
+
+# 管理后台-获取所有演讲室
+@app.route('/popquiz/admin/speech-rooms/all', methods=['GET'])
+def admin_get_rooms():
+    """获取所有演讲室列表（管理后台用，cjy修改）"""
+    token = request.args.get('token', '').strip()
+    if not token:
+        return jsonify({'message': '参数错误'}), 400
+    rooms = SpeechRoom.query.all()
+    result = []
+    for r in rooms:
+        creator = User.query.get(r.creator_id)
+        creator_name = creator.username if creator else None
+        speaker_name = None
+        if r.speaker_id:
+            speaker = User.query.get(r.speaker_id)
+            speaker_name = speaker.username if speaker else None
+        participant_count = SpeechRoomMember.query.filter_by(room_id=r.id).count()
+        result.append({
+            'id': r.id,
+            'name': r.name,
+            'description': r.description,
+            'creator_id': r.creator_id,
+            'creator_name': creator_name,
+            'speaker_id': r.speaker_id,
+            'speaker_name': speaker_name,
+            'status': r.status,
+            'created_at': r.created_at.isoformat() if r.created_at else None,
+            'total_participants': participant_count
+        })
+    return jsonify({'rooms': result}), 200
+
+# 管理后台-获取演讲室所有成员
+@app.route('/popquiz/admin/speech-rooms/<int:room_id>/members', methods=['GET'])
+def admin_get_room_members(room_id):
+    """获取指定演讲室的所有成员（管理后台用，cjy修改）"""
+    token = request.args.get('token', '').strip()
+    if not token:
+        return jsonify({'message': '参数错误'}), 400
+    members = SpeechRoomMember.query.filter_by(room_id=room_id).all()
+    result = []
+    for m in members:
+        user = User.query.get(m.user_id)
+        result.append({
+            'user_id': m.user_id,
+            'username': user.username if user else None,
+            'role': getattr(m, 'role', None),
+            'joined_at': m.joined_at.isoformat() if m.joined_at else None
+        })
+    return jsonify({'room_id': room_id, 'members': result}), 200
+
 if __name__ == '__main__':
     socketio.run(app, host='0.0.0.0', port=FLASK_PORT, debug=True,allow_unsafe_werkzeug=True)
