@@ -165,6 +165,8 @@ export const fileAPI = {
   deleteFile: (file_id, token) => api.delete(`/uploaded-files/${file_id}`, { data: { token } }),
   // 获取文件url
   getFileUrl: (room_id, file_id) => api.post('/get-file-url', { room_id, file_id }),
+  // 批量出题
+  batchGenerateQuestions: (token, file_id, count) => api.post('/batch-generate-questions', { token, file_id, count }),
 };
 
 // 工具函数
