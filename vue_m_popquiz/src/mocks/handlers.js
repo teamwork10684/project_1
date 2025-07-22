@@ -291,7 +291,6 @@ export const handlers = [
     }
   }),
 
-=======
   http.post(`${API_BASE_URL}/login`, async({request}) => {
     const { username, password } = await request.json(); 
     console.log(`尝试登录 - 用户名: ${username}, 密码: ${password}`);

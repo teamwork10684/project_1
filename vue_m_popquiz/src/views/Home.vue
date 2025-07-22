@@ -261,20 +261,12 @@
 
 <script setup>
 
-import { ref, h } from 'vue'
-import { message } from 'ant-design-vue'
-=======
 import { ref, h, onMounted, watch, computed } from 'vue'
 import { message } from 'ant-design-vue'
 import { useRouter } from 'vue-router'
 import { userAPI } from '@/api'
 import { invitationAPI } from '@/api'
 import { speechRoomAPI } from '@/api'
-=======
-import { ref, h, onMounted, watch } from 'vue'
-import { message } from 'ant-design-vue'
-import { useRouter } from 'vue-router'
-import { userAPI } from '@/api'
 
 const createdList = ref([])
 const endedList = ref([])
@@ -283,7 +275,7 @@ const activeTab = ref('created')
 const activeBottom = ref('home')
 
 
-=======
+
 const detailModalVisible = ref(false)
 const currentRoomDetail = ref(null)
 
@@ -387,11 +379,6 @@ async function fetchCreatedRooms() {
         creator_id: room.creator_id,
         speaker_id: room.speaker_id,
         role: room.role
-=======
-        participants: room.participants_count || 0,
-        time: room.created_at ? room.created_at.replace('T', ' ').replace('Z', '') : '',
-        invite: room.invite_code
-
       }))
     } else {
       createdList.value = []
@@ -478,14 +465,6 @@ watch(activeTab, (tab) => {
   if (tab === 'joined') fetchJoinedRooms()
 })
 
-
-=======
-onMounted(() => {
-  if (activeTab.value === 'created') fetchCreatedRooms()
-})
-watch(activeTab, (tab) => {
-  if (tab === 'created') fetchCreatedRooms()
-})
 
 
 // 操作按钮逻辑
@@ -595,7 +574,7 @@ const PresentationCard = {
 }
 
 
-=======
+
 
 function formatTime(timeStr) {
   if (!timeStr) return ''
@@ -653,7 +632,7 @@ const detailTableData = computed(() => {
     { label: '参与数量', value: (currentRoomDetail.value.participants || currentRoomDetail.value.role || 0) + '人' }
   ]
 })
-=======
+
 
 const router = useRouter()
 function handleBottomTab(tab) {
