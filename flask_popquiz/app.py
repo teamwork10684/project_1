@@ -33,8 +33,13 @@ db_conf = config.get('database', {})
 SQLALCHEMY_DATABASE_URI = f"mysql+pymysql://{db_conf.get('user','root')}:{db_conf.get('password','')}@{db_conf.get('host','localhost')}:{db_conf.get('port',3306)}/{db_conf.get('name','popquiz')}?charset={db_conf.get('charset','utf8mb4')}"
 
 # SQLAlchemy配置
+
+app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:123456@localhost:3306/popquiz?charset=utf8mb4'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+=======
 app.config['SQLALCHEMY_DATABASE_URI'] = SQLALCHEMY_DATABASE_URI
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = config.get('sqlalchemy_track_modifications', False)
+
 
 db.init_app(app)
 # 文件上传存放路径
