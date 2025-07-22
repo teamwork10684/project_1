@@ -1,3 +1,5 @@
+set names utf8mb4;
+
 -- 1. 用户表
 CREATE TABLE `users` (
   `id` int NOT NULL AUTO_INCREMENT COMMENT '主键，用户ID',
