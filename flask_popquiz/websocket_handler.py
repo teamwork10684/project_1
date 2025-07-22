@@ -2,6 +2,9 @@ from flask_socketio import SocketIO, emit, join_room, leave_room
 from flask import request
 import json
 from datetime import datetime
+from models import db
+from models.speech_room_online import SpeechRoomOnline
+from models.discussion import Discussion
 
 socketio = SocketIO(cors_allowed_origins="*")
 
@@ -20,6 +23,12 @@ def handle_disconnect():
         for user_id, user_info in list(users.items()):
             if user_info['sid'] == request.sid:
                 del users[user_id]
+                # 新增：从SpeechRoomOnline表删除
+                try:
+                    SpeechRoomOnline.query.filter_by(room_id=room_id, user_id=user_id).delete()
+                    db.session.commit()
+                except Exception as e:
+                    print(f"[WebSocket] SpeechRoomOnline delete error: {e}")
                 # 通知房间内其他用户
                 emit('user_left', {
                     'user_id': user_id,
@@ -51,6 +60,16 @@ def handle_join_room(data):
         'role': role,
         'joined_at': datetime.now().isoformat()
     }
+    
+    # 新增：添加到SpeechRoomOnline表
+    try:
+        exist = SpeechRoomOnline.query.filter_by(room_id=room_id, user_id=user_id).first()
+        if not exist:
+            online = SpeechRoomOnline(room_id=room_id, user_id=user_id, role=role)
+            db.session.add(online)
+            db.session.commit()
+    except Exception as e:
+        print(f"[WebSocket] SpeechRoomOnline add error: {e}")
     
     # 通知房间内其他用户有新用户加入
     emit('user_joined', {
@@ -87,6 +106,13 @@ def handle_leave_room(data):
             user_info = room_connections[room_id][user_id]
             del room_connections[room_id][user_id]
             
+            # 新增：从SpeechRoomOnline表删除
+            try:
+                SpeechRoomOnline.query.filter_by(room_id=room_id, user_id=user_id).delete()
+                db.session.commit()
+            except Exception as e:
+                print(f"[WebSocket] SpeechRoomOnline delete error: {e}")
+            
             # 通知房间内其他用户
             emit('user_left', {
                 'user_id': user_id,
@@ -102,11 +128,34 @@ def handle_send_message(data):
     message = data.get('message')
     
     if all([room_id, user_id, username, message]):
+        # 新增：判断当前房间有无进行中的题目
+        from models.published_question import PublishedQuestion
+        question_id = -1
+        try:
+            published = PublishedQuestion.query.filter_by(room_id=room_id, status=0).first()
+            if published:
+                question_id = published.question_id
+        except Exception as e:
+            print(f"[WebSocket] 查询进行中题目出错: {e}")
+        # 新增：插入到Discussion表
+        try:
+            discussion = Discussion(
+                room_id=room_id,
+                user_id=user_id,
+                content=message,
+                is_system=False,
+                question_id=question_id
+            )
+            db.session.add(discussion)
+            db.session.commit()
+        except Exception as e:
+            print(f"[WebSocket] Discussion insert error: {e}")
         emit('new_message', {
             'user_id': user_id,
             'username': username,
             'message': message,
-            'timestamp': datetime.now().isoformat()
+            'timestamp': datetime.now().isoformat(),
+            'is_system': False
         }, room=room_id)
 
 def get_room_online_count(room_id):

@@ -29,11 +29,12 @@ CREATE TABLE `speech_rooms` (
   KEY `idx_status` (`status`),
   CONSTRAINT `fk_speech_rooms_creator_id` FOREIGN KEY (`creator_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_speech_rooms_speaker_id` FOREIGN KEY (`speaker_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=12 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='演讲室表';
+) ENGINE=InnoDB AUTO_INCREMENT=13 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='演讲室表';
 
 -- 3. 文件上传表
 CREATE TABLE `uploaded_files` (
   `id` int NOT NULL AUTO_INCREMENT,
+  `room_id` int NOT NULL COMMENT '所属演讲室ID',
   `filename` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '原始文件名',
   `file_path` varchar(500) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '文件存储路径',
   `file_size` bigint NOT NULL COMMENT '文件大小（字节）',
@@ -47,7 +48,7 @@ CREATE TABLE `uploaded_files` (
   KEY `idx_status` (`status`),
   KEY `idx_file_type` (`file_type`),
   KEY `idx_created_at` (`created_at`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='文件上传表';
+) ENGINE=InnoDB AUTO_INCREMENT=26 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='文件上传表';
 
 -- 4. 用户会话表
 CREATE TABLE `user_sessions` (
@@ -60,7 +61,7 @@ CREATE TABLE `user_sessions` (
   UNIQUE KEY `uk_session_token` (`session_token`),
   KEY `idx_user_id` (`user_id`),
   CONSTRAINT `fk_user_sessions_user_id` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=48 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='用户会话表';
+) ENGINE=InnoDB AUTO_INCREMENT=70 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='用户会话表';
 
 -- 5. 用户演讲室参与记录表
 CREATE TABLE `user_speech_room_history` (
@@ -102,7 +103,7 @@ CREATE TABLE `speech_room_members` (
   KEY `idx_user_id` (`user_id`),
   CONSTRAINT `fk_speech_room_members_room_id` FOREIGN KEY (`room_id`) REFERENCES `speech_rooms` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_speech_room_members_user_id` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=15 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='演讲室人员表';
+) ENGINE=InnoDB AUTO_INCREMENT=17 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='演讲室人员表';
 
 -- 8. 演讲室邀请表
 CREATE TABLE `speech_room_invitations` (
@@ -121,7 +122,7 @@ CREATE TABLE `speech_room_invitations` (
   CONSTRAINT `fk_srii_invitee_id` FOREIGN KEY (`invitee_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_srii_inviter_id` FOREIGN KEY (`inviter_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_srii_room_id` FOREIGN KEY (`room_id`) REFERENCES `speech_rooms` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='演讲室邀请表';
+) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='演讲室邀请表';
 
 -- 9. 原始文本表
 CREATE TABLE `raw_texts` (
@@ -138,7 +139,7 @@ CREATE TABLE `raw_texts` (
   KEY `idx_source_type` (`source_type`),
   KEY `idx_file_id` (`file_id`),
   KEY `idx_created_at` (`created_at`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='原始文本表';
+) ENGINE=InnoDB AUTO_INCREMENT=19 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='原始文本表';
 
 -- 10. 题目表
 CREATE TABLE `questions` (
@@ -156,7 +157,7 @@ CREATE TABLE `questions` (
   `published` tinyint(1) NOT NULL DEFAULT '0' COMMENT '问题是否被发布过',
   `room_id` int NOT NULL COMMENT '来源演讲室id',
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='题目表';
+) ENGINE=InnoDB AUTO_INCREMENT=19 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='题目表';
 
 -- 11. 被发布题目表
 CREATE TABLE `published_questions` (
@@ -175,7 +176,7 @@ CREATE TABLE `published_questions` (
   KEY `idx_start_time` (`start_time`),
   KEY `idx_end_time` (`end_time`),
   KEY `idx_created_at` (`created_at`)
-) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='被发布题目表';
+) ENGINE=InnoDB AUTO_INCREMENT=30 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='被发布题目表';
 
 -- 12. 答题表
 CREATE TABLE `question_answers` (
@@ -193,7 +194,7 @@ CREATE TABLE `question_answers` (
   CONSTRAINT `fk_qa_question_id` FOREIGN KEY (`question_id`) REFERENCES `questions` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_qa_room_id` FOREIGN KEY (`room_id`) REFERENCES `speech_rooms` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_qa_user_id` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='答题表';
+) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='答题表';
 
 -- 13. 讨论表
 CREATE TABLE `discussions` (

@@ -23,30 +23,27 @@
 
     <!-- 主要内容区域 -->
     <div class="main-content">
-      <!-- 左侧：演讲控制面板 -->
+      <!-- 左侧：答题板 -->
       <div class="control-panel">
-        <a-card title="放映区" class="control-card">
-          <div class="control-content">
-            <p class="control-placeholder">放映区</p>
-          </div>
-        </a-card>
+        <AnswerBoard
+          v-if="answerBoardState !== 'no-question' && answerBoardQuestion"
+          v-bind="answerBoardQuestion"
+          @submit="handleSubmitAnswer"
+        />
+        <div v-else class="no-question-placeholder" style="height:100%;display:flex;align-items:center;justify-content:center;color:#999;font-size:1.2em;">当前没有题目</div>
       </div>
 
       <!-- 右侧：参与者面板 -->
       <div class="side-panel">
         <div class="side-panel-container">
-          <!-- 预留卡片1 -->
-          <a-card title="预留区域1" class="reserved-card-1">
-            <div class="reserved-content">
-              <p>此区域预留用于未来功能扩展</p>
-            </div>
+          <!-- 题目列表卡片 -->
+          <a-card class="reserved-card-1" :body-style="{height: '100%', minHeight: '0', padding: '2px'}" :title="null">
+            <QuestionListPanel :questions="questionList" @select="handleQuestionSelect" />
           </a-card>
 
-          <!-- 预留卡片2 -->
-          <a-card title="预留区域2" class="reserved-card-2">
-            <div class="reserved-content">
-              <p>此区域预留用于未来功能扩展</p>
-            </div>
+          <!-- 统计信息卡片 -->
+          <a-card class="reserved-card-2" :body-style="{height: '100%', minHeight: '0', padding: '2px'}" :title="null">
+            <StatsPanel :stats="statsData" />
           </a-card>
 
           <!-- 固定高度父容器包裹OnlineChatPanel -->
@@ -74,10 +71,13 @@ import { message } from 'ant-design-vue';
 import {
   ArrowLeftOutlined
 } from '@ant-design/icons-vue';
-import { speechRoomAPI, checkTokenExpired, getToken } from '../../api';
+import { speechRoomAPI, checkTokenExpired, getToken, questionAPI, answerAPI, discussionAPI } from '../../api';
 import wsManager from '../../utils/websocket';
 import eventBus from '../../utils/eventBus';
 import OnlineChatPanel from '../../components/OnlineChatPanel.vue';
+import AnswerBoard from '../../components/AnswerBoard.vue';
+import QuestionListPanel from '../../components/QuestionListPanel.vue';
+import StatsPanel from '../../components/StatsPanel.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -110,15 +110,113 @@ const participants = ref([]);
 const onlineCount = ref(0);
 
 // 讨论相关
-const discussionInput = ref('');
-const discussionMessages = ref([
-  {
-    user_id: 'system',
-    username: '系统',
-    message: '欢迎来到讨论区，开始您的讨论吧！',
-    timestamp: new Date().toISOString()
+const initialTip = {
+  user_id: 'system',
+  username: '系统',
+  message: '欢迎来到讨论区，开始您的讨论吧！',
+  timestamp: new Date().toISOString(),
+  is_system: true
+};
+const discussionMessages = ref([]);
+
+// 获取房间讨论列表
+const fetchRoomDiscussions = async () => {
+  try {
+    const token = getToken();
+    if (!token) return;
+    const res = await discussionAPI.getDiscussions(roomId.value, token);
+    let msgs = (res.data.discussions || []).map(d => ({
+      user_id: d.user_id,
+      username: d.username,
+      message: d.content,
+      timestamp: d.created_at,
+      is_system: d.is_system
+    }));
+    msgs.push(initialTip);
+    discussionMessages.value = msgs;
+  } catch (e) {
+    discussionMessages.value = [initialTip];
   }
-]);
+};
+
+// 事件处理函数定义
+function handleUserJoined(data) {
+  if (!participants.value.some(p => p.user_id === data.user_id)) {
+    participants.value.push({
+      user_id: data.user_id,
+      username: data.username,
+      role: data.role
+    });
+    onlineCount.value = participants.value.length;
+    // discussionMessages.value.push({
+    //   user_id: 'system',
+    //   username: '系统',
+    //   message: `${data.username} 加入了房间`,
+    //   timestamp: data.timestamp
+    // });
+  }
+}
+function handleUserLeft(data) {
+  const index = participants.value.findIndex(p => p.user_id === data.user_id);
+  if (index > -1) {
+    participants.value.splice(index, 1);
+    onlineCount.value = participants.value.length;
+    // discussionMessages.value.push({
+    //   user_id: 'system',
+    //   username: '系统',
+    //   message: `${data.username} 离开了房间`,
+    //   timestamp: data.timestamp
+    // });
+  }
+}
+function handleRoomUsersUpdated(data) {
+  // 去重赋值
+  const uniqueUsers = [];
+  const seen = new Set();
+  for (const u of data.users) {
+    if (!seen.has(u.user_id)) {
+      uniqueUsers.push(u);
+      seen.add(u.user_id);
+    }
+  }
+  participants.value = uniqueUsers;
+  onlineCount.value = data.total_online;
+}
+function handleNewMessage(data) {
+  discussionMessages.value.push({
+    user_id: data.user_id,
+    username: data.username,
+    message: data.message,
+    timestamp: data.timestamp,
+    is_system: data.is_system
+  });
+}
+
+function setupWebSocketEvents() {
+  eventBus.on('userJoined', handleUserJoined);
+  eventBus.on('userLeft', handleUserLeft);
+  eventBus.on('roomUsersUpdated', handleRoomUsersUpdated);
+  eventBus.on('newMessage', handleNewMessage);
+}
+
+function cleanupWebSocketEvents() {
+  eventBus.off('userJoined', handleUserJoined);
+  eventBus.off('userLeft', handleUserLeft);
+  eventBus.off('roomUsersUpdated', handleRoomUsersUpdated);
+  eventBus.off('newMessage', handleNewMessage);
+}
+
+// 展示数据提升到Room.vue
+const answerBoardQuestion = ref(null); // 结构见下
+const answerBoardState = ref('no-question'); // 'no-question' | 'in-progress' | 'ended'
+const questionList = ref([]);
+const statsData = ref({
+  score: 0,
+  accuracy: 0,
+  correct: 0,
+  wrong: 0,
+  skip: 0,
+});
 
 // 在线人员显示控制
 const showOnlineUsers = ref(false);
@@ -210,64 +308,84 @@ const sendDiscussion = (msg) => {
 
 
 // WebSocket事件处理
-const setupWebSocketEvents = () => {
-  // 用户加入房间
-  eventBus.on('userJoined', (data) => {
-    console.log('用户加入:', data);
-    // 添加新用户到参与者列表
-    const newParticipant = {
-      user_id: data.user_id,
-      username: data.username,
-      role: data.role
+
+
+// 获取当前进行中题目及其统计
+const fetchCurrentQuestionAndStats = async () => {
+  const token = getToken();
+  // 获取所有被发布题目
+  const res = await questionAPI.getPublishedQuestions(roomId.value, token);
+  const publishedQuestions = res.data.published_questions || [];
+  // 先找进行中的题目
+  let current = publishedQuestions.find(q => q.status === 0);
+  let status = 0;
+  // 如果没有进行中的题目，找最新已结束的题目
+  if (!current && publishedQuestions.length > 0) {
+    // 假设题目有end_time字段，否则用id最大
+    current = publishedQuestions
+      .filter(q => q.status === 1)
+      .sort((a, b) => {
+        if (a.end_time && b.end_time) {
+          return new Date(b.end_time) - new Date(a.end_time);
+        }
+        return b.id - a.id;
+      })[0];
+    status = 1;
+  }
+  if (!current) {
+    answerBoardState.value = 'no-question';
+    answerBoardQuestion.value = null;
+    return;
+  }
+  // 获取统计信息
+  const statsRes = await questionAPI.getQuestionStatisticsForAudience(current.id, token);
+  const data = statsRes.data;
+  // 组装答题板数据
+  const qinfo = data.question_info;
+  const stat = data.statistics;
+  // 以接口返回的status为准
+  status = data.time_info?.status ?? status;
+  answerBoardState.value = status === 1 ? 'ended' : 'in-progress';
+  answerBoardQuestion.value = {
+    id: qinfo.id,
+    question: qinfo.question,
+    options: [
+      { value: 'A', text: qinfo.option_a, count: stat.option_a_count },
+      { value: 'B', text: qinfo.option_b, count: stat.option_b_count },
+      { value: 'C', text: qinfo.option_c, count: stat.option_c_count },
+      { value: 'D', text: qinfo.option_d, count: stat.option_d_count },
+    ],
+    statistics: stat,
+    status,
+    myAnswer: data.my_answer,
+    correctValue: qinfo.answer,
+    showCorrect: status === 1,
+    showMyAnswer: !!data.my_answer,
+    accuracy: stat.accuracy_rate,
+    countdown: data.time_info.time_limit,
+    start_time: data.time_info.start_time,
+    end_time: data.time_info.end_time,
+    discussions: []
+  };
+};
+
+// 获取用户在房间内的答题统计
+const fetchUserRoomStats = async () => {
+  try {
+    const token = getToken();
+    if (!token) return;
+    const res = await answerAPI.getUserRoomStatistics({ token, room_id: roomId.value });
+    const data = res.data;
+    statsData.value = {
+      score: data.score || 0,
+      accuracy: data.accuracy || 0,
+      correct: data.correct_count || 0,
+      wrong: data.wrong_count || 0,
+      skip: data.skipped_count || 0,
     };
-    participants.value.push(newParticipant);
-    onlineCount.value = participants.value.length;
-    
-    // 添加系统消息
-    discussionMessages.value.push({
-      user_id: 'system',
-      username: '系统',
-      message: `${data.username} 加入了房间`,
-      timestamp: data.timestamp
-    });
-  });
-
-  // 用户离开房间
-  eventBus.on('userLeft', (data) => {
-    console.log('用户离开:', data);
-    // 从参与者列表中移除用户
-    const index = participants.value.findIndex(p => p.user_id === data.user_id);
-    if (index > -1) {
-      participants.value.splice(index, 1);
-      onlineCount.value = participants.value.length;
-    }
-    
-    // 添加系统消息
-    discussionMessages.value.push({
-      user_id: 'system',
-      username: '系统',
-      message: `${data.username} 离开了房间`,
-      timestamp: data.timestamp
-    });
-  });
-
-  // 房间用户列表更新
-  eventBus.on('roomUsersUpdated', (data) => {
-    console.log('房间用户更新:', data);
-    participants.value = data.users;
-    onlineCount.value = data.total_online;
-  });
-
-  // 新消息
-  eventBus.on('newMessage', (data) => {
-    console.log('新消息:', data);
-    discussionMessages.value.push({
-      user_id: data.user_id,
-      username: data.username,
-      message: data.message,
-      timestamp: data.timestamp
-    });
-  });
+  } catch (err) {
+    statsData.value = { score: 0, accuracy: 0, correct: 0, wrong: 0, skip: 0 };
+  }
 };
 
 // 生命周期
@@ -278,10 +396,12 @@ onMounted(async () => {
 
   // 先获取房间信息
   await fetchRoomInfo();
-  
+  // 获取房间讨论列表
+  await fetchRoomDiscussions();
+  // 获取用户房间统计
+  await fetchUserRoomStats();
   // 设置WebSocket事件监听
   setupWebSocketEvents();
-  
   // 连接WebSocket
   wsManager.connect(
     roomId.value,
@@ -289,15 +409,173 @@ onMounted(async () => {
     userInfo.value.username,
     userInfo.value.role
   );
-  
   wsConnected.value = true;
+  // 获取房间所有被发布题目
+  try {
+    const token = getToken();
+    const res = await questionAPI.getPublishedQuestions(roomId.value, token);
+    questionList.value = (res.data.published_questions || []).map(q => ({
+      id: q.id, // 修复：加上id字段
+      question: q.question,
+      status: q.status // 0进行中 1已结束
+    }));
+  } catch (err) {
+    message.error('获取题目列表失败');
+  }
+  // 获取当前进行中题目及其统计
+  try {
+    await fetchCurrentQuestionAndStats();
+  } catch (err) {
+    answerBoardState.value = 'no-question';
+    answerBoardQuestion.value = null;
+  }
+
+  // 新增：监听题目生成事件，自动刷新题目列表
+  eventBus.on('questionGenerated', async (data) => {
+    if (data && String(data.room_id) === String(roomId.value)) {
+      console.log('Room.vue 收到题目生成事件，刷新题目列表', data);
+      try {
+        const token = getToken();
+        const res = await questionAPI.getPublishedQuestions(roomId.value, token);
+        questionList.value = (res.data.published_questions || []).map(q => ({
+          id: q.id,
+          question: q.question,
+          status: q.status
+        }));
+      } catch (err) {
+        message.error('获取题目列表失败');
+      }
+    }
+  });
+  // 新增：监听题目发布事件，自动刷新题目列表
+  eventBus.on('questionPublished', async (data) => {
+    if (data && String(data.room_id) === String(roomId.value)) {
+      console.log('Room.vue 收到题目发布事件，刷新题目列表', data);
+      try {
+        const token = getToken();
+        const res = await questionAPI.getPublishedQuestions(roomId.value, token);
+        questionList.value = (res.data.published_questions || []).map(q => ({
+          id: q.id,
+          question: q.question,
+          status: q.status
+        }));
+        try {
+          await fetchCurrentQuestionAndStats();
+        } catch (err) {
+          answerBoardState.value = 'no-question';
+          answerBoardQuestion.value = null;
+        }
+      } catch (err) {
+        message.error('获取题目列表失败');
+      }
+    }
+  });
+  // 新增：监听题目自动结束事件，自动刷新题目列表
+  eventBus.on('questionEnded', async (data) => {
+    if (data && String(data.room_id) === String(roomId.value)) {
+      console.log('Room.vue 收到题目结束事件，刷新题目列表', data);
+      try {
+        const token = getToken();
+        const res = await questionAPI.getPublishedQuestions(roomId.value, token);
+        questionList.value = (res.data.published_questions || []).map(q => ({
+          id: q.id,
+          question: q.question,
+          status: q.status
+        }));
+        // 新增：刷新答题板
+        await fetchCurrentQuestionAndStats();
+      } catch (err) {
+        message.error('获取题目列表失败');
+        // 即使失败也要尝试刷新答题板
+        try {
+          await fetchCurrentQuestionAndStats();
+        } catch {}
+      }
+    }
+  });
+  // 新增：监听答题事件，自动刷新答题板
+  eventBus.on('answerSubmitted', async (data) => {
+    // 判断当前答题板的题目id和事件中的published_question_id是否一致
+    if (
+      answerBoardQuestion.value &&
+      data.published_question_id === (questionList.value.find(q => q.status === 0)?.id)
+    ) {
+      await fetchCurrentQuestionAndStats();
+    }
+  });
 });
 
 onUnmounted(() => {
   // 断开WebSocket连接
   wsManager.disconnect();
   wsConnected.value = false;
+  cleanupWebSocketEvents();
+  eventBus.off('answerSubmitted');
 });
+
+const handleQuestionSelect = async (item) => {
+  try {
+    const token = getToken();
+    // item.id为published_question_id
+    const statsRes = await questionAPI.getQuestionStatisticsForAudience(item.id, token);
+    const data = statsRes.data;
+    const qinfo = data.question_info;
+    const stat = data.statistics;
+    const status = data.time_info.status; // 0进行中 1已结束
+    answerBoardState.value = status === 1 ? 'ended' : 'in-progress';
+    answerBoardQuestion.value = {
+      id: qinfo.id, // 新增
+      question: qinfo.question,
+      options: [
+        { value: 'A', text: qinfo.option_a, count: stat.option_a_count },
+        { value: 'B', text: qinfo.option_b, count: stat.option_b_count },
+        { value: 'C', text: qinfo.option_c, count: stat.option_c_count },
+        { value: 'D', text: qinfo.option_d, count: stat.option_d_count },
+      ],
+      statistics: stat,
+      status,
+      myAnswer: data.my_answer,
+      correctValue: qinfo.answer,
+      showCorrect: status === 1,
+      showMyAnswer: !!data.my_answer,
+      accuracy: stat.accuracy_rate,
+      countdown: data.time_info.time_limit,
+      start_time: data.time_info.start_time, // 新增
+      end_time: data.time_info.end_time, // 新增
+      discussions: []
+    };
+  } catch (err) {
+    answerBoardState.value = 'no-question';
+    answerBoardQuestion.value = null;
+  }
+};
+
+const handleSubmitAnswer = async (selected) => {
+  try {
+    const token = getToken();
+    // 需要roomId, question_id, answer
+    // question_id 需从answerBoardQuestion中获取
+    // published_question_id 只用于统计，提交答案用原始question_id
+    // 需保证answerBoardQuestion有question_id字段
+    // 但当前answerBoardQuestion结构没有id，需在handleQuestionSelect和fetchCurrentQuestionAndStats中补充
+    const questionId = answerBoardQuestion.value?.id || answerBoardQuestion.value?.question_id;
+    if (!questionId) {
+      message.error('题目信息缺失，无法提交');
+      return;
+    }
+    await answerAPI.answerQuestion(roomId.value, {
+      token,
+      question_id: questionId,
+      answer: selected
+    });
+    message.success('提交成功');
+    // 提交后刷新答题板和统计
+    await fetchCurrentQuestionAndStats();
+    await fetchUserRoomStats();
+  } catch (err) {
+    message.error(err?.response?.data?.message || '提交失败');
+  }
+};
 </script>
 
 <style scoped>
@@ -381,6 +659,10 @@ onUnmounted(() => {
 .control-panel {
   display: flex;
   flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  flex: 1 1 0%;
+  overflow: hidden;
 }
 
 .control-card {

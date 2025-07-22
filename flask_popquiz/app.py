@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 import ollama
 from flask_cors import CORS
 from module.aifilter.aifilter import filter_markdown
@@ -9,75 +9,47 @@ from datetime import datetime
 from sqlalchemy import and_
 from sqlalchemy import text
 from websocket_handler import socketio
+from models.uploaded_file import UploadedFile
+import os
+import threading
+from models.raw_text import RawText
+from module.aifilter.file_parser import extract_text_from_pdf, save_and_convert_upload_file, extract_text_from_whole_pdf
+from module.aifilter.ai_question import generate_question
+import yaml
+from flask import Response
+from threading import Thread
 
 app = Flask(__name__)
 CORS(app, supports_credentials=True)
 socketio.init_app(app, cors_allowed_origins="*")
 
-OLLAMA_MODEL = 'deepseek-r1:7b'
+# 读取配置文件
+with open(os.path.join(os.path.dirname(__file__), 'config.yaml'), 'r', encoding='utf-8') as f:
+    config = yaml.safe_load(f)
+
+UPLOAD_DIR = config.get('upload_dir', 'C:/popquiz_file')
+LIBREOFFICE_EXECUTABLE = config.get('libreoffice_executable', r'C:\Program Files\LibreOffice\program\soffice.exe')
+db_conf = config.get('database', {})
+SQLALCHEMY_DATABASE_URI = f"mysql+pymysql://{db_conf.get('user','root')}:{db_conf.get('password','')}@{db_conf.get('host','localhost')}:{db_conf.get('port',3306)}/{db_conf.get('name','popquiz')}?charset={db_conf.get('charset','utf8mb4')}"
 
 # SQLAlchemy配置
+
 app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:123456@localhost:3306/popquiz?charset=utf8mb4'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+=======
+app.config['SQLALCHEMY_DATABASE_URI'] = SQLALCHEMY_DATABASE_URI
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = config.get('sqlalchemy_track_modifications', False)
+
 
 db.init_app(app)
+# 文件上传存放路径
+UPLOAD_ROOT = UPLOAD_DIR
+#LibreOffice路径
+LIBREOFFICE_PATH = LIBREOFFICE_EXECUTABLE  
 
-@app.route('/popquiz/getQuestionByTextOllamaDemo', methods=['POST'])
-def get_question_by_text_demo():
-    data = request.get_json()
-    original_prompt = data.get('original_prompt', '').strip()
-    if not original_prompt:
-        return jsonify({'message': '参数 original_prompt 不能为空'}), 400
-    prompt = (
-        "你是一名专业的教育内容生成AI，请根据用户提供的原始文本内容，生成一道单项选择题。"
-        "请严格按照以下要求输出：\n"
-        "1. 题目内容应与原始文本高度相关，简明扼要，问题长度尽可能地短。\n"
-        "2. 只生成一道题目。\n"
-        "3. 只输出JSON格式，包含三个字段：question（字符串，题目内容），options（字符串数组，长度为4，4个选项）,answer(A、B、C、D中的一个，只需要给出对应选项字母，不用重复选项内容!!!)。\n"
-        "4. 选项内容应合理且互不重复，只有一个正确答案，其余为干扰项。\n"
-        "5. 不要输出除JSON以外的任何内容。\n"
-        "6. JSON示例{\"question\":\"问题\",\"options\":[\"选项A\",\"选项B\",\"选项C\",\"选项D\"],\"answer\":\"A\"}\n"
-        f"原始文本：{original_prompt}"
-        "注意！除了返回json格式的回答外不要返回任何其他内容！！！"
-    )
-    try:
-        print(original_prompt)
-        response = ollama.generate(
-            model=OLLAMA_MODEL,
-            prompt=prompt,
-            stream=False,
-            think=False
-        )
-        import json as pyjson
-        response_text = response.get('response', '')
-        response_text = filter_markdown(response_text)
-        print(response_text)
-        try:
-            data = pyjson.loads(response_text)
-            question = data.get('question')
-            options = data.get('options')
-            answer = data.get('answer')
-            if not question or not isinstance(options, list) or len(options) != 4 or answer not in ['A', 'B', 'C', 'D']:
-                raise ValueError('AI返回格式不正确')
-            # 随机打乱选项并更新答案
-            import random
-            option_map = list(zip(['A', 'B', 'C', 'D'], options))
-            random.shuffle(option_map)
-            shuffled_options = [opt for _, opt in option_map]
-            # 找到原答案对应的内容
-            original_answer_content = options[ord(answer) - ord('A')]
-            # 新的answer字母
-            for idx, (_, opt) in enumerate(option_map):
-                if opt == original_answer_content:
-                    new_answer = chr(ord('A') + idx)
-                    break
-            else:
-                new_answer = None
-            return jsonify({'question': question, 'options': shuffled_options, 'answer': new_answer})
-        except Exception:
-            return jsonify({'message': 'AI返回内容解析失败', 'raw': response_text}), 400
-    except Exception as e:
-        return jsonify({'message': f'AI服务异常: {str(e)}'}), 500
+#flask监听端口
+FLASK_PORT = config.get('flask_port', 5000)
+
 
 # 用户注册
 @app.route('/popquiz/register', methods=['POST'])
@@ -952,7 +924,7 @@ def get_discussions():
         return jsonify({'message': '您不是该演讲室的成员'}), 403
     
     # 获取讨论列表
-    discussions = Discussion.query.filter_by(room_id=room_id).order_by(Discussion.created_at.desc()).all()
+    discussions = Discussion.query.filter_by(room_id=room_id).order_by(Discussion.created_at.asc()).all()
     
     result = []
     for discussion in discussions:
@@ -1311,6 +1283,57 @@ def publish_question(room_id):
     db.session.add(published_question)
     db.session.commit()
     
+    # WebSocket通知前端有新题目被发布
+    from websocket_handler import socketio
+    socketio.emit('question_published', {
+        'room_id': room_id,
+        'question_id': published_question.id,
+        'question': question.question
+    }, room=str(room_id))
+    
+    # 新增：发布题目后激活系统消息
+    system_message = f'新题目已发布,接下来的讨论被视为对本题的讨论!'
+    socketio.emit('new_message', {
+        'user_id': 'system',
+        'username': '系统',
+        'message': system_message,
+        'timestamp': datetime.now().isoformat(),
+        'is_system': True
+    }, room=str(room_id))
+    # 新增：插入到Discussion表
+    try:
+        discussion = Discussion(
+            room_id=room_id,
+            user_id=-1,
+            content=system_message,
+            is_system=True,
+            question_id=-1
+        )
+        db.session.add(discussion)
+        db.session.commit()
+    except Exception as e:
+        print(f"[PublishQuestion] Discussion insert error: {e}")
+    
+    # 新增：后台自动结束题目
+    import threading
+    import time as pytime
+    def auto_end_published_question(published_question_id, room_id, time_limit):
+        with app.app_context():
+            from models import PublishedQuestion
+            from websocket_handler import socketio
+            pytime.sleep(time_limit + 1)
+            pq = PublishedQuestion.query.get(published_question_id)
+            if pq and pq.status == 0:
+                pq.status = 1
+                pq.end_time = datetime.now()
+                db.session.commit()
+                socketio.emit('question_ended', {
+                    'room_id': room_id,
+                    'published_question_id': published_question_id
+                }, room=str(room_id))
+    t = threading.Thread(target=auto_end_published_question, args=(published_question.id, room_id, time_limit))
+    t.start()
+    
     return jsonify({
         'id': published_question.id,
         'room_id': room_id,
@@ -1413,7 +1436,18 @@ def answer_question(room_id):
     
     db.session.add(answer_record)
     db.session.commit()
-    
+
+    # WebSocket通知前端有用户答题
+    from websocket_handler import socketio
+    socketio.emit('answer_submitted', {
+        'room_id': room_id,
+        'question_id': question_id,
+        'published_question_id': published_question.id,
+        'user_id': user_id,
+        'selected_answer': answer,
+        'created_at': answer_record.created_at.isoformat()
+    }, room=str(room_id))
+
     return jsonify({
         'id': answer_record.id,
         'room_id': room_id,
@@ -1642,6 +1676,14 @@ def get_question_statistics_for_audience(published_question_id):
         accuracy_rate = None
         question_answer = None
     
+    # 查询当前用户的答题记录
+    user_answer_obj = QuestionAnswer.query.filter_by(
+        room_id=room_id,
+        question_id=published_question.question_id,
+        user_id=user_id
+    ).first()
+    my_answer = user_answer_obj.selected_answer if user_answer_obj else None
+
     return jsonify({
         'published_question_id': published_question_id,
         'room_id': room_id,
@@ -1671,8 +1713,481 @@ def get_question_statistics_for_audience(published_question_id):
             'end_time': published_question.end_time.isoformat() if published_question.end_time else None,
             'time_limit': published_question.time_limit,
             'status': published_question.status
-        }
+        },
+        'my_answer': my_answer  # 新增字段
     }), 200
 
+@app.route('/popquiz/users', methods=['GET'])
+def get_all_users():
+    """获取所有用户列表，供管理后台使用"""
+    users = User.query.all()
+    result = []
+    for user in users:
+        result.append({
+            'id': user.id,
+            'username': user.username,
+            'created_at': user.created_at.isoformat() if user.created_at else None,
+            'updated_at': user.updated_at.isoformat() if user.updated_at else None
+        })
+    return jsonify({'users': result}), 200
+
+@app.route('/popquiz/users/<int:user_id>', methods=['DELETE'])
+def delete_user(user_id):
+    """删除指定ID的用户，管理后台用"""
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({'message': '用户不存在'}), 404
+    db.session.delete(user)
+    db.session.commit()
+    return jsonify({'message': '删除成功', 'id': user_id}), 200
+# 文件上传接口
+@app.route('/popquiz/uploaded-files', methods=['POST'])
+def upload_file():
+    token = request.form.get('token', '').strip()
+    room_id = request.form.get('room_id', type=int)
+    file = request.files.get('file')
+    print(token, room_id, file)
+    if not token or not room_id or not file:
+        return jsonify({'message': '参数错误'}), 400
+    # 校验token
+    session = UserSession.query.filter_by(session_token=token, is_expired=False).first()
+    if not session:
+        return jsonify({'message': 'token无效或已过期'}), 401
+    uploader_id = session.user_id
+    # 校验用户是否为该演讲室的创建者或演讲者
+    room = SpeechRoom.query.get(room_id)
+    if not room:
+        return jsonify({'message': '演讲室不存在'}), 404
+    if room.creator_id != uploader_id and room.speaker_id != uploader_id:
+        return jsonify({'message': '无权限上传文件'}), 403
+    # 文件保存与转换
+    try:
+        save_path, filename, ext = save_and_convert_upload_file(
+            file, room_id, UPLOAD_ROOT, LIBREOFFICE_PATH
+        )
+        size = os.path.getsize(save_path)
+        file_type = file.mimetype
+    except Exception as e:
+        return jsonify({'message': str(e)}), 500
+    # 入库
+    uploaded = UploadedFile(
+        room_id=room_id,
+        filename=filename,
+        file_path=save_path,
+        file_size=size,
+        file_type=file_type,
+        file_extension=ext,
+        uploader_id=uploader_id,
+        status=1
+    )
+    db.session.add(uploaded)
+    db.session.commit()
+    return jsonify({
+        'id': uploaded.id,
+        'room_id': uploaded.room_id,
+        'filename': uploaded.filename,
+        'file_path': uploaded.file_path,
+        'file_size': uploaded.file_size,
+        'file_type': uploaded.file_type,
+        'file_extension': uploaded.file_extension,
+        'uploader_id': uploaded.uploader_id,
+        'status': uploaded.status,
+        'created_at': uploaded.created_at.isoformat() if uploaded.created_at else None
+    }), 201
+
+# 文件删除接口
+@app.route('/popquiz/uploaded-files/<int:file_id>', methods=['DELETE'])
+def delete_file(file_id):
+    data = request.get_json() or {}
+    token = data.get('token', '').strip()
+    if not token:
+        return jsonify({'message': '参数错误'}), 400
+    session = UserSession.query.filter_by(session_token=token, is_expired=False).first()
+    if not session:
+        return jsonify({'message': 'token无效或已过期'}), 401
+    user_id = session.user_id
+    file_obj = UploadedFile.query.get(file_id)
+    if not file_obj or file_obj.status == 0:
+        return jsonify({'message': '文件不存在'}), 404
+    if file_obj.uploader_id != user_id:
+        return jsonify({'message': '无权限删除该文件'}), 403
+    # 逻辑删除
+    file_obj.status = 0
+    db.session.commit()
+    return jsonify({'id': file_id, 'message': '文件删除成功'}), 200
+
+@app.route('/popquiz/uploaded-files/list', methods=['POST'])
+def list_uploaded_files():
+    data = request.get_json() or {}
+    room_id = data.get('room_id')
+    token = data.get('token', '').strip()
+    if not room_id or not token:
+        return jsonify({'message': '参数错误'}), 400
+    session = UserSession.query.filter_by(session_token=token, is_expired=False).first()
+    if not session:
+        return jsonify({'message': 'token无效或已过期'}), 401
+    user_id = session.user_id
+    room = SpeechRoom.query.get(room_id)
+    if not room:
+        return jsonify({'message': '房间不存在'}), 404
+    # 只有房间的创建者或演讲者可查看
+    if room.creator_id != user_id and room.speaker_id != user_id:
+        return jsonify({'message': '无权限查看该房间文件'}), 403
+    files = UploadedFile.query.filter_by(room_id=room_id, status=1).all()
+    result = []
+    for f in files:
+        result.append({
+            'id': f.id,
+            'filename': f.filename,
+            'file_type': f.file_type,
+            'file_extension': f.file_extension,
+            'file_size': f.file_size,
+            'uploader_id': f.uploader_id,
+            'status': f.status,
+            'created_at': f.created_at.isoformat() if f.created_at else None
+        })
+    return jsonify({'files': result}), 200
+
+@app.route('/popquiz/static-files/<int:room_id>/<path:filename>')
+def serve_uploaded_file(room_id, filename):
+    """静态访问上传文件"""
+    upload_dir = os.path.join(UPLOAD_ROOT, str(room_id))
+    file_path = os.path.join(upload_dir, filename)
+    if not os.path.isfile(file_path):
+        return jsonify({'message': '文件不存在'}), 404
+    return send_from_directory(upload_dir, filename)
+
+@app.route('/popquiz/get-file-url', methods=['POST'])
+def get_file_url():
+    data = request.get_json() or {}
+    room_id = data.get('room_id')
+    file_id = data.get('file_id')
+    if not room_id or not file_id:
+        return jsonify({'message': '参数错误'}), 400
+    file_obj = UploadedFile.query.get(file_id)
+    if not file_obj or file_obj.status != 1:
+        return jsonify({'message': '文件不存在'}), 404
+    if file_obj.room_id != int(room_id):
+        return jsonify({'message': '文件与房间不匹配'}), 400
+    filename = file_obj.filename
+    url = f"/popquiz/static-files/{room_id}/{filename}"
+    from flask import request as flask_request
+    url = flask_request.host_url.rstrip('/') + url
+    return jsonify({'url': url}), 200
+# 新增用户接口（cjy修改）
+@app.route('/popquiz/users', methods=['POST'])
+def add_user():
+    """
+    管理后台新增用户（cjy修改）
+    请求参数：username, password
+    """
+    data = request.get_json()
+    username = data.get('username', '').strip()
+    password = data.get('password', '').strip()
+    if not username or not password:
+        return jsonify({'message': '参数错误'}), 400
+    # 检查用户名是否已存在
+    if User.query.filter_by(username=username).first():
+        return jsonify({'message': '用户名已存在'}), 400
+    # 创建新用户
+    from werkzeug.security import generate_password_hash
+    user = User(username=username, password=generate_password_hash(password))
+    db.session.add(user)
+    db.session.commit()
+    return jsonify({'id': user.id, 'message': '新增成功'}), 201
+
+# 编辑用户接口（cjy修改）
+@app.route('/popquiz/users/<int:user_id>', methods=['PUT'])
+def edit_user(user_id):
+    """
+    管理后台编辑用户（cjy修改）
+    请求参数：username(可选), password(可选)
+    """
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({'message': '用户不存在'}), 404
+    data = request.get_json()
+    username = data.get('username', '').strip()
+    password = data.get('password', '').strip()
+    # 检查用户名是否已存在（如果有修改）
+    if username and username != user.username:
+        if User.query.filter_by(username=username).first():
+            return jsonify({'message': '用户名已存在'}), 400
+        user.username = username
+    if password:
+        from werkzeug.security import generate_password_hash
+        user.password = generate_password_hash(password)
+    db.session.commit()
+    return jsonify({'id': user.id, 'message': '编辑成功'}), 200
+
+@app.route('/popquiz/speech-rooms/<int:room_id>/published-questions', methods=['GET'])
+def get_room_published_questions(room_id):
+    """获取指定房间所有被发布题目（含题目内容和发布状态）"""
+    token = request.args.get('token', '').strip()
+    if not token:
+        return jsonify({'message': '参数错误'}), 400
+    session = UserSession.query.filter_by(session_token=token, is_expired=False).first()
+    if not session:
+        return jsonify({'message': 'token无效或已过期'}), 401
+    user_id = session.user_id
+    room = SpeechRoom.query.get(room_id)
+    if not room:
+        return jsonify({'message': '演讲室不存在'}), 404
+    # 获取所有被发布题目
+    published_questions = PublishedQuestion.query.filter_by(room_id=room_id).order_by(PublishedQuestion.created_at.desc()).all()
+    result = []
+    for pq in published_questions:
+        question = Question.query.get(pq.question_id)
+        result.append({
+            'id': pq.id,
+            'question_id': pq.question_id,
+            'question': question.question if question else None,
+            'status': pq.status,
+            'publish_time': pq.created_at.isoformat() if pq.created_at else None,
+            'created_at': pq.created_at.isoformat() if pq.created_at else None
+        })
+    return jsonify({'published_questions': result}), 200
+
+# 获取用户在指定房间内的答题数据
+@app.route('/popquiz/user-room-statistics', methods=['POST'])
+def get_user_room_statistics():
+    """获取用户在指定房间内的答题数据（分数、正确率、正确题目数、错误题目数、跳过题目数）"""
+    data = request.get_json() or {}
+    token = data.get('token', '').strip()
+    room_id = data.get('room_id')
+    if not token or not room_id:
+        return jsonify({'message': '参数错误'}), 400
+    session = UserSession.query.filter_by(session_token=token, is_expired=False).first()
+    if not session:
+        return jsonify({'message': 'token无效或已过期'}), 401
+    user_id = session.user_id
+    room = SpeechRoom.query.get(room_id)
+    if not room:
+        return jsonify({'message': '房间不存在'}), 404
+    # 获取该房间所有已发布题目
+    published_questions = PublishedQuestion.query.filter_by(room_id=room_id).all()
+    question_ids = [pq.question_id for pq in published_questions]
+    if not question_ids:
+        return jsonify({'score': 0, 'accuracy': 0.0, 'correct_count': 0, 'wrong_count': 0, 'skipped_count': 0, 'message': '无答题数据'}), 200
+    # 获取用户在该房间的所有答题记录
+    user_answers = QuestionAnswer.query.filter_by(room_id=room_id, user_id=user_id).all()
+    answer_map = {a.question_id: a.selected_answer for a in user_answers}
+    # 统计
+    correct_count = 0
+    wrong_count = 0
+    skipped_count = 0
+    total_questions = len(question_ids)
+    for qid in question_ids:
+        question = Question.query.get(qid)
+        if not question:
+            continue
+        user_answer = answer_map.get(qid)
+        if user_answer is None:
+            skipped_count += 1
+        elif user_answer == question.answer:
+            correct_count += 1
+        else:
+            wrong_count += 1
+    answered_count = correct_count + wrong_count
+    accuracy = round((correct_count / answered_count * 100), 2) if answered_count > 0 else 0.0
+    # 假设每题10分
+    score = correct_count * 10
+    return jsonify({
+        'score': score,
+        'accuracy': accuracy,
+        'correct_count': correct_count,
+        'wrong_count': wrong_count,
+        'skipped_count': skipped_count,
+        'message': '获取成功'
+    }), 200
+
+# 新增：异步任务队列（简单线程实现）
+def async_extract_text_and_generate(file_id, page, room_id):
+    with app.app_context():
+        from sqlalchemy.orm import scoped_session, sessionmaker
+        Session = scoped_session(sessionmaker(bind=db.engine))
+        session = Session()
+        try:
+            exists = session.query(RawText).filter_by(file_id=file_id, page=page).first()
+            if exists:
+                print(f"raw_texts已存在: file_id={file_id}, page={page}")
+                text = exists.content or ''
+            else:
+                # 查找文件路径
+                file_obj = session.query(UploadedFile).get(file_id)
+                if not file_obj or file_obj.status != 1:
+                    print(f"文件不存在或已删除: file_id={file_id}")
+                    return
+                file_path = file_obj.file_path
+                ext = (file_obj.file_extension or '').lower()
+                # 仅支持pdf
+                if ext != 'pdf':
+                    print(f"暂不支持的文件类型: {ext}")
+                    return
+                try:
+                    text = extract_text_from_pdf(file_path, page)
+                except Exception as e:
+                    print(f"PDF解析失败: {e}")
+                    return
+                # 入库raw_texts
+                raw = RawText(
+                    room_id=room_id,
+                    file_id=file_id,
+                    page=page,
+                    content=text,
+                    source_type=1,  # 0-ppt, 1-pdf, 2-其它
+                    used_count=0
+                )
+                session.add(raw)
+                session.commit()
+                print(f"raw_texts插入成功: file_id={file_id}, page={page}")
+            # 出题
+            if not text.strip():
+                print(f"文本为空，跳过出题: file_id={file_id}, page={page}")
+                return
+            try:
+                prompt, question, shuffled_options, new_answer = generate_question(text)
+                # 插入questions表
+                q = Question(
+                    room_id=room_id,
+                    raw_text=text,
+                    prompt=prompt,
+                    question=question,
+                    option_a=shuffled_options[0],
+                    option_b=shuffled_options[1],
+                    option_c=shuffled_options[2],
+                    option_d=shuffled_options[3],
+                    answer=new_answer,
+                    created=True,
+                    published=False
+                )
+                session.add(q)
+                session.commit()
+                print(f"题目插入成功: file_id={file_id}, page={page}, qid={q.id}")
+                # 更新raw_texts的used_count
+                if exists:
+                    exists.used_count += 1
+                    session.commit()
+                else:
+                    raw.used_count += 1
+                    session.commit()
+                # WebSocket通知前端刷新题目
+                from websocket_handler import socketio
+                socketio.emit('question_generated', {
+                    'room_id': room_id,
+                    'question_id': q.id,
+                    'page': page
+                }, room=str(room_id))
+            except Exception as e:
+                print(f"AI出题失败或解析失败: {e}")
+        finally:
+            session.close()
+
+@app.route('/popquiz/generate-question', methods=['POST'])
+def request_generate_question():
+    data = request.get_json() or {}
+    token = data.get('token', '').strip()
+    file_id = data.get('file_id')
+    page = data.get('page')
+    if not token or not file_id or not page:
+        return jsonify({'message': '参数错误'}), 400
+    # 校验token
+    session = UserSession.query.filter_by(session_token=token, is_expired=False).first()
+    if not session:
+        return jsonify({'message': 'token无效或已过期'}), 401
+    user_id = session.user_id
+    # 查找文件
+    file_obj = UploadedFile.query.get(file_id)
+    if not file_obj or file_obj.status != 1:
+        return jsonify({'message': '文件不存在'}), 404
+    room_id = file_obj.room_id
+    # 启动后台线程提取文本
+    t = threading.Thread(target=async_extract_text_and_generate, args=(file_id, page, room_id))
+    t.start()
+    return jsonify({'message': '提取任务已接收，稍后通过WebSocket通知'}), 202
+
+@app.route('/popquiz/batch-generate-questions', methods=['POST'])
+def batch_generate_questions():
+    data = request.get_json() or {}
+    token = data.get('token', '').strip()
+    file_id = data.get('file_id')
+    count = data.get('count')
+    if not token or not file_id or not count:
+        return jsonify({'message': '参数错误'}), 400
+    if count>10:
+        return jsonify({'message': '批量出题数量不能超过10'}), 400
+    # 校验token
+    session = UserSession.query.filter_by(session_token=token, is_expired=False).first()
+    if not session:
+        return jsonify({'message': 'token无效或已过期'}), 401
+    user_id = session.user_id
+    # 查找文件
+    file_obj = UploadedFile.query.get(file_id)
+    if not file_obj or file_obj.status != 1:
+        return jsonify({'message': '文件不存在'}), 404
+    # 校验用户是否为房间创建者或演讲者
+    room_id = file_obj.room_id
+    room = SpeechRoom.query.get(room_id)
+    if not room or (room.creator_id != user_id and room.speaker_id != user_id):
+        return jsonify({'message': '只有房间创建者或演讲者才能批量出题'}), 403
+    # count校验
+    if not isinstance(count, int) or count <= 0:
+        return jsonify({'message': '参数错误'}), 400
+    try:
+        return jsonify({'message': '请求成功，等待后台解析并出题'}), 202
+    except Exception as e:
+        return jsonify({'message': '批量出题请求失败'}), 500
+
+def async_extract_file_and_generate(file_id, count, room_id):
+    """异步批量出题：解析整个PDF文件，生成count道题"""
+    with app.app_context():
+        from sqlalchemy.orm import scoped_session, sessionmaker
+        Session = scoped_session(sessionmaker(bind=db.engine))
+        session = Session()
+        try:
+            file_obj = session.query(UploadedFile).get(file_id)
+            if not file_obj or file_obj.status != 1:
+                print(f"文件不存在或已删除: file_id={file_id}")
+                return
+            file_path = file_obj.file_path
+            ext = (file_obj.file_extension or '').lower()
+            if ext != 'pdf':
+                print(f"暂只支持PDF批量出题: {ext}")
+                return
+            # 解析整个PDF文本
+            all_texts = extract_text_from_whole_pdf(file_path)
+            if not all_texts:
+                print(f"PDF解析无内容: file_id={file_id}")
+                return
+            from module.aifilter.ai_question import generate_question
+            for i in range(min(count, len(all_texts))):
+                text = all_texts[i]
+                if not text.strip():
+                    continue
+                try:
+                    # 传is_batch=True
+                    prompt, question, shuffled_options, new_answer = generate_question(text, is_batch=True)
+                    # 插入questions表
+                    q = Question(
+                        room_id=room_id,
+                        raw_text=text,
+                        prompt=prompt,
+                        question=question,
+                        option_a=shuffled_options[0],
+                        option_b=shuffled_options[1],
+                        option_c=shuffled_options[2],
+                        option_d=shuffled_options[3],
+                        answer=new_answer,
+                        created=True,
+                        published=False
+                    )
+                    session.add(q)
+                    session.commit()
+                    print(f"批量题目插入成功: file_id={file_id}, idx={i}, qid={q.id}")
+                except Exception as e:
+                    print(f"AI批量出题失败: {e}")
+        finally:
+            session.close()
+
 if __name__ == '__main__':
-    socketio.run(app, host='0.0.0.0', port=5000, debug=True)
+    socketio.run(app, host='0.0.0.0', port=FLASK_PORT, debug=True,allow_unsafe_werkzeug=True)

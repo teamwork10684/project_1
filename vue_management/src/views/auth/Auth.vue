@@ -1,59 +1,37 @@
 <template>
   <div class="auth-bg">
-    <transition name="card-zoom">
-      <a-card class="auth-card" bordered :key="mode">
-        <div class="auth-logo-bar">
-          <span class="logo-gradient">PopQuiz</span>
-          <span class="logo-sub">智能演讲互动平台</span>
-        </div>
-        <div class="auth-top-gradient"></div>
-        <div class="auth-divider">
-          <span class="auth-divider-line"></span>
-          <span class="auth-divider-icon">★</span>
-          <span class="auth-divider-line"></span>
-        </div>
-        <a-form ref="formRef" :model="form" :rules="rules" @submit.prevent="handleSubmit" layout="vertical">
-          <a-form-item label="用户名" name="username" :rules="rules.username">
-            <a-input v-model:value="form.username" size="large" placeholder="请输入用户名" allow-clear>
-              <template #prefix>
-                <icon-user-outlined style="color:#1677ff" />
-              </template>
-            </a-input>
-          </a-form-item>
-          <a-form-item label="密码" name="password" :rules="rules.password">
-            <a-input-password v-model:value="form.password" size="large" placeholder="请输入密码" allow-clear>
-              <template #prefix>
-                <icon-lock-outlined style="color:#1677ff" />
-              </template>
-            </a-input-password>
-          </a-form-item>
-          <a-form-item v-if="mode === 'register'" label="确认密码" name="confirmPassword" :rules="rules.confirmPassword">
-            <a-input-password v-model:value="form.confirmPassword" size="large" placeholder="请再次输入密码" allow-clear>
-              <template #prefix>
-                <icon-lock-outlined style="color:#1677ff" />
-              </template>
-            </a-input-password>
-          </a-form-item>
-          <a-form-item>
-            <a-button class="gradient-btn" type="primary" html-type="submit" block size="large" :loading="loading">{{ mode === 'login' ? '登录' : '注册' }}</a-button>
-          </a-form-item>
-          <a-form-item>
-            <a-button type="link" class="switch-btn" block size="large" @click="toggleMode">
-              {{ mode === 'login' ? '没有账号？去注册' : '已有账号？去登录' }}
-            </a-button>
-          </a-form-item>
-        </a-form>
-        <div class="auth-footer">© 2024 PopQuiz 智能演讲互动平台</div>
-      </a-card>
-    </transition>
+    <a-card class="auth-card" bordered>
+      <div class="auth-title">
+        <span class="auth-title-main">PopQuiz</span>
+      </div>
+      <div class="auth-divider">
+        <span class="auth-divider-line"></span>
+        <span class="auth-divider-icon">★</span>
+        <span class="auth-divider-line"></span>
+      </div>
+      <a-form ref="formRef" :model="form" :rules="rules" @submit.prevent="handleSubmit" layout="vertical">
+        <a-form-item label="用户名" name="username" :rules="rules.username">
+          <a-input v-model:value="form.username" size="large" placeholder="请输入用户名" allow-clear />
+        </a-form-item>
+        <a-form-item label="密码" name="password" :rules="rules.password">
+          <a-input-password v-model:value="form.password" size="large" placeholder="请输入密码" allow-clear />
+        </a-form-item>
+        <a-form-item v-if="mode === 'register'" label="确认密码" name="confirmPassword" :rules="rules.confirmPassword">
+          <a-input-password v-model:value="form.confirmPassword" size="large" placeholder="请再次输入密码" allow-clear />
+        </a-form-item>
+        <a-form-item>
+          <a-button type="primary" html-type="submit" block size="large" :loading="loading">{{ mode === 'login' ? '登录' : '注册' }}</a-button>
+        </a-form-item>
+        <!-- 删除了切换注册/登录的按钮 -->
+      </a-form>
+    </a-card>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { message } from 'ant-design-vue';
-import { UserOutlined as IconUserOutlined, LockOutlined as IconLockOutlined } from '@ant-design/icons-vue';
 import { userAPI } from '@/api';
 
 const router = useRouter();
@@ -131,17 +109,15 @@ const handleLogin = async () => {
       password: form.value.password
     });
     const data = res.data;
-    // 严格判断token字段
-    if (data && data.token) {
+    if (data.token) {
       localStorage.setItem('token', data.token);
       localStorage.setItem('username', form.value.username);
-      message.success(data.message || '登录成功');
-      router.push('/'); // 跳转首页
+      message.success('登录成功');
+      router.push('/admin');
     } else {
       message.error(data.message || '登录失败');
     }
   } catch (error) {
-    // 401等错误时显示后端返回的message
     if (error.response?.data?.message) {
       message.error(error.response.data.message);
     } else {
@@ -196,6 +172,13 @@ const toggleMode = () => {
 watch(() => route.path, (newPath) => {
   if (newPath === '/register') mode.value = 'register';
   else mode.value = 'login';
+});
+
+onMounted(() => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    router.replace('/admin');
+  }
 });
 </script>
 
@@ -252,41 +235,18 @@ watch(() => route.path, (newPath) => {
   z-index: 1;
   background: rgba(255,255,255,0.95);
   backdrop-filter: blur(2px);
-  overflow: visible;
 }
-.auth-logo-bar {
+.auth-title {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  margin-bottom: 8px;
-  margin-top: -8px;
-}
-.logo-gradient {
-  font-family: 'Segoe UI', 'Arial', sans-serif;
-  font-size: 2.4rem;
-  font-weight: 900;
-  letter-spacing: 2px;
-  background: linear-gradient(90deg, #1677ff 10%, #7f53ff 90%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  text-fill-color: transparent;
-  margin-bottom: 2px;
-}
-.logo-sub {
-  font-size: 1.05rem;
-  color: #888;
-  font-weight: 400;
-  margin-bottom: 6px;
-  letter-spacing: 1px;
-}
-.auth-top-gradient {
-  height: 4px;
-  width: 100%;
-  border-radius: 4px;
-  background: linear-gradient(90deg, #1677ff 0%, #7f53ff 100%);
+  justify-content: center;
+  gap: 12px;
+  font-size: 2.2rem;
+  font-weight: 700;
+  color: #1677ff;
+  text-align: center;
   margin-bottom: 18px;
-  margin-top: 2px;
+  letter-spacing: 2px;
 }
 .auth-divider {
   display: flex;
@@ -308,47 +268,11 @@ watch(() => route.path, (newPath) => {
   padding: 0 8px;
   letter-spacing: 1px;
 }
-.gradient-btn {
-  background: linear-gradient(90deg, #1677ff 0%, #7f53ff 100%);
-  border: none;
-  color: #fff;
-  font-weight: 600;
-  transition: box-shadow 0.2s, transform 0.2s;
-  box-shadow: 0 2px 8px rgba(127, 83, 255, 0.08);
+.auth-title-main {
+  font-family: 'Segoe UI', 'Arial', sans-serif;
+  font-size: 2.2rem;
+  color: #222;
+  font-weight: 800;
+  letter-spacing: 2px;
 }
-.gradient-btn:hover, .gradient-btn:focus {
-  filter: brightness(1.08);
-  box-shadow: 0 4px 16px rgba(127, 83, 255, 0.18);
-  transform: scale(1.03);
-}
-.switch-btn {
-  color: #7f53ff !important;
-  font-size: 1rem;
-  margin-top: -10px;
-  margin-bottom: -10px;
-  font-weight: 500;
-  transition: color 0.2s;
-}
-.switch-btn:hover {
-  color: #1677ff !important;
-}
-.auth-footer {
-  text-align: center;
-  color: #bbb;
-  font-size: 0.95rem;
-  margin-top: 18px;
-  letter-spacing: 1px;
-  user-select: none;
-}
-.card-zoom-enter-active, .card-zoom-leave-active {
-  transition: transform 0.25s cubic-bezier(.4,2,.6,1), opacity 0.25s;
-}
-.card-zoom-enter-from, .card-zoom-leave-to {
-  transform: scale(0.97);
-  opacity: 0.7;
-}
-.card-zoom-enter-to, .card-zoom-leave-from {
-  transform: scale(1);
-  opacity: 1;
-}
-</style>
+</style> 

@@ -25,10 +25,18 @@
     <div class="main-content">
       <!-- 左侧：演讲控制面板 -->
       <div class="control-panel">
-        <a-card title="演讲控制" class="control-card">
-          <div class="control-content">
-            <p class="control-placeholder">演讲控制功能已移除</p>
-          </div>
+        <a-card class="control-card" :bodyStyle="{padding: '0', height: '100%'}" :headStyle="{display: 'none'}">
+            <DocumentPlayerPanel
+              style="height:100%;width:100%"
+              :roomId="Number(roomId)"
+              :token="token"
+              :roomStatus="roomInfo.status"
+              :canUpload="roomInfo.status !== 2"
+              :loading="loading"
+              @start-speech="handleStartSpeech"
+              @end-speech="handleEndSpeech"
+              @page-change="handlePageChange"
+            />
         </a-card>
       </div>
 
@@ -51,17 +59,12 @@
           <a-card class="reserved-card-2">
             <div class="reserved-content-2">
               <QuestionStatsBar
-                :question="'太阳从哪边升起？'"
-                :options="[
-                  { label: 'A', text: '长文本选项长文本选项长文本选项长文本选项长文本选项长文本选项长文本选项长文本选项长文本选项长文本选项长文本选项', count: 20 },
-                  { label: 'B', text: '西边', count: 2 },
-                  { label: 'C', text: '南边', count: 1 },
-                  { label: 'D', text: '北边', count: 20 }
-                ]"
-                :unselectedCount="3"
-                :accuracy="0.75"
-                :correctLabel="'A'"
-                :endTime="'2025-07-14T18:53:00'"
+                :questionList="publishedQuestions"
+                :discussionMessages="[]"
+                :roomId="roomId"
+                :token="token"
+                @selectQuestion="handleStatsSelectQuestion"
+                @back="handleStatsBack"
               />
             </div>
           </a-card>
@@ -85,24 +88,26 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, onUnmounted, computed } from 'vue';
+import { ref, reactive, onMounted, onUnmounted, computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { message } from 'ant-design-vue';
 import {
   ArrowLeftOutlined,
 } from '@ant-design/icons-vue';
-import { speechRoomAPI, checkTokenExpired, getToken } from '../../api';
+import { speechRoomAPI, checkTokenExpired, getToken, questionAPI, discussionAPI } from '../../api';
 import wsManager from '../../utils/websocket';
 import eventBus from '../../utils/eventBus';
 import OnlineChatPanel from '../../components/OnlineChatPanel.vue';
 import QuestionPublishPanel from '../../components/QuestionPublishPanel.vue';
 import QuestionStatsBar from '../../components/QuestionStatsBar.vue';
+import DocumentPlayerPanel from '../../components/DocumentPlayerPanel.vue';
 
 const route = useRoute();
 const router = useRouter();
 
 // 响应式数据
 const roomId = computed(() => route.params.roomId);
+const token = computed(() => getToken());
 const roomInfo = ref({
   id: null,
   name: '加载中...',
@@ -129,14 +134,101 @@ const participants = ref([]);
 const onlineCount = ref(0);
 
 // 讨论相关
-const discussionMessages = ref([
-  {
-    user_id: 'system',
-    username: '系统',
-    message: '欢迎来到讨论区，开始您的讨论吧！',
-    timestamp: new Date().toISOString()
+const initialTip = {
+  user_id: 'system',
+  username: '系统',
+  message: '欢迎来到讨论区，开始您的讨论吧！',
+  timestamp: new Date().toISOString(),
+  is_system: true
+};
+const discussionMessages = ref([]);
+
+// 获取房间讨论列表
+const fetchRoomDiscussions = async () => {
+  try {
+    const token = getToken();
+    if (!token) return;
+    const res = await discussionAPI.getDiscussions(roomId.value, token);
+    let msgs = (res.data.discussions || []).map(d => ({
+      user_id: d.user_id,
+      username: d.username,
+      message: d.content,
+      timestamp: d.created_at,
+      is_system: d.is_system
+    }));
+    msgs.push(initialTip);
+    discussionMessages.value = msgs;
+  } catch (e) {
+    discussionMessages.value = [initialTip];
   }
-]);
+};
+
+// 事件处理函数定义
+function handleUserJoined(data) {
+  if (!participants.value.some(p => p.user_id === data.user_id)) {
+    participants.value.push({
+      user_id: data.user_id,
+      username: data.username,
+      role: data.role
+    });
+    onlineCount.value = participants.value.length;
+    // discussionMessages.value.push({
+    //   user_id: 'system',
+    //   username: '系统',
+    //   message: `${data.username} 加入了房间`,
+    //   timestamp: data.timestamp
+    // });
+  }
+}
+function handleUserLeft(data) {
+  const index = participants.value.findIndex(p => p.user_id === data.user_id);
+  if (index > -1) {
+    participants.value.splice(index, 1);
+    onlineCount.value = participants.value.length;
+    // discussionMessages.value.push({
+    //   user_id: 'system',
+    //   username: '系统',
+    //   message: `${data.username} 离开了房间`,
+    //   timestamp: data.timestamp
+    // });
+  }
+}
+function handleRoomUsersUpdated(data) {
+  // 去重赋值
+  const uniqueUsers = [];
+  const seen = new Set();
+  for (const u of data.users) {
+    if (!seen.has(u.user_id)) {
+      uniqueUsers.push(u);
+      seen.add(u.user_id);
+    }
+  }
+  participants.value = uniqueUsers;
+  onlineCount.value = data.total_online;
+}
+function handleNewMessage(data) {
+  discussionMessages.value.push({
+    user_id: data.user_id,
+    username: data.username,
+    message: data.message,
+    timestamp: data.timestamp,
+    is_system: data.is_system
+  });
+}
+
+function setupWebSocketEvents() {
+  eventBus.on('userJoined', handleUserJoined);
+  eventBus.on('userLeft', handleUserLeft);
+  eventBus.on('roomUsersUpdated', handleRoomUsersUpdated);
+  eventBus.on('newMessage', handleNewMessage);
+}
+
+function cleanupWebSocketEvents() {
+  eventBus.off('userJoined', handleUserJoined);
+  eventBus.off('userLeft', handleUserLeft);
+  eventBus.off('roomUsersUpdated', handleRoomUsersUpdated);
+  eventBus.off('newMessage', handleNewMessage);
+}
 
 // 在线人员显示控制
 const showOnlineUsers = ref(false);
@@ -145,50 +237,8 @@ const showOnlineUsers = ref(false);
 const wsConnected = ref(false);
 
 // 题目数据
-const questions = ref([
-  {
-    id: 1,
-    raw_text: "太阳从哪边升起？",
-    prompt: "请根据以下内容出一道选择题",
-    question: "太阳从哪边升起？",
-    option_a: "东边",
-    option_b: "西边", 
-    option_c: "南边",
-    option_d: "北边",
-    answer: "A",
-    created: true,
-    published: false,
-    created_at: "2024-01-01T10:00:00Z"
-  },
-  {
-    id: 2,
-    raw_text: "Python是一种什么类型的编程语言？",
-    prompt: "请根据以下内容出一道选择题",
-    question: "Python是一种什么类型的编程语言？",
-    option_a: "编译型语言",
-    option_b: "解释型语言",
-    option_c: "汇编语言",
-    option_d: "机器语言",
-    answer: "B",
-    created: true,
-    published: true,
-    created_at: "2024-01-01T11:00:00Z"
-  },
-  {
-    id: 3,
-    raw_text: "Vue.js的核心特性是什么？",
-    prompt: "请根据以下内容出一道选择题",
-    question: "Vue.js的核心特性是什么？",
-    option_a: "响应式数据绑定",
-    option_b: "组件化开发",
-    option_c: "虚拟DOM",
-    option_d: "以上都是",
-    answer: "D",
-    created: true,
-    published: false,
-    created_at: "2024-01-01T12:00:00Z"
-  }
-]);
+const questions = ref([]);
+const publishedQuestions = ref([]);
 
 // 预留操作方法
 const handleAutoPublish = () => {
@@ -196,11 +246,27 @@ const handleAutoPublish = () => {
 };
 const handleSaveSettings = (settings) => {
   console.log('保存设置:', settings);
-  // TODO: 保存设置实现
 };
 
-const handlePublishQuestion = (question) => {
-  // TODO: 发布题目实现
+const handlePublishQuestion = async (question) => {
+  if (roomInfo.value.status !== 1) {
+    message.warning('只有在演讲进行中才能发布题目');
+    return;
+  }
+  try {
+    // 获取本地存储的答题限时
+    const answerTimeLimit = parseInt(localStorage.getItem('answerTimeLimit')) || 60;
+    const res = await questionAPI.publishQuestion(roomId.value, {
+      token: token.value,
+      question_id: question.id,
+      time_limit: answerTimeLimit
+    });
+    message.success('题目发布成功');
+    await fetchQuestions();
+    await fetchPublishedQuestions(); // 新增：发布成功后刷新已发布题目列表
+  } catch (e) {
+    message.error(e?.response?.data?.message || '题目发布失败');
+  }
 };
 
 // 方法
@@ -218,18 +284,14 @@ const fetchRoomInfo = async () => {
       checkTokenExpired();
       return;
     }
-
     const response = await speechRoomAPI.enterRoom(roomId.value, token);
     const { room_info, user_info } = response.data;
-    
-    // 更新房间信息
     roomInfo.value = room_info;
     participantCount.value = room_info.total_participants;
-    
-    // 更新用户信息
     userInfo.value = user_info;
     userRole.value = user_info.role;
-    
+    await fetchQuestions();
+    await fetchPublishedQuestions();
     console.log('房间信息:', room_info);
     console.log('用户信息:', user_info);
   } catch (error) {
@@ -240,6 +302,33 @@ const fetchRoomInfo = async () => {
   }
 };
 
+const fetchQuestions = async () => {
+  try {
+    const res = await questionAPI.getCreatedQuestions(roomId.value, token.value);
+    if (res.data && Array.isArray(res.data.questions)) {
+      questions.value = res.data.questions;
+    } else {
+      questions.value = [];
+    }
+  } catch (e) {
+    questions.value = [];
+    message.error(e?.response?.data?.message || '获取题目列表失败');
+  }
+};
+
+const fetchPublishedQuestions = async () => {
+  try {
+    const res = await questionAPI.getPublishedQuestions(roomId.value, token.value);
+    if (res.data && Array.isArray(res.data.published_questions)) {
+      publishedQuestions.value = res.data.published_questions;
+    } else {
+      publishedQuestions.value = [];
+    }
+  } catch (e) {
+    publishedQuestions.value = [];
+    message.error(e?.response?.data?.message || '获取已发布题目列表失败');
+  }
+};
 
 
 // 发送讨论消息
@@ -250,65 +339,7 @@ const sendDiscussion = (msg) => {
 
 
 // WebSocket事件处理
-const setupWebSocketEvents = () => {
-  // 用户加入房间
-  eventBus.on('userJoined', (data) => {
-    console.log('用户加入:', data);
-    // 添加新用户到参与者列表
-    const newParticipant = {
-      user_id: data.user_id,
-      username: data.username,
-      role: data.role
-    };
-    participants.value.push(newParticipant);
-    onlineCount.value = participants.value.length;
-    
-    // 添加系统消息
-    discussionMessages.value.push({
-      user_id: 'system',
-      username: '系统',
-      message: `${data.username} 加入了房间`,
-      timestamp: data.timestamp
-    });
-  });
-
-  // 用户离开房间
-  eventBus.on('userLeft', (data) => {
-    console.log('用户离开:', data);
-    // 从参与者列表中移除用户
-    const index = participants.value.findIndex(p => p.user_id === data.user_id);
-    if (index > -1) {
-      participants.value.splice(index, 1);
-      onlineCount.value = participants.value.length;
-    }
-    
-    // 添加系统消息
-    discussionMessages.value.push({
-      user_id: 'system',
-      username: '系统',
-      message: `${data.username} 离开了房间`,
-      timestamp: data.timestamp
-    });
-  });
-
-  // 房间用户列表更新
-  eventBus.on('roomUsersUpdated', (data) => {
-    console.log('房间用户更新:', data);
-    participants.value = data.users;
-    onlineCount.value = data.total_online;
-  });
-
-  // 新消息
-  eventBus.on('newMessage', (data) => {
-    console.log('新消息:', data);
-    discussionMessages.value.push({
-      user_id: data.user_id,
-      username: data.username,
-      message: data.message,
-      timestamp: data.timestamp
-    });
-  });
-};
+// setupWebSocketEvents 和 cleanupWebSocketEvents 现在在 onMounted 和 onUnmounted 中调用
 
 // 生命周期
 onMounted(async () => {
@@ -318,6 +349,8 @@ onMounted(async () => {
 
   // 先获取房间信息
   await fetchRoomInfo();
+  // 获取房间讨论列表
+  await fetchRoomDiscussions();
   
   // 设置WebSocket事件监听
   setupWebSocketEvents();
@@ -331,13 +364,89 @@ onMounted(async () => {
   );
   
   wsConnected.value = true;
+
+  // 新增：监听题目生成事件，自动刷新题目列表
+  eventBus.on('questionGenerated', (data) => {
+    if (data && String(data.room_id) === String(roomId.value)) {
+      console.log('收到题目生成事件，刷新题目列表', data);
+      fetchQuestions();
+    }
+  });
+
+  // 新增：监听题目自动结束事件，自动刷新统计
+  eventBus.on('questionEnded', (data) => {
+    if (data && String(data.room_id) === String(roomId.value)) {
+      console.log('Speakerroom.vue 收到题目结束事件，刷新统计', data);
+      fetchPublishedQuestions();
+    }
+  });
 });
 
+let pageTimer = null;
+let lastPageInfo = { fileId: null, page: null };
+let requestedPages = new Set();
+
+const handlePageChange = ({ fileId, page }) => {
+  // 只有进行中才允许自动生成题目
+  if (roomInfo.value.status !== 1) return;
+  // 清除上一个计时器
+  if (pageTimer) clearTimeout(pageTimer);
+  // 记录当前页
+  lastPageInfo = { fileId, page };
+  // 10秒后触发
+  pageTimer = setTimeout(async () => {
+    if (roomInfo.value.status !== 1) return;
+    const key = `${fileId}_${page}`;
+    if (!fileId || !page || requestedPages.has(key)) return;
+    try {
+      const resp = await questionAPI.generateQuestionByFilePage({
+        token: token.value,
+        file_id: fileId,
+        page: page
+      });
+      requestedPages.add(key);
+      console.log(`已请求生成第${page}页的题目`, resp);
+    } catch (e) {
+      console.error(e?.response?.data?.message || `请求生成第${page}页题目失败`, e);
+    }
+  }, 10000);
+};
+
 onUnmounted(() => {
-  // 断开WebSocket连接
+  if (pageTimer) clearTimeout(pageTimer);
   wsManager.disconnect();
   wsConnected.value = false;
+  cleanupWebSocketEvents();
 });
+
+const handleStartSpeech = async () => {
+  try {
+    await speechRoomAPI.startSpeech(roomId.value, token.value);
+    message.success('演讲开始');
+    await fetchRoomInfo();
+  } catch (e) {
+    message.error(e?.response?.data?.message || '开始演讲失败');
+  }
+};
+const handleEndSpeech = async () => {
+  try {
+    await speechRoomAPI.endSpeech(roomId.value, token.value);
+    message.success('演讲已结束');
+    await fetchRoomInfo();
+  } catch (e) {
+    message.error(e?.response?.data?.message || '结束演讲失败');
+  }
+};
+
+const handleStatsSelectQuestion = (item) => {
+  // 现在QuestionStatsBar组件自己处理数据获取，这里只需要处理其他逻辑
+  console.log('题目被选择:', item);
+};
+
+const handleStatsBack = () => {
+  // 现在QuestionStatsBar组件自己处理返回逻辑，这里只需要处理其他逻辑
+  console.log('返回题目列表');
+};
 </script>
 
 <style scoped>
@@ -474,12 +583,18 @@ onUnmounted(() => {
 .reserved-card-1 {
   flex: 0 0 calc(30% - 16px);
   min-height: 120px;
+  overflow: hidden;
+  width: 100%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .reserved-card-2 {
   height: 100%;
   display: flex;
   flex-direction: column;
+  min-height: 0;
 }
 
 .reserved-card-2 :deep(.ant-card-body) {
@@ -495,6 +610,7 @@ onUnmounted(() => {
   flex: 1;
   display: flex;
   flex-direction: column;
+  min-height: 0;
 }
 
 .participants-card {
@@ -717,14 +833,12 @@ onUnmounted(() => {
 }
 
 .reserved-content-1 {
-  position: relative;
-  height: 100%;
   width: 100%;
+  min-width: 0;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  padding: 0 0 0 0;
-  min-height: 220px;
-  background: transparent;
+  height: 100%;
 }
 
 /* 按钮区域样式 */

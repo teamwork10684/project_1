@@ -4,3 +4,9 @@
 test_ollama
 __pycache__/
 __pycache__
+report
+flask_popquiz/__pycache__/websocket_handler.cpython-311.pyc
+flask_popquiz/module/file_upload/__pycache__/__init__.cpython-311.pyc
+flask_popquiz/module/file_upload/__pycache__/file_handler.cpython-311.pyc
+flask_popquiz/__pycache__/websocket_handler.cpython-311.pyc
+flask_popquiz/__pycache__/websocket_handler.cpython-311.pyc

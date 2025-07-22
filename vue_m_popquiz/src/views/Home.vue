@@ -132,8 +132,8 @@
 
     <!-- 底部导航栏 -->
     <div class="mobile-bottom-bar">
-      <div :class="['bottom-tab', activeBottom==='home' ? 'active' : '']" @click="activeBottom='home'">首页</div>
-      <div :class="['bottom-tab', activeBottom==='mine' ? 'active' : '']" @click="activeBottom='mine'">我的</div>
+      <div :class="['bottom-tab', activeBottom==='home' ? 'active' : '']" @click="handleBottomTab('home')">首页</div>
+      <div :class="['bottom-tab', activeBottom==='mine' ? 'active' : '']" @click="handleBottomTab('mine')">我的</div>
     </div>
 
     <a-modal v-model:visible="detailModalVisible" title="房间详情" width="520px" :footer="null">
@@ -260,7 +260,7 @@
 </template>
 
 <script setup>
-<<<<<<< Updated upstream
+
 import { ref, h } from 'vue'
 import { message } from 'ant-design-vue'
 =======
@@ -270,45 +270,19 @@ import { useRouter } from 'vue-router'
 import { userAPI } from '@/api'
 import { invitationAPI } from '@/api'
 import { speechRoomAPI } from '@/api'
->>>>>>> Stashed changes
+=======
+import { ref, h, onMounted, watch } from 'vue'
+import { message } from 'ant-design-vue'
+import { useRouter } from 'vue-router'
+import { userAPI } from '@/api'
 
-// mock数据
-const createdList = ref([
-  {
-    id: 8,
-    name: 'JavaScrip 介绍',
-    desc: '介绍JS语言的基础知识',
-    status: 1,
-    participants: 2,
-    time: '2025年7月12日 15:35',
-    invite: 'ABCD1234',
-  },
-  {
-    id: 10,
-    name: 'PopQuiz 智能演讲互动平台',
-    desc: '暂无描述',
-    status: 0,
-    participants: 2,
-    time: '2025年7月12日 20:13',
-    invite: 'EFGH5678',
-  },
-])
+const createdList = ref([])
 const endedList = ref([])
-const joinedList = ref([
-  {
-    id: 21,
-    name: '参与的课程1',
-    desc: '参与课程简介',
-    status: 1,
-    participants: 3,
-    time: '2025年8月1日 10:00',
-    invite: 'JOIN1234',
-  }
-])
+const joinedList = ref([])
 const activeTab = ref('created')
 const activeBottom = ref('home')
 
-<<<<<<< Updated upstream
+
 =======
 const detailModalVisible = ref(false)
 const currentRoomDetail = ref(null)
@@ -413,6 +387,11 @@ async function fetchCreatedRooms() {
         creator_id: room.creator_id,
         speaker_id: room.speaker_id,
         role: room.role
+=======
+        participants: room.participants_count || 0,
+        time: room.created_at ? room.created_at.replace('T', ' ').replace('Z', '') : '',
+        invite: room.invite_code
+
       }))
     } else {
       createdList.value = []
@@ -499,7 +478,16 @@ watch(activeTab, (tab) => {
   if (tab === 'joined') fetchJoinedRooms()
 })
 
->>>>>>> Stashed changes
+
+=======
+onMounted(() => {
+  if (activeTab.value === 'created') fetchCreatedRooms()
+})
+watch(activeTab, (tab) => {
+  if (tab === 'created') fetchCreatedRooms()
+})
+
+
 // 操作按钮逻辑
 const quickBtns = [
   { text: '创建新演讲', icon: `<svg width='20' height='20' viewBox='0 0 24 24'><path fill='#fff' d='M19 11h-6V5h-2v6H5v2h6v6h2v-6h6z'/></svg>` },
@@ -605,7 +593,8 @@ const PresentationCard = {
     </a-card>
   `
 }
-<<<<<<< Updated upstream
+
+
 =======
 
 function formatTime(timeStr) {
@@ -664,6 +653,7 @@ const detailTableData = computed(() => {
     { label: '参与数量', value: (currentRoomDetail.value.participants || currentRoomDetail.value.role || 0) + '人' }
   ]
 })
+=======
 
 const router = useRouter()
 function handleBottomTab(tab) {
@@ -674,6 +664,7 @@ function handleBottomTab(tab) {
     router.push('/')
   }
 }
+
 
 // 3. showInviteModalGlobal 弹窗内容为用户名、房间、角色
 const inviteModalVisible = ref(false)
@@ -814,7 +805,8 @@ const sortedInvitationList = computed(() => {
 
 const joinRoomModalVisible = ref(false)
 const joinRoomInviteCode = ref('')
->>>>>>> Stashed changes
+
+
 </script>
 
 <style scoped>

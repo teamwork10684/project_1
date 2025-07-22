@@ -5,6 +5,11 @@ const router = createRouter({
   routes: [
     {
       path: '/',
+      name: 'Auth',
+      component: () => import('../views/auth/Auth.vue'),
+    },
+    {
+      path: '/admin',
       name: 'admin',
       component: () => import('../views/AdminDashboard.vue'),
     },

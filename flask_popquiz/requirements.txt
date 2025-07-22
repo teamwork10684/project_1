@@ -1,9 +1,13 @@
-flask
+flask 
 flask-cors
 flask-socketio
-python-socketio
-ollama
 flask_sqlalchemy
 sqlalchemy
 pymysql
 werkzeug
+ollama
+pywin32
+comtypes
+PyPDF2
+pyyaml
+openai
