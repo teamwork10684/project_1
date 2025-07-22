@@ -26,18 +26,17 @@
       <!-- 左侧：演讲控制面板 -->
       <div class="control-panel">
         <a-card class="control-card" :bodyStyle="{padding: '0', height: '100%'}" :headStyle="{display: 'none'}">
-          <template v-if="!loading">
             <DocumentPlayerPanel
               style="height:100%;width:100%"
               :roomId="Number(roomId)"
               :token="token"
               :roomStatus="roomInfo.status"
               :canUpload="roomInfo.status !== 2"
+              :loading="loading"
               @start-speech="handleStartSpeech"
               @end-speech="handleEndSpeech"
               @page-change="handlePageChange"
             />
-          </template>
         </a-card>
       </div>
 
@@ -396,6 +395,7 @@ const handlePageChange = ({ fileId, page }) => {
   lastPageInfo = { fileId, page };
   // 10秒后触发
   pageTimer = setTimeout(async () => {
+    if (roomInfo.value.status !== 1) return;
     const key = `${fileId}_${page}`;
     if (!fileId || !page || requestedPages.has(key)) return;
     try {
