@@ -9,3 +9,5 @@ ollama
 pywin32
 comtypes
 PyPDF2
+pyyaml
+openai

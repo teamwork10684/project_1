@@ -113,54 +113,6 @@ paths:
                   message:
                     type: string
                     example: "用户名或密码错误"
-  /getQuestionByTextOllamaDemo:
-    post:
-      tags:
-        - DEMO
-      summary: 根据文本生成题目示例
-      description: 根据传入的 original_prompt 文本生成题目和四个选项
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - original_prompt
-              properties:
-                original_prompt:
-                  type: string
-                  description: 原始题目文本
-                  example: "请根据以下内容出一道选择题：太阳从哪边升起？"
-      responses:
-        '200':
-          description: 生成题目成功
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  question:
-                    type: string
-                    example: "太阳从哪边升起？"
-                  options:
-                    type: array
-                    items:
-                      type: string
-                    example: ["东边", "西边", "南边", "北边"]
-                  answer:
-                    type: string
-                    example: A
-        '400':
-          description: 参数错误
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                    example: "参数错误"
   /speech-rooms:
     post:
       tags:
@@ -252,6 +204,16 @@ paths:
                   message:
                     type: string
                     example: "请先登录"
+        '403':
+          description: 无权限
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "不是房间创建者或演讲者，无权限批量出题"
         '500':
           description: 服务器错误
           content:
@@ -3841,3 +3803,84 @@ paths:
                   message:
                     type: string
                     example: "题目生成请求失败"
+
+  /batch-generate-questions:
+    post:
+      tags:
+        - 题目管理
+      summary: 批量生成题目
+      description: 用户请求后端根据指定文件批量生成题目。题目生成为异步操作，生成完成后通过WebSocket通知客户端。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - token
+                - file_id
+                - count
+              properties:
+                token:
+                  type: string
+                  description: 用户身份token
+                  example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                file_id:
+                  type: integer
+                  description: 文件ID
+                  example: 123
+                count:
+                  type: integer
+                  description: 题目数量
+                  example: 5
+      responses:
+        '202':
+          description: 已接收批量生成请求，稍后通过WebSocket通知
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "请求成功，等待后台解析并出题"
+        '400':
+          description: 参数错误
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "参数错误"
+        '401':
+          description: 未授权或token无效
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "token无效或已过期"
+        '404':
+          description: 文件不存在
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "文件不存在"
+        '500':
+          description: 服务器错误
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "批量出题请求失败"

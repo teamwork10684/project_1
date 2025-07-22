@@ -11,84 +11,40 @@ from sqlalchemy import text
 from websocket_handler import socketio
 from models.uploaded_file import UploadedFile
 import os
-import pythoncom
-import time
-import subprocess
 import threading
 from models.raw_text import RawText
+from module.aifilter.file_parser import extract_text_from_pdf, save_and_convert_upload_file, extract_text_from_whole_pdf
+from module.aifilter.ai_question import generate_question
+import yaml
+from flask import Response
+from threading import Thread
 
 app = Flask(__name__)
 CORS(app, supports_credentials=True)
 socketio.init_app(app, cors_allowed_origins="*")
 
-OLLAMA_MODEL = 'deepseek-r1:7b'
+# 读取配置文件
+with open(os.path.join(os.path.dirname(__file__), 'config.yaml'), 'r', encoding='utf-8') as f:
+    config = yaml.safe_load(f)
+
+UPLOAD_DIR = config.get('upload_dir', 'C:/popquiz_file')
+LIBREOFFICE_EXECUTABLE = config.get('libreoffice_executable', r'C:\Program Files\LibreOffice\program\soffice.exe')
+db_conf = config.get('database', {})
+SQLALCHEMY_DATABASE_URI = f"mysql+pymysql://{db_conf.get('user','root')}:{db_conf.get('password','')}@{db_conf.get('host','localhost')}:{db_conf.get('port',3306)}/{db_conf.get('name','popquiz')}?charset={db_conf.get('charset','utf8mb4')}"
 
 # SQLAlchemy配置
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:3335335353533m5@localhost:3306/popquiz?charset=utf8mb4'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SQLALCHEMY_DATABASE_URI'] = SQLALCHEMY_DATABASE_URI
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = config.get('sqlalchemy_track_modifications', False)
 
 db.init_app(app)
 # 文件上传存放路径
-UPLOAD_ROOT = 'C:/popquiz_file'
+UPLOAD_ROOT = UPLOAD_DIR
+#LibreOffice路径
+LIBREOFFICE_PATH = LIBREOFFICE_EXECUTABLE  
 
-LIBREOFFICE_PATH = r'C:\Program Files\LibreOffice\program\soffice.exe'  # 如有需要请修改为实际路径
+#flask监听端口
+FLASK_PORT = config.get('flask_port', 5000)
 
-@app.route('/popquiz/getQuestionByTextOllamaDemo', methods=['POST'])
-def get_question_by_text_demo():
-    data = request.get_json()
-    original_prompt = data.get('original_prompt', '').strip()
-    if not original_prompt:
-        return jsonify({'message': '参数 original_prompt 不能为空'}), 400
-    prompt = (
-        "你是一名专业的教育内容生成AI，请根据用户提供的原始文本内容，生成一道单项选择题。"
-        "请严格按照以下要求输出：\n"
-        "1. 题目内容应与原始文本高度相关，简明扼要，问题长度尽可能地短。\n"
-        "2. 只生成一道题目。\n"
-        "3. 只输出JSON格式，包含三个字段：question（字符串，题目内容），options（字符串数组，长度为4，4个选项）,answer(A、B、C、D中的一个，只需要给出对应选项字母，不用重复选项内容!!!)。\n"
-        "4. 选项内容应合理且互不重复，只有一个正确答案，其余为干扰项。\n"
-        "5. 不要输出除JSON以外的任何内容。\n"
-        "6. JSON示例{\"question\":\"问题\",\"options\":[\"选项A\",\"选项B\",\"选项C\",\"选项D\"],\"answer\":\"A\"}\n"
-        f"原始文本：{original_prompt}"
-        "注意！除了返回json格式的回答外不要返回任何其他内容！！！"
-    )
-    try:
-        print(original_prompt)
-        response = ollama.generate(
-            model=OLLAMA_MODEL,
-            prompt=prompt,
-            stream=False,
-            think=False
-        )
-        import json as pyjson
-        response_text = response.get('response', '')
-        response_text = filter_markdown(response_text)
-        print(response_text)
-        try:
-            data = pyjson.loads(response_text)
-            question = data.get('question')
-            options = data.get('options')
-            answer = data.get('answer')
-            if not question or not isinstance(options, list) or len(options) != 4 or answer not in ['A', 'B', 'C', 'D']:
-                raise ValueError('AI返回格式不正确')
-            # 随机打乱选项并更新答案
-            import random
-            option_map = list(zip(['A', 'B', 'C', 'D'], options))
-            random.shuffle(option_map)
-            shuffled_options = [opt for _, opt in option_map]
-            # 找到原答案对应的内容
-            original_answer_content = options[ord(answer) - ord('A')]
-            # 新的answer字母
-            for idx, (_, opt) in enumerate(option_map):
-                if opt == original_answer_content:
-                    new_answer = chr(ord('A') + idx)
-                    break
-            else:
-                new_answer = None
-            return jsonify({'question': question, 'options': shuffled_options, 'answer': new_answer})
-        except Exception:
-            return jsonify({'message': 'AI返回内容解析失败', 'raw': response_text}), 400
-    except Exception as e:
-        return jsonify({'message': f'AI服务异常: {str(e)}'}), 500
 
 # 用户注册
 @app.route('/popquiz/register', methods=['POST'])
@@ -1799,68 +1755,22 @@ def upload_file():
         return jsonify({'message': '演讲室不存在'}), 404
     if room.creator_id != uploader_id and room.speaker_id != uploader_id:
         return jsonify({'message': '无权限上传文件'}), 403
-    # 检查文件类型
-    allowed_ext = {'pdf', 'ppt', 'pptx'}
-    filename = file.filename
-    ext = filename.rsplit('.', 1)[-1].lower() if '.' in filename else ''
-    if ext not in allowed_ext:
-        return jsonify({'message': '文件类型不支持'}), 415
-    # 检查文件大小（如有需要，可限制）
-    max_size = 50 * 1024 * 1024  # 50MB
-    file.seek(0, os.SEEK_END)
-    size = file.tell()
-    file.seek(0)
-    if size > max_size:
-        return jsonify({'message': '文件大小超出限制'}), 413
-    # 保存文件
-    upload_dir = os.path.join(UPLOAD_ROOT, str(room_id))
-    os.makedirs(upload_dir, exist_ok=True)
-    if ext in ('ppt', 'pptx'):
-        import tempfile
-        import shutil
-        from pathlib import Path
-        import comtypes.client
-        temp_dir = tempfile.mkdtemp()
-        ppt_path = os.path.join(temp_dir, filename)
-        file.save(ppt_path)
-        pdf_filename = Path(filename).stem + '.pdf'
-        pdf_path = os.path.join(upload_dir, pdf_filename)
-        pythoncom.CoInitialize()
-        try:
-            # 全局LibreOffice路径
-            subprocess.run([
-                LIBREOFFICE_PATH, '--headless', '--convert-to', 'pdf', '--outdir', upload_dir, ppt_path
-            ], check=True)
-            # 转换后文件名可能不同，重命名为pdf_filename
-            from pathlib import Path
-            converted_pdf = os.path.join(upload_dir, Path(filename).stem + '.pdf')
-            if os.path.exists(converted_pdf) and converted_pdf != pdf_path:
-                import shutil
-                shutil.move(converted_pdf, pdf_path)
-            save_path = pdf_path
-            filename = pdf_filename
-            ext = 'pdf'
-        except Exception as e:
-            try:
-                shutil.rmtree(temp_dir)
-            except Exception as e2:
-                print(f'清理临时目录失败: {e2}')
-            return jsonify({'message': f'PPT转PDF失败: {e}'}), 500
-        time.sleep(1)
-        try:
-            shutil.rmtree(temp_dir)
-        except Exception as e:
-            print(f'清理临时目录失败: {e}')
-    else:
-        save_path = os.path.join(upload_dir, filename)
-        file.save(save_path)    
+    # 文件保存与转换
+    try:
+        save_path, filename, ext = save_and_convert_upload_file(
+            file, room_id, UPLOAD_ROOT, LIBREOFFICE_PATH
+        )
+        size = os.path.getsize(save_path)
+        file_type = file.mimetype
+    except Exception as e:
+        return jsonify({'message': str(e)}), 500
     # 入库
     uploaded = UploadedFile(
         room_id=room_id,
         filename=filename,
         file_path=save_path,
         file_size=size,
-        file_type=file.mimetype,
+        file_type=file_type,
         file_extension=ext,
         uploader_id=uploader_id,
         status=1
@@ -2087,12 +1997,9 @@ def get_user_room_statistics():
     }), 200
 
 # 新增：异步任务队列（简单线程实现）
-def async_extract_text(file_id, page, room_id):
+def async_extract_text_and_generate(file_id, page, room_id):
     with app.app_context():
         from sqlalchemy.orm import scoped_session, sessionmaker
-        import ollama
-        from module.aifilter.aifilter import filter_markdown
-        import json as pyjson
         Session = scoped_session(sessionmaker(bind=db.engine))
         session = Session()
         try:
@@ -2112,14 +2019,8 @@ def async_extract_text(file_id, page, room_id):
                 if ext != 'pdf':
                     print(f"暂不支持的文件类型: {ext}")
                     return
-                # 提取pdf文本
                 try:
-                    from PyPDF2 import PdfReader
-                    reader = PdfReader(file_path)
-                    if page < 1 or page > len(reader.pages):
-                        print(f"页码超出范围: {page}")
-                        return
-                    text = reader.pages[page-1].extract_text() or ''
+                    text = extract_text_from_pdf(file_path, page)
                 except Exception as e:
                     print(f"PDF解析失败: {e}")
                     return
@@ -2129,7 +2030,7 @@ def async_extract_text(file_id, page, room_id):
                     file_id=file_id,
                     page=page,
                     content=text,
-                    source_type=0,  # 0-ppt, 1-pdf, 2-其它
+                    source_type=1,  # 0-ppt, 1-pdf, 2-其它
                     used_count=0
                 )
                 session.add(raw)
@@ -2139,49 +2040,9 @@ def async_extract_text(file_id, page, room_id):
             if not text.strip():
                 print(f"文本为空，跳过出题: file_id={file_id}, page={page}")
                 return
-            prompt = (
-                "你是一名专业的教育内容生成AI，请根据用户提供的原始文本内容，生成一道单项选择题。"
-                "请严格按照以下要求输出：\n"
-                "1. 题目内容应与原始文本高度相关，简明扼要，问题长度尽可能地短。\n"
-                "2. 只生成一道题目。\n"
-                "3. 只输出JSON格式，包含三个字段：question（字符串，题目内容），options（字符串数组，长度为4，4个选项）,answer(A、B、C、D中的一个，只需要给出对应选项字母，不用重复选项内容!!!)。\n"
-                "4. 选项内容应合理且互不重复，只有一个正确答案，其余为干扰项。\n"
-                "5. 不要输出除JSON以外的任何内容。\n"
-                "6. JSON示例{\"question\":\"问题\",\"options\":[\"选项A\",\"选项B\",\"选项C\",\"选项D\"],\"answer\":\"A\"}\n"
-                f"原始文本：{text}"
-                "注意！除了返回json格式的回答外不要返回任何其他内容！！！"
-            )
             try:
-                response = ollama.generate(
-                    model=OLLAMA_MODEL,
-                    prompt=prompt,
-                    stream=False,
-                    think=False
-                )
-                response_text = response.get('response', '')
-                response_text = filter_markdown(response_text)
-                data = pyjson.loads(response_text)
-                question = data.get('question')
-                options = data.get('options')
-                answer = data.get('answer')
-                if not question or not isinstance(options, list) or len(options) != 4 or answer not in ['A', 'B', 'C', 'D']:
-                    raise ValueError('AI返回格式不正确')
-                # 随机打乱选项并更新答案
-                import random
-                option_map = list(zip(['A', 'B', 'C', 'D'], options))
-                random.shuffle(option_map)
-                shuffled_options = [opt for _, opt in option_map]
-                # 找到原答案对应的内容
-                original_answer_content = options[ord(answer) - ord('A')]
-                # 新的answer字母
-                for idx, (_, opt) in enumerate(option_map):
-                    if opt == original_answer_content:
-                        new_answer = chr(ord('A') + idx)
-                        break
-                else:
-                    new_answer = None
+                prompt, question, shuffled_options, new_answer = generate_question(text)
                 # 插入questions表
-                from models.question import Question
                 q = Question(
                     room_id=room_id,
                     raw_text=text,
@@ -2218,7 +2079,7 @@ def async_extract_text(file_id, page, room_id):
             session.close()
 
 @app.route('/popquiz/generate-question', methods=['POST'])
-def generate_question():
+def request_generate_question():
     data = request.get_json() or {}
     token = data.get('token', '').strip()
     file_id = data.get('file_id')
@@ -2236,9 +2097,92 @@ def generate_question():
         return jsonify({'message': '文件不存在'}), 404
     room_id = file_obj.room_id
     # 启动后台线程提取文本
-    t = threading.Thread(target=async_extract_text, args=(file_id, page, room_id))
+    t = threading.Thread(target=async_extract_text_and_generate, args=(file_id, page, room_id))
     t.start()
     return jsonify({'message': '提取任务已接收，稍后通过WebSocket通知'}), 202
 
+@app.route('/popquiz/batch-generate-questions', methods=['POST'])
+def batch_generate_questions():
+    data = request.get_json() or {}
+    token = data.get('token', '').strip()
+    file_id = data.get('file_id')
+    count = data.get('count')
+    if not token or not file_id or not count:
+        return jsonify({'message': '参数错误'}), 400
+    if count>10:
+        return jsonify({'message': '批量出题数量不能超过10'}), 400
+    # 校验token
+    session = UserSession.query.filter_by(session_token=token, is_expired=False).first()
+    if not session:
+        return jsonify({'message': 'token无效或已过期'}), 401
+    user_id = session.user_id
+    # 查找文件
+    file_obj = UploadedFile.query.get(file_id)
+    if not file_obj or file_obj.status != 1:
+        return jsonify({'message': '文件不存在'}), 404
+    # 校验用户是否为房间创建者或演讲者
+    room_id = file_obj.room_id
+    room = SpeechRoom.query.get(room_id)
+    if not room or (room.creator_id != user_id and room.speaker_id != user_id):
+        return jsonify({'message': '只有房间创建者或演讲者才能批量出题'}), 403
+    # count校验
+    if not isinstance(count, int) or count <= 0:
+        return jsonify({'message': '参数错误'}), 400
+    try:
+        return jsonify({'message': '请求成功，等待后台解析并出题'}), 202
+    except Exception as e:
+        return jsonify({'message': '批量出题请求失败'}), 500
+
+def async_extract_file_and_generate(file_id, count, room_id):
+    """异步批量出题：解析整个PDF文件，生成count道题"""
+    with app.app_context():
+        from sqlalchemy.orm import scoped_session, sessionmaker
+        Session = scoped_session(sessionmaker(bind=db.engine))
+        session = Session()
+        try:
+            file_obj = session.query(UploadedFile).get(file_id)
+            if not file_obj or file_obj.status != 1:
+                print(f"文件不存在或已删除: file_id={file_id}")
+                return
+            file_path = file_obj.file_path
+            ext = (file_obj.file_extension or '').lower()
+            if ext != 'pdf':
+                print(f"暂只支持PDF批量出题: {ext}")
+                return
+            # 解析整个PDF文本
+            all_texts = extract_text_from_whole_pdf(file_path)
+            if not all_texts:
+                print(f"PDF解析无内容: file_id={file_id}")
+                return
+            from module.aifilter.ai_question import generate_question
+            for i in range(min(count, len(all_texts))):
+                text = all_texts[i]
+                if not text.strip():
+                    continue
+                try:
+                    # 传is_batch=True
+                    prompt, question, shuffled_options, new_answer = generate_question(text, is_batch=True)
+                    # 插入questions表
+                    q = Question(
+                        room_id=room_id,
+                        raw_text=text,
+                        prompt=prompt,
+                        question=question,
+                        option_a=shuffled_options[0],
+                        option_b=shuffled_options[1],
+                        option_c=shuffled_options[2],
+                        option_d=shuffled_options[3],
+                        answer=new_answer,
+                        created=True,
+                        published=False
+                    )
+                    session.add(q)
+                    session.commit()
+                    print(f"批量题目插入成功: file_id={file_id}, idx={i}, qid={q.id}")
+                except Exception as e:
+                    print(f"AI批量出题失败: {e}")
+        finally:
+            session.close()
+
 if __name__ == '__main__':
-    socketio.run(app, host='0.0.0.0', port=5000, debug=True,allow_unsafe_werkzeug=True)
+    socketio.run(app, host='0.0.0.0', port=FLASK_PORT, debug=True,allow_unsafe_werkzeug=True)
