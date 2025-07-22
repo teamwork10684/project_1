@@ -38,7 +38,19 @@
 - 请前往 [Python 官网](https://www.python.org/downloads/) 下载并安装 Python 3.11。
 - 安装时请勾选“Add Python to PATH”。
 
-### 2. 安装后端依赖
+**本地AI题目生成功能需安装 [Ollama](https://ollama.com/)，并下载/运行 deepseek-r1:7b 模型。**
+
+- 安装 Ollama 后，在命令行执行，确保可以进行对话：
+
+```bash
+ollama run deepseek-r1:7b
+```
+
+**PPT转PDF功能需安装 [LibreOffice](https://www.libreoffice.org/download/download/)。**
+
+- 安装后请确保 `flask_popquiz/config.yaml` 中的 `libreoffice_executable` 路径与实际安装路径一致。
+
+1. 进入后端目录：
 
 - 打开终端，切换到后端目录：
   ```bash
@@ -79,6 +91,9 @@
 - 在app.py中修改本地数据库连接密码和数据库名称 `app.config['SQLALCHEMY_DATABASE_URI'] ='mysql+pymysql://你的账户！！！(默认为root):你的密码！！！@localhost:3306/你的数据库名称！！！?charset=utf8mb4'`
 - 如需修改端口或其他参数，请在 `app.py` 中调整。
 - 如遇依赖安装问题，请确保 pip 已升级到最新版。
+
+- 如需本地AI题目生成，需提前安装并运行 Ollama，确保 `ollama_model_name` 与实际模型一致。
+- 如需PPT转PDF，需提前安装 LibreOffice 并配置好 `libreoffice_executable` 路径。
 
 ---
 
