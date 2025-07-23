@@ -1,12 +1,8 @@
 from flask import Flask, request, jsonify, send_from_directory
-import ollama
 from flask_cors import CORS
-from module.aifilter.aifilter import filter_markdown
 from models import db, User, UserSession, SpeechRoom, SpeechRoomMember, SpeechRoomInvitation, Question,QuestionAnswer, SpeechRoomOnline, Discussion, PublishedQuestion
-from werkzeug.security import generate_password_hash
 import uuid
 from datetime import datetime
-from sqlalchemy import and_
 from sqlalchemy import text
 from websocket_handler import socketio
 from models.uploaded_file import UploadedFile
@@ -16,8 +12,6 @@ from models.raw_text import RawText
 from module.aifilter.file_parser import extract_text_from_pdf, save_and_convert_upload_file, extract_text_from_whole_pdf
 from module.aifilter.ai_question import generate_question
 import yaml
-from flask import Response
-from threading import Thread
 
 app = Flask(__name__)
 CORS(app, supports_credentials=True)
@@ -35,7 +29,6 @@ SQLALCHEMY_DATABASE_URI = f"mysql+pymysql://{db_conf.get('user','root')}:{db_con
 # SQLAlchemy配置
 app.config['SQLALCHEMY_DATABASE_URI'] = SQLALCHEMY_DATABASE_URI
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = config.get('sqlalchemy_track_modifications', False)
-
 
 db.init_app(app)
 # 文件上传存放路径
@@ -1870,7 +1863,51 @@ def get_file_url():
     from flask import request as flask_request
     url = flask_request.host_url.rstrip('/') + url
     return jsonify({'url': url}), 200
+# 新增用户接口（cjy修改）
+@app.route('/popquiz/users', methods=['POST'])
+def add_user():
+    """
+    管理后台新增用户（cjy修改）
+    请求参数：username, password
+    """
+    data = request.get_json()
+    username = data.get('username', '').strip()
+    password = data.get('password', '').strip()
+    if not username or not password:
+        return jsonify({'message': '参数错误'}), 400
+    # 检查用户名是否已存在
+    if User.query.filter_by(username=username).first():
+        return jsonify({'message': '用户名已存在'}), 400
+    # 创建新用户
+    from werkzeug.security import generate_password_hash
+    user = User(username=username, password=generate_password_hash(password))
+    db.session.add(user)
+    db.session.commit()
+    return jsonify({'id': user.id, 'message': '新增成功'}), 201
 
+# 编辑用户接口（cjy修改）
+@app.route('/popquiz/users/<int:user_id>', methods=['PUT'])
+def edit_user(user_id):
+    """
+    管理后台编辑用户（cjy修改）
+    请求参数：username(可选), password(可选)
+    """
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({'message': '用户不存在'}), 404
+    data = request.get_json()
+    username = data.get('username', '').strip()
+    password = data.get('password', '').strip()
+    # 检查用户名是否已存在（如果有修改）
+    if username and username != user.username:
+        if User.query.filter_by(username=username).first():
+            return jsonify({'message': '用户名已存在'}), 400
+        user.username = username
+    if password:
+        from werkzeug.security import generate_password_hash
+        user.password = generate_password_hash(password)
+    db.session.commit()
+    return jsonify({'id': user.id, 'message': '编辑成功'}), 200
 
 @app.route('/popquiz/speech-rooms/<int:room_id>/published-questions', methods=['GET'])
 def get_room_published_questions(room_id):
@@ -2056,7 +2093,7 @@ def request_generate_question():
     # 启动后台线程提取文本
     t = threading.Thread(target=async_extract_text_and_generate, args=(file_id, page, room_id))
     t.start()
-    return jsonify({'message': '提取任务已接收，稍后通过WebSocket通知'}), 202
+    return jsonify({'message': '任务已接收，稍后通知出题结果'}), 202
 
 @app.route('/popquiz/batch-generate-questions', methods=['POST'])
 def batch_generate_questions():
@@ -2086,43 +2123,68 @@ def batch_generate_questions():
     if not isinstance(count, int) or count <= 0:
         return jsonify({'message': '参数错误'}), 400
     try:
+        t = threading.Thread(target=async_extract_file_and_generate, args=(file_id, count, room_id))
+        t.start()
         return jsonify({'message': '请求成功，等待后台解析并出题'}), 202
     except Exception as e:
         return jsonify({'message': '批量出题请求失败'}), 500
 
 def async_extract_file_and_generate(file_id, count, room_id):
-    """异步批量出题：解析整个PDF文件，生成count道题"""
+    """异步批量出题：解析整个PDF文件，将每页文本各插一条raw_text记录（page=-1），并收集内容到all_text，预留出题逻辑"""
+    print(f"开始异步批量出题: file_id={file_id}, 共{count}道题目")
     with app.app_context():
         from sqlalchemy.orm import scoped_session, sessionmaker
         Session = scoped_session(sessionmaker(bind=db.engine))
         session = Session()
+        all_text = []
         try:
-            file_obj = session.query(UploadedFile).get(file_id)
-            if not file_obj or file_obj.status != 1:
-                print(f"文件不存在或已删除: file_id={file_id}")
-                return
-            file_path = file_obj.file_path
-            ext = (file_obj.file_extension or '').lower()
-            if ext != 'pdf':
-                print(f"暂只支持PDF批量出题: {ext}")
-                return
-            # 解析整个PDF文本
-            all_texts = extract_text_from_whole_pdf(file_path)
-            if not all_texts:
-                print(f"PDF解析无内容: file_id={file_id}")
-                return
-            from module.aifilter.ai_question import generate_question
-            for i in range(min(count, len(all_texts))):
-                text = all_texts[i]
-                if not text.strip():
-                    continue
-                try:
-                    # 传is_batch=True
-                    prompt, question, shuffled_options, new_answer = generate_question(text, is_batch=True)
-                    # 插入questions表
+            # 检查是否已解析过
+            exists = session.query(RawText).filter_by(file_id=file_id, page=-1).first()
+            if exists:
+                # 已有记录，取所有file_id和page=-1的记录，按id排序
+                raw_records = session.query(RawText).filter_by(file_id=file_id, page=-1).order_by(RawText.id.asc()).all()
+                for raw in raw_records:
+                    all_text.append(raw.content)
+                print(f"已存在记录: file_id={file_id}, page=-1, 共{len(all_text)}页")
+            else:
+                file_obj = session.query(UploadedFile).get(file_id)
+                if not file_obj or file_obj.status != 1:
+                    print(f"文件不存在或已删除: file_id={file_id}")
+                    return
+                file_path = file_obj.file_path
+                ext = (file_obj.file_extension or '').lower()
+                if ext != 'pdf':
+                    print(f"暂只支持PDF批量出题: {ext}")
+                    return
+                # 解析整个PDF文本
+                all_texts = extract_text_from_whole_pdf(file_path)
+                if not all_texts:
+                    print(f"PDF解析无内容: file_id={file_id}")
+                    return
+                # 每页内容各插一条记录，page都为-1，并加入all_text
+                for i, text in enumerate(all_texts):
+                    if not text.strip():
+                        continue
+                    raw = RawText(
+                        room_id=room_id,
+                        file_id=file_id,
+                        page=-1,
+                        content=text,
+                        source_type=1,  # 0-ppt, 1-pdf, 2-其它
+                        used_count=0
+                    )
+                    session.add(raw)
+                    session.commit()
+                    all_text.append(text)
+            print(f"PDF文本解析成功: file_id={file_id}, 共{len(all_text)}页，每页内容均已插入page=-1记录")
+            try:
+                print(f"开始调用API批量出题: file_id={file_id}, 共{len(all_text)}页")
+                question_list=generate_question(all_text,is_batch=True,count=count)
+                for question in question_list:
+                    prompt, question, shuffled_options, new_answer = question
                     q = Question(
                         room_id=room_id,
-                        raw_text=text,
+                        raw_text=file_id,#批量出题的raw_text为file_id
                         prompt=prompt,
                         question=question,
                         option_a=shuffled_options[0],
@@ -2135,9 +2197,15 @@ def async_extract_file_and_generate(file_id, count, room_id):
                     )
                     session.add(q)
                     session.commit()
-                    print(f"批量题目插入成功: file_id={file_id}, idx={i}, qid={q.id}")
-                except Exception as e:
-                    print(f"AI批量出题失败: {e}")
+                print(f"批量生成题目插入成功, 共{len(question_list)}道题目 file_id={file_id}")
+                from websocket_handler import socketio
+                socketio.emit('question_generated', {
+                    'room_id': room_id,
+                    'question_id': -1,
+                    'page': -1
+                }, room=str(room_id))
+            except Exception as e:
+                print(f"批量生成题目失败: {e}")
         finally:
             session.close()
 
