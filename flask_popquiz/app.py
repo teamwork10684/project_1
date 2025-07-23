@@ -2341,5 +2341,95 @@ def admin_get_room_members(room_id):
         })
     return jsonify({'room_id': room_id, 'members': result}), 200
 
+# cjy修改：管理后台-获取指定用户参与的所有演讲室
+@app.route('/popquiz/admin/user/<int:user_id>/speech-rooms', methods=['GET'])
+def admin_get_user_speech_rooms(user_id):
+    token = request.args.get('token', '').strip()
+    if not token:
+        return jsonify({'message': '参数错误'}), 400
+    # TODO: 可扩展为管理员校验
+    member_rooms = SpeechRoomMember.query.filter_by(user_id=user_id).all()
+    room_ids = [m.room_id for m in member_rooms]
+    rooms = SpeechRoom.query.filter(SpeechRoom.id.in_(room_ids)).all() if room_ids else []
+    created_rooms = SpeechRoom.query.filter_by(creator_id=user_id).all()
+    all_rooms = {r.id: r for r in rooms + created_rooms}
+    result = []
+    for r in all_rooms.values():
+        participant_count = SpeechRoomMember.query.filter_by(room_id=r.id).count()
+        creator = User.query.get(r.creator_id)
+        creator_name = creator.username if creator else None
+        speaker_name = None
+        if r.speaker_id:
+            speaker = User.query.get(r.speaker_id)
+            speaker_name = speaker.username if speaker else None
+        result.append({
+            'id': r.id,
+            'name': r.name,
+            'description': r.description,
+            'creator_id': r.creator_id,
+            'speaker_id': r.speaker_id,
+            'status': r.status,
+            'created_at': r.created_at.isoformat() if r.created_at else None,
+            'total_participants': participant_count,
+            'creator_name': creator_name,
+            'speaker_name': speaker_name
+        })
+    return jsonify({'rooms': result}), 200
+
+# cjy修改：管理后台-获取指定用户所有被邀请记录
+@app.route('/popquiz/admin/user/<int:user_id>/invitations', methods=['GET'])
+def admin_get_user_invitations(user_id):
+    token = request.args.get('token', '').strip()
+    if not token:
+        return jsonify({'message': '参数错误'}), 400
+    invitations = SpeechRoomInvitation.query.filter_by(invitee_id=user_id).all()
+    result = []
+    for inv in invitations:
+        room = SpeechRoom.query.get(inv.room_id)
+        if not room:
+            continue
+        creator = User.query.get(room.creator_id)
+        creator_name = creator.username if creator else None
+        speaker_name = None
+        if room.speaker_id:
+            speaker = User.query.get(room.speaker_id)
+            speaker_name = speaker.username if speaker else None
+        participant_count = SpeechRoomMember.query.filter_by(room_id=room.id).count()
+        result.append({
+            'id': inv.id,
+            'room_id': room.id,
+            'room_name': room.name,
+            'description': room.description,
+            'created_at': room.created_at.isoformat() if room.created_at else None,
+            'creator_name': creator_name,
+            'speaker_name': speaker_name,
+            'total_participants': participant_count,
+            'role': inv.role,
+            'status': inv.status,
+            'room_status': room.status,
+            'invited_time': inv.invited_time.isoformat() if inv.invited_time else None
+        })
+    return jsonify({'invitations': result}), 200
+
+# cjy修改：管理后台-获取指定用户创建的所有演讲室
+@app.route('/popquiz/admin/user/<int:user_id>/created-rooms', methods=['GET'])
+def admin_get_user_created_rooms(user_id):
+    token = request.args.get('token', '').strip()
+    if not token:
+        return jsonify({'message': '参数错误'}), 400
+    rooms = SpeechRoom.query.filter_by(creator_id=user_id).all()
+    result = []
+    for r in rooms:
+        result.append({
+            'id': r.id,
+            'name': r.name,
+            'description': r.description,
+            'creator_id': r.creator_id,
+            'speaker_id': r.speaker_id,
+            'status': r.status,
+            'created_at': r.created_at.isoformat() if r.created_at else None
+        })
+    return jsonify({'rooms': result}), 200
+
 if __name__ == '__main__':
     socketio.run(app, host='0.0.0.0', port=FLASK_PORT, debug=True,allow_unsafe_werkzeug=True)

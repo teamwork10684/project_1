@@ -127,6 +127,7 @@
               <template #bodyCell="{ column, record }">
                 <template v-if="column.key === 'action'">
                   <a-space>
+                    <a-button type="link" @click="openUserDetailModal(record)">详情</a-button>
                     <a-button type="link" @click="openEditUserModal(record)">编辑</a-button>
                     <a-button type="link" danger @click="handleDeleteUser(record.id)">删除</a-button>
                   </a-space>
@@ -166,6 +167,21 @@
           <a-input v-model:value="userForm.confirmPassword" type="password" autocomplete="off" placeholder="请再次输入新密码" />
         </a-form-item>
       </a-form>
+    </a-modal>
+    <!-- 用户详情弹窗 -->
+    <a-modal v-model:open="userDetailModalVisible" title="用户详情" :footer="null" width="800px" @cancel="handleUserDetailCancel">
+      <template v-if="userDetailLoading">
+        <a-spin />
+      </template>
+      <template v-else>
+        <div style="margin-bottom: 12px; font-weight: bold;">用户名：{{ userDetail.username }}</div>
+        <div style="margin-bottom: 8px; font-weight: bold;">参与的所有演讲室：</div>
+        <a-table :columns="[{title:'ID',dataIndex:'id'},{title:'名称',dataIndex:'name'},{title:'描述',dataIndex:'description'}]" :data-source="userDetail.speechRooms" row-key="id" size="small" :pagination="false" />
+        <div style="margin: 12px 0 8px 0; font-weight: bold;">所有被邀请记录：</div>
+        <a-table :columns="[{title:'房间名',dataIndex:'room_name'},{title:'角色',dataIndex:'role'},{title:'状态',dataIndex:'status'}]" :data-source="userDetail.invitations" row-key="id" size="small" :pagination="false" />
+        <div style="margin: 12px 0 8px 0; font-weight: bold;">创建的所有演讲室：</div>
+        <a-table :columns="[{title:'ID',dataIndex:'id'},{title:'名称',dataIndex:'name'},{title:'描述',dataIndex:'description'}]" :data-source="userDetail.createdRooms" row-key="id" size="small" :pagination="false" />
+      </template>
     </a-modal>
     </div> <!-- admin-main-wrapper -->
   </div>
@@ -536,6 +552,49 @@ const handleQuickDeleteRoom = () => {
     cancelButtonProps: { style: { display: 'none' } },
     onOk: () => {}
   })
+}
+
+// 1. 新增用户详情弹窗相关变量
+const userDetailModalVisible = ref(false)
+const userDetailLoading = ref(false)
+const userDetail = ref({
+  username: '',
+  speechRooms: [],
+  invitations: [],
+  createdRooms: []
+})
+
+// 2. 新增API调用（通过user_id调用管理后台接口）
+const fetchUserDetails = async (user) => {
+  userDetailLoading.value = true
+  userDetail.value.username = user.username
+  try {
+    const token = localStorage.getItem('token')
+    // 参与的所有演讲室
+    const speechRoomsRes = await api.get(`/admin/user/${user.id}/speech-rooms?token=${token}`)
+    // 所有被邀请记录
+    const invitationsRes = await api.get(`/admin/user/${user.id}/invitations?token=${token}`)
+    // 创建的所有演讲室
+    const createdRoomsRes = await api.get(`/admin/user/${user.id}/created-rooms?token=${token}`)
+    userDetail.value.speechRooms = speechRoomsRes.data.rooms || []
+    userDetail.value.invitations = invitationsRes.data.invitations || []
+    userDetail.value.createdRooms = createdRoomsRes.data.rooms || []
+  } catch (e) {
+    message.error('获取用户详情失败')
+    userDetail.value.speechRooms = []
+    userDetail.value.invitations = []
+    userDetail.value.createdRooms = []
+  } finally {
+    userDetailLoading.value = false
+  }
+}
+
+const openUserDetailModal = (user) => {
+  userDetailModalVisible.value = true
+  fetchUserDetails(user)
+}
+const handleUserDetailCancel = () => {
+  userDetailModalVisible.value = false
 }
 </script>
 
