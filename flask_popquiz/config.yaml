@@ -10,8 +10,8 @@ database: # 数据库配置
   host: "localhost" # 数据库主机
   port: 3306 # 数据库端口
   user: "root" # 数据库用户名
-  password: "7661282cjyCJY" # 数据库密码
-  name: "popquiz" # 数据库名
+  password: "" # 数据库密码
+  name: "" # 数据库名
 
 upload_dir: "C:/popquiz_file" # 上传文件的根目录
 libreoffice_executable: "C:/Program Files/LibreOffice/program/soffice.exe" # 用于PPT转PDF
