@@ -153,7 +153,7 @@ export const adminAPI = {
     // 获取统计数据
     getStats: (token) => api.get('/admin/statistics', { params: { token } }),
     // 获取所有用户
-    getUsers: (token) => api.get('/admin/users', { params: { token } }),
+    getUsers: (token, params = {}) => api.get('/admin/users', { params: { token, ...params } }),
     // 删除用户
     deleteUser: (id, token) => api.delete(`/admin/users/${id}`, { data: { token } }),
     // 获取所有演讲室

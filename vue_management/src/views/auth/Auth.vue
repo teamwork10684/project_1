@@ -22,7 +22,6 @@
         <a-form-item>
           <a-button type="primary" html-type="submit" block size="large" :loading="loading">{{ mode === 'login' ? '登录' : '注册' }}</a-button>
         </a-form-item>
-        <!-- 删除了切换注册/登录的按钮 -->
       </a-form>
     </a-card>
   </div>
@@ -175,10 +174,10 @@ watch(() => route.path, (newPath) => {
 });
 
 onMounted(() => {
-  const token = localStorage.getItem('token');
-  if (token) {
-    router.replace('/admin');
-  }
+  // const token = localStorage.getItem('token');
+  // if (token) {
+  //   router.replace('/admin');
+  // }
 });
 </script>
 

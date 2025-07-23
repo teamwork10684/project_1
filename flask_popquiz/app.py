@@ -2212,11 +2212,49 @@ def admin_statistics():
 # 管理后台-获取所有用户
 @app.route('/popquiz/admin/users', methods=['GET'])
 def admin_get_users():
-    """获取所有用户列表（管理后台用，cjy修改）"""
+    """
+    获取所有用户列表（管理后台用，cjy修改）
+    支持分页、排序、用户名模糊搜索
+    """
     token = request.args.get('token', '').strip()
     if not token:
         return jsonify({'message': '参数错误'}), 400
-    users = User.query.all()
+
+    # 分页参数
+    page = request.args.get('page', default=1, type=int)
+    per_page = request.args.get('per_page', default=10, type=int)
+    per_page = min(per_page, 100)  # 限制每页最大数量
+
+    # 排序参数
+    sort_by = request.args.get('sort_by', default='created_at')
+    order = request.args.get('order', default='desc')
+
+    # 搜索参数
+    username = request.args.get('username', default=None, type=str)
+
+    # 支持的排序字段
+    valid_sort_fields = ['id', 'username', 'created_at', 'updated_at']
+    if sort_by not in valid_sort_fields:
+        sort_by = 'created_at'
+    if order not in ['asc', 'desc']:
+        order = 'desc'
+
+    # 构建查询
+    query = User.query
+    if username:
+        query = query.filter(User.username.like(f"%{username}%"))
+
+    # 排序
+    sort_column = getattr(User, sort_by)
+    if order == 'desc':
+        query = query.order_by(sort_column.desc())
+    else:
+        query = query.order_by(sort_column.asc())
+
+    # 分页
+    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+    users = pagination.items
+
     result = []
     for user in users:
         result.append({
@@ -2225,7 +2263,19 @@ def admin_get_users():
             'created_at': user.created_at.isoformat() if user.created_at else None,
             'updated_at': user.updated_at.isoformat() if user.updated_at else None
         })
-    return jsonify({'users': result}), 200
+
+    response_data = {
+        'users': result,
+        'pagination': {
+            'page': page,
+            'per_page': per_page,
+            'total': pagination.total,
+            'pages': pagination.pages,
+            'has_next': pagination.has_next,
+            'has_prev': pagination.has_prev
+        }
+    }
+    return jsonify(response_data), 200
 
 # 管理后台-删除用户
 @app.route('/popquiz/admin/users/<int:user_id>', methods=['DELETE'])

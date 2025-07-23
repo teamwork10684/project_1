@@ -4110,3 +4110,116 @@ paths:
           description: 未授权或token无效
         "403":
           description: 权限不足
+
+  /admin/users:
+    get:
+      tags:
+        - 用户管理
+      summary: 获取所有用户列表（管理后台用，cjy新增）
+      description: 获取所有用户的基本信息，支持分页、排序、用户名模糊搜索。
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema:
+            type: string
+          description: 管理员token
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+          description: 页码，从1开始
+        - name: per_page
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 10
+            minimum: 1
+            maximum: 100
+          description: 每页数量，最大100
+        - name: sort_by
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [id, username, created_at, updated_at]
+            default: created_at
+          description: 排序字段
+        - name: order
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+          description: 排序方向
+        - name: username
+          in: query
+          required: false
+          schema:
+            type: string
+          description: 用户名模糊搜索
+      responses:
+        "200":
+          description: 成功返回用户列表
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  users:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                          example: 1
+                        username:
+                          type: string
+                          example: "admin"
+                        created_at:
+                          type: string
+                          format: date-time
+                          example: "2024-01-01T10:00:00Z"
+                        updated_at:
+                          type: string
+                          format: date-time
+                          example: "2024-01-01T10:00:00Z"
+                  pagination:
+                    type: object
+                    properties:
+                      page:
+                        type: integer
+                        description: 当前页码
+                        example: 1
+                      per_page:
+                        type: integer
+                        description: 每页数量
+                        example: 10
+                      total:
+                        type: integer
+                        description: 总记录数
+                        example: 25
+                      pages:
+                        type: integer
+                        description: 总页数
+                        example: 3
+                      has_next:
+                        type: boolean
+                        description: 是否有下一页
+                        example: true
+                      has_prev:
+                        type: boolean
+                        description: 是否有上一页
+                        example: false
+        "400":
+          description: 参数错误
+        "401":
+          description: 未授权或token无效
+        "403":
+          description: 权限不足
