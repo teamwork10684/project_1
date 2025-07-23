@@ -36,6 +36,7 @@ SQLALCHEMY_DATABASE_URI = f"mysql+pymysql://{db_conf.get('user','root')}:{db_con
 app.config['SQLALCHEMY_DATABASE_URI'] = SQLALCHEMY_DATABASE_URI
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = config.get('sqlalchemy_track_modifications', False)
 
+
 db.init_app(app)
 # 文件上传存放路径
 UPLOAD_ROOT = UPLOAD_DIR
