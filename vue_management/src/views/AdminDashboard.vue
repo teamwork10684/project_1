@@ -92,15 +92,15 @@
 
     <!-- 新增用户模态窗 -->
     <a-modal v-model:open="addUserModalVisible" title="新增用户" :confirm-loading="addUserLoading" @ok="handleAddUserOk" @cancel="handleAddUserCancel" destroyOnClose>
-      <a-form ref="addUserFormRef" :model="addUserForm" :rules="addUserRules" :label-col="{span: 5}" :wrapper-col="{span: 19}">
+      <a-form ref="addUserFormRef" :model="addUserForm" :rules="addUserRules.value" :label-col="{span: 5}" :wrapper-col="{span: 19}">
         <a-form-item label="用户名" name="username">
-          <a-input v-model="addUserForm.username" autocomplete="off" />
+          <a-input v-model:value="addUserForm.username" autocomplete="off" />
         </a-form-item>
         <a-form-item label="密码" name="password">
-          <a-input v-model="addUserForm.password" type="password" autocomplete="off" />
+          <a-input v-model:value="addUserForm.password" type="password" autocomplete="off" />
         </a-form-item>
         <a-form-item label="确认密码" name="confirmPassword">
-          <a-input v-model="addUserForm.confirmPassword" type="password" autocomplete="off" />
+          <a-input v-model:value="addUserForm.confirmPassword" type="password" autocomplete="off" />
         </a-form-item>
       </a-form>
     </a-modal>
@@ -110,10 +110,24 @@
       <a-tabs v-model="activeTab" class="admin-tabs">
         <a-tab-pane key="users" tab="用户管理">
           <a-card title="用户信息" :bodyStyle="{padding: '0'}" :headStyle="{padding: '0 24px'}">
-            <a-table :columns="userColumns" :data-source="userData" row-key="id" bordered :pagination="{ position: ['bottomCenter'] }" style="width: 100%">
+            <div style="padding: 16px 24px 0 24px; display: flex; align-items: center; gap: 12px;">
+              <a-input v-model:value="userSearch" placeholder="搜索用户名" style="width: 200px;" @pressEnter="handleUserSearch" allow-clear />
+              <a-button type="primary" @click="handleUserSearch">搜索</a-button>
+            </div>
+            <a-table
+              :columns="userColumns"
+              :data-source="userData"
+              row-key="id"
+              bordered
+              :pagination="{ current: userPagination.current, pageSize: userPagination.pageSize, total: userPagination.total, position: ['bottomCenter'] }"
+              style="width: 100%"
+              @change="handleUserTableChange"
+              :locale="{ emptyText: userTableEmptyText }"
+            >
               <template #bodyCell="{ column, record }">
                 <template v-if="column.key === 'action'">
                   <a-space>
+                    <a-button type="link" @click="openUserDetailModal(record)">详情</a-button>
                     <a-button type="link" @click="openEditUserModal(record)">编辑</a-button>
                     <a-button type="link" danger @click="handleDeleteUser(record.id)">删除</a-button>
                   </a-space>
@@ -142,25 +156,51 @@
     </div>
     <!-- 用户新增/编辑弹窗 -->
     <a-modal v-model:open="userModalVisible" :title="userModalType === 'add' ? '新增用户' : '编辑用户'" :confirm-loading="userModalLoading" @ok="handleUserModalOk" @cancel="handleUserModalCancel" destroyOnClose>
-      <a-form ref="userFormRef" :model="userForm" :label-col="{span: 5}" :wrapper-col="{span: 19}"
-        :rules="userModalType === 'add' ? { username: [{ required: true, message: '请输入用户名' }], password: [{ required: true, message: '请输入密码' }], confirmPassword: [{ required: true, message: '请确认密码' }, { validator: confirmPasswordValidator, trigger: 'blur' }] } : { username: [{ required: true, message: '请输入用户名' }], password: [{ required: true, message: '请输入新密码' }], confirmPassword: [{ required: true, message: '请确认新密码' }, { validator: confirmPasswordValidator, trigger: 'blur' }] }">
+      <a-form ref="userFormRef" :model="userForm" :rules="userEditRules.value" :label-col="{span: 5}" :wrapper-col="{span: 19}">
         <a-form-item label="用户名" name="username">
-          <a-input v-model="userForm.username" autocomplete="off" />
+          <a-input v-model:value="userForm.username" autocomplete="off" />
         </a-form-item>
-        <a-form-item label="密码" :name="'password'">
-          <a-input v-model="userForm.password" type="password" autocomplete="off" :placeholder="userModalType === 'add' ? '请输入密码' : '请输入新密码'" />
+        <a-form-item label="密码" name="password">
+          <a-input v-model:value="userForm.password" type="password" autocomplete="off" placeholder="请输入新密码" />
         </a-form-item>
-        <a-form-item label="确认密码" :name="'confirmPassword'">
-          <a-input v-model="userForm.confirmPassword" type="password" autocomplete="off" :placeholder="userModalType === 'add' ? '请再次输入密码' : '请再次输入新密码'" />
+        <a-form-item label="确认密码" name="confirmPassword">
+          <a-input v-model:value="userForm.confirmPassword" type="password" autocomplete="off" placeholder="请再次输入新密码" />
         </a-form-item>
       </a-form>
+    </a-modal>
+    <!-- 用户详情弹窗 -->
+    <a-modal v-model:open="userDetailModalVisible" title="用户详情" :footer="null" width="800px" @cancel="handleUserDetailCancel">
+      <template v-if="userDetailLoading">
+        <a-spin />
+      </template>
+      <template v-else>
+        <div style="margin-bottom: 12px; font-weight: bold;">用户名：{{ userDetail.username }}</div>
+        <div style="margin-bottom: 8px; font-weight: bold;">参与的所有演讲室：</div>
+        <a-table :columns="[{title:'ID',dataIndex:'id'},{title:'名称',dataIndex:'name'},{title:'描述',dataIndex:'description'}]" :data-source="userDetail.speechRooms" row-key="id" size="small" :pagination="false" />
+        <div style="margin: 12px 0 8px 0; font-weight: bold;">所有被邀请记录：</div>
+        <a-table :columns="[{title:'房间名',dataIndex:'room_name'},{title:'角色',dataIndex:'role'},{title:'状态',dataIndex:'status'}]" :data-source="userDetail.invitations" row-key="id" size="small" :pagination="false" />
+        <div style="margin: 12px 0 8px 0; font-weight: bold;">创建的所有演讲室：</div>
+        <a-table :columns="[{title:'ID',dataIndex:'id'},{title:'名称',dataIndex:'name'},{title:'描述',dataIndex:'description'}]" :data-source="userDetail.createdRooms" row-key="id" size="small" :pagination="false" />
+      </template>
+    </a-modal>
+    <!-- 演讲室成员弹窗 -->
+    <a-modal v-model:open="roomMemberModalVisible" title="演讲室成员" :footer="null" width="600px" @cancel="handleRoomMemberCancel">
+      <a-table
+        :columns="roomMemberColumns"
+        :data-source="roomMemberData"
+        row-key="user_id"
+        size="small"
+        :pagination="{ current: roomMemberPagination.current, pageSize: roomMemberPagination.pageSize, showSizeChanger: false }"
+        @change="(pagination) => { roomMemberPagination.value.current = pagination.current }"
+        bordered
+      />
     </a-modal>
     </div> <!-- admin-main-wrapper -->
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, h } from 'vue'
 import api, { userAPI, adminAPI } from '@/api'
 import { message, Modal, Form, Input } from 'ant-design-vue'
 import { useRouter } from 'vue-router'
@@ -192,25 +232,80 @@ const fetchAdminStats = async () => {
 }
 onMounted(fetchAdminStats)
 
+// 在用户表格数据处理处添加格式化函数
+function formatDateTime(str) {
+  if (!str) return '';
+  return str.replace('T', ' ');
+}
+
+// 用户管理搜索与分页参数
+const userSearch = ref('')
+const userPagination = ref({ current: 1, pageSize: 5, total: 0 })
+const userSorter = ref({ field: 'created_at', order: 'descend' })
+
 // 用户信息表头
 const userColumns = [
-  { title: 'ID', dataIndex: 'id', key: 'id' },
-  { title: '用户名', dataIndex: 'username', key: 'username' },
-  { title: '注册时间', dataIndex: 'created_at', key: 'created_at' },
-  { title: '更新时间', dataIndex: 'updated_at', key: 'updated_at' },
+  { title: 'ID', dataIndex: 'id', key: 'id', sorter: true },
+  { title: '用户名', dataIndex: 'username', key: 'username', sorter: true },
+  { title: '注册时间', dataIndex: 'created_at', key: 'created_at', sorter: true,
+    customRender: ({ text }) => formatDateTime(text) },
+  { title: '更新时间', dataIndex: 'updated_at', key: 'updated_at', sorter: true,
+    customRender: ({ text }) => formatDateTime(text) },
   { title: '操作', key: 'action' }
 ]
+
 const userData = ref([])
+
+// 用户表格空状态自定义
+const userTableEmptyText = ref('暂无数据')
+
+// 获取用户列表，支持搜索、分页、排序
 const fetchUsers = async () => {
   try {
     const token = localStorage.getItem('token')
-    const res = await adminAPI.getUsers(token)
+    const params = {
+      page: userPagination.value.current,
+      per_page: userPagination.value.pageSize,
+      sort_by: userSorter.value.field,
+      order: userSorter.value.order === 'ascend' ? 'asc' : 'desc',
+      username: userSearch.value.trim() ? userSearch.value.trim() : undefined
+    }
+    const res = await adminAPI.getUsers(token, params)
     userData.value = res.data.users
+    if (res.data.pagination) {
+      userPagination.value.total = res.data.pagination.total
+    }
+    // 搜索有内容时且无结果，显示“查询不到该用户”
+    if (userSearch.value.trim() && userData.value.length === 0) {
+      userTableEmptyText.value = '查询不到该用户'
+    } else {
+      userTableEmptyText.value = '暂无数据'
+    }
   } catch (e) {
     message.error('获取用户列表失败')
+    userData.value = []
+    userTableEmptyText.value = '查询不到该用户'
   }
 }
+
 onMounted(fetchUsers)
+
+// 搜索事件
+const handleUserSearch = () => {
+  userPagination.value.current = 1
+  fetchUsers()
+}
+
+// 表格分页、排序事件
+const handleUserTableChange = (pagination, filters, sorter) => {
+  userPagination.value.current = pagination.current
+  userPagination.value.pageSize = pagination.pageSize
+  if (sorter && sorter.field) {
+    userSorter.value.field = sorter.field
+    userSorter.value.order = sorter.order
+  }
+  fetchUsers()
+}
 
 const handleDeleteUser = (id) => {
   Modal.confirm({
@@ -225,6 +320,7 @@ const handleDeleteUser = (id) => {
         await adminAPI.deleteUser(id, token)
         message.success('删除成功')
         fetchUsers()
+        fetchAdminStats() // 新增：自动更新统计卡片
       } catch (e) {
         message.error(e?.response?.data?.message || '删除失败')
       }
@@ -239,41 +335,61 @@ const userModalLoading = ref(false)
 const userForm = ref({ id: null, username: '', password: '', confirmPassword: '' })
 const userFormRef = ref()
 
-const openAddUserModal = () => {
-  userModalType.value = 'add'
-  userForm.value = { id: null, username: '', password: '', confirmPassword: '' }
-  userModalVisible.value = true
-}
+// 编辑用户校验规则，和注册/新增一致
+const userEditRules = ref({
+  username: [ { required: true, message: '请输入用户名', trigger: 'blur' } ],
+  password: [ { required: true, message: '请输入新密码', trigger: 'blur' } ],
+  confirmPassword: [
+    { required: true, message: '请再次输入新密码', trigger: 'blur' },
+    { validator: (rule, value) => {
+        if (!value) {
+          return Promise.reject('请再次输入新密码');
+        }
+        if (value !== userForm.value.password) {
+          return Promise.reject('两次输入的密码不一致');
+        }
+        return Promise.resolve();
+      }, trigger: 'blur' }
+  ]
+})
+
 const openEditUserModal = (record) => {
   userModalType.value = 'edit'
   userForm.value = { id: record.id, username: record.username, password: '', confirmPassword: '' }
   userModalVisible.value = true
+  userFormRef.value?.clearValidate?.();
 }
+
 const handleUserModalOk = async () => {
   try {
     await userFormRef.value.validate();
   } catch (e) {
-    // 校验未通过，直接返回
+    return;
+  }
+  if (!userForm.value.username.trim()) {
+    message.error('请输入用户名');
+    return;
+  }
+  if (!userForm.value.password.trim()) {
+    message.error('请输入新密码');
+    return;
+  }
+  if (!userForm.value.confirmPassword.trim()) {
+    message.error('请再次输入新密码');
     return;
   }
   if (userForm.value.password !== userForm.value.confirmPassword) {
-    message.error('两次输入的密码不一致')
-    return
+    message.error('两次输入的密码不一致');
+    return;
   }
   userModalLoading.value = true
   try {
-    if (userModalType.value === 'add') {
-      await userAPI.addUser({ username: userForm.value.username, password: userForm.value.password })
-      message.success('新增成功')
-    } else {
-      // 编辑时允许用户名和密码都可修改，ID为主键
-      await userAPI.editUser(userForm.value.id, { username: userForm.value.username, password: userForm.value.password })
-      message.success('编辑成功')
-    }
+    await userAPI.editUser(userForm.value.id, { username: userForm.value.username, password: userForm.value.password })
+    message.success('编辑成功')
     userModalVisible.value = false
     fetchUsers()
   } catch (e) {
-    message.error(e?.response?.data?.message || (userModalType.value === 'add' ? '新增失败' : '编辑失败'))
+    message.error(e?.response?.data?.message || '编辑失败')
   } finally {
     userModalLoading.value = false
   }
@@ -299,47 +415,71 @@ const addUserLoading = ref(false)
 const addUserForm = ref({ username: '', password: '', confirmPassword: '' })
 const addUserFormRef = ref()
 
-const addUserRules = {
-  username: [
-    { required: true, message: '请输入用户名' }
-  ],
-  password: [
-    { required: true, message: '请输入密码' }
-  ],
+// 校验规则
+const addUserRules = ref({
+  username: [ { required: true, message: '请输入用户名', trigger: 'blur' } ],
+  password: [ { required: true, message: '请输入密码', trigger: 'blur' } ],
   confirmPassword: [
-    { required: true, message: '请确认密码' },
+    { required: true, message: '请再次输入密码', trigger: 'blur' },
     { validator: (rule, value) => {
-      if (value === addUserForm.value.password) {
-        return Promise.resolve()
-      } else {
-        return Promise.reject('两次输入的密码不一致')
-      }
-    }, trigger: 'blur' }
+        if (!value) {
+          return Promise.reject('请再次输入密码');
+        }
+        if (value !== addUserForm.value.password) {
+          return Promise.reject('两次输入的密码不一致');
+        }
+        return Promise.resolve();
+      }, trigger: 'blur' }
   ]
-}
+})
 
 const showAddUserModal = () => {
   addUserForm.value = { username: '', password: '', confirmPassword: '' }
   addUserModalVisible.value = true
+  addUserFormRef.value?.clearValidate?.();
 }
+
 const handleAddUserOk = async () => {
+  // 手动校验表单
   try {
-    await addUserFormRef.value.validate()
+    await addUserFormRef.value.validate();
   } catch (e) {
-    return
+    return;
   }
-  addUserLoading.value = true
+  if (!addUserForm.value.username.trim()) {
+    message.error('请输入用户名');
+    return;
+  }
+  if (!addUserForm.value.password.trim()) {
+    message.error('请输入密码');
+    return;
+  }
+  if (!addUserForm.value.confirmPassword.trim()) {
+    message.error('请再次输入密码');
+    return;
+  }
+  if (addUserForm.value.password !== addUserForm.value.confirmPassword) {
+    message.error('两次输入的密码不一致');
+    return;
+  }
+  addUserLoading.value = true;
   try {
-    await userAPI.addUser({ username: addUserForm.value.username, password: addUserForm.value.password })
-    message.success('新增成功')
-    addUserModalVisible.value = false
-    fetchUsers()
+    const res = await userAPI.addUser({ username: addUserForm.value.username, password: addUserForm.value.password });
+    if (res.data && res.data.id) {
+      message.success('新增成功');
+      addUserModalVisible.value = false;
+      fetchUsers();
+      fetchAdminStats(); // 新增：自动更新统计卡片
+    } else {
+      message.error(res.data?.message || '新增失败');
+    }
   } catch (e) {
-    message.error(e?.response?.data?.message || '新增失败')
+    message.error(e?.response?.data?.message || '新增失败');
   } finally {
-    addUserLoading.value = false
+    addUserLoading.value = false;
   }
 }
+
 const handleAddUserCancel = () => {
   addUserModalVisible.value = false
 }
@@ -380,7 +520,7 @@ const handleRoomDelete = (room) => {
     onOk: async () => {
       try {
         const token = localStorage.getItem('token')
-        await api.delete(`/speech-rooms/${room.id}`, { data: { token } })
+        await api.delete(`/admin/speech-rooms/${room.id}`, { data: { token } })
         message.success('删除成功')
         fetchRooms()
       } catch (e) {
@@ -390,18 +530,37 @@ const handleRoomDelete = (room) => {
   })
 }
 
+// 1. 演讲室成员表格列定义
+const roomMemberColumns = [
+  { title: '用户ID', dataIndex: 'user_id', key: 'user_id' },
+  { title: '用户名', dataIndex: 'username', key: 'username' },
+  { title: '角色', dataIndex: 'role', key: 'role',
+    customRender: ({ text }) => {
+      if (text === 0) return '创建者'
+      if (text === 1) return '演讲者'
+      if (text === 2) return '听众'
+      return text
+    }
+  },
+  { title: '加入时间', dataIndex: 'joined_at', key: 'joined_at' }
+]
+const roomMemberModalVisible = ref(false)
+const roomMemberData = ref([])
+const roomMemberPagination = ref({ current: 1, pageSize: 10 })
+
+// 2. 修改handleRoomViewMembers方法，弹窗表格展示成员信息
 const handleRoomViewMembers = async (room) => {
   try {
     const token = localStorage.getItem('token')
     const res = await adminAPI.getRoomMembers(room.id, token)
-    Modal.info({
-      title: `查看「${room.name}」成员`,
-      content: res.data.members.map(m => `${m.username}（角色：${m.role}）`).join(', '),
-      okText: '关闭'
-    })
+    roomMemberData.value = res.data.members || []
+    roomMemberModalVisible.value = true
   } catch (e) {
     message.error('获取成员失败')
   }
+}
+const handleRoomMemberCancel = () => {
+  roomMemberModalVisible.value = false
 }
 const handleRoomForceClose = (room) => {
   Modal.confirm({
@@ -411,8 +570,14 @@ const handleRoomForceClose = (room) => {
     okType: 'danger',
     cancelText: '取消',
     onOk: async () => {
-      // TODO: 调用强制关闭接口
-      message.info('已预留强制关闭接口实现')
+      try {
+        const token = localStorage.getItem('token')
+        await api.post(`/admin/speech-rooms/${room.id}/force-close`, { token })
+        message.success('演讲室已强制关闭')
+        fetchRooms()
+      } catch (e) {
+        message.error(e?.response?.data?.message || '强制关闭失败')
+      }
     }
   })
 }
@@ -424,6 +589,49 @@ const handleQuickDeleteRoom = () => {
     cancelButtonProps: { style: { display: 'none' } },
     onOk: () => {}
   })
+}
+
+// 1. 新增用户详情弹窗相关变量
+const userDetailModalVisible = ref(false)
+const userDetailLoading = ref(false)
+const userDetail = ref({
+  username: '',
+  speechRooms: [],
+  invitations: [],
+  createdRooms: []
+})
+
+// 2. 新增API调用（通过user_id调用管理后台接口）
+const fetchUserDetails = async (user) => {
+  userDetailLoading.value = true
+  userDetail.value.username = user.username
+  try {
+    const token = localStorage.getItem('token')
+    // 参与的所有演讲室
+    const speechRoomsRes = await api.get(`/admin/user/${user.id}/speech-rooms?token=${token}`)
+    // 所有被邀请记录
+    const invitationsRes = await api.get(`/admin/user/${user.id}/invitations?token=${token}`)
+    // 创建的所有演讲室
+    const createdRoomsRes = await api.get(`/admin/user/${user.id}/created-rooms?token=${token}`)
+    userDetail.value.speechRooms = speechRoomsRes.data.rooms || []
+    userDetail.value.invitations = invitationsRes.data.invitations || []
+    userDetail.value.createdRooms = createdRoomsRes.data.rooms || []
+  } catch (e) {
+    message.error('获取用户详情失败')
+    userDetail.value.speechRooms = []
+    userDetail.value.invitations = []
+    userDetail.value.createdRooms = []
+  } finally {
+    userDetailLoading.value = false
+  }
+}
+
+const openUserDetailModal = (user) => {
+  userDetailModalVisible.value = true
+  fetchUserDetails(user)
+}
+const handleUserDetailCancel = () => {
+  userDetailModalVisible.value = false
 }
 </script>
 
