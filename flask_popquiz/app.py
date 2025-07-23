@@ -2431,5 +2431,32 @@ def admin_get_user_created_rooms(user_id):
         })
     return jsonify({'rooms': result}), 200
 
+# cjy修改：管理后台-删除指定演讲室
+@app.route('/popquiz/admin/speech-rooms/<int:room_id>', methods=['DELETE'])
+def admin_delete_speech_room(room_id):
+    token = request.get_json().get('token', '').strip() if request.is_json else ''
+    if not token:
+        return jsonify({'message': '参数错误'}), 400
+    room = SpeechRoom.query.get(room_id)
+    if not room:
+        return jsonify({'message': '演讲室不存在'}), 404
+    db.session.delete(room)
+    db.session.commit()
+    return jsonify({'room_id': room_id, 'message': '演讲室删除成功'}), 200
+
+# cjy修改：管理后台-强制关闭指定演讲室
+@app.route('/popquiz/admin/speech-rooms/<int:room_id>/force-close', methods=['POST'])
+def admin_force_close_speech_room(room_id):
+    token = request.get_json().get('token', '').strip() if request.is_json else ''
+    if not token:
+        return jsonify({'message': '参数错误'}), 400
+    room = SpeechRoom.query.get(room_id)
+    if not room:
+        return jsonify({'message': '演讲室不存在'}), 404
+    # 设为已结束
+    room.status = 2
+    db.session.commit()
+    return jsonify({'room_id': room_id, 'message': '演讲室已强制关闭'}), 200
+
 if __name__ == '__main__':
     socketio.run(app, host='0.0.0.0', port=FLASK_PORT, debug=True,allow_unsafe_werkzeug=True)

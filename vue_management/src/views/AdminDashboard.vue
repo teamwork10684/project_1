@@ -183,6 +183,18 @@
         <a-table :columns="[{title:'ID',dataIndex:'id'},{title:'名称',dataIndex:'name'},{title:'描述',dataIndex:'description'}]" :data-source="userDetail.createdRooms" row-key="id" size="small" :pagination="false" />
       </template>
     </a-modal>
+    <!-- 演讲室成员弹窗 -->
+    <a-modal v-model:open="roomMemberModalVisible" title="演讲室成员" :footer="null" width="600px" @cancel="handleRoomMemberCancel">
+      <a-table
+        :columns="roomMemberColumns"
+        :data-source="roomMemberData"
+        row-key="user_id"
+        size="small"
+        :pagination="{ current: roomMemberPagination.current, pageSize: roomMemberPagination.pageSize, showSizeChanger: false }"
+        @change="(pagination) => { roomMemberPagination.value.current = pagination.current }"
+        bordered
+      />
+    </a-modal>
     </div> <!-- admin-main-wrapper -->
   </div>
 </template>
@@ -508,7 +520,7 @@ const handleRoomDelete = (room) => {
     onOk: async () => {
       try {
         const token = localStorage.getItem('token')
-        await api.delete(`/speech-rooms/${room.id}`, { data: { token } })
+        await api.delete(`/admin/speech-rooms/${room.id}`, { data: { token } })
         message.success('删除成功')
         fetchRooms()
       } catch (e) {
@@ -518,18 +530,37 @@ const handleRoomDelete = (room) => {
   })
 }
 
+// 1. 演讲室成员表格列定义
+const roomMemberColumns = [
+  { title: '用户ID', dataIndex: 'user_id', key: 'user_id' },
+  { title: '用户名', dataIndex: 'username', key: 'username' },
+  { title: '角色', dataIndex: 'role', key: 'role',
+    customRender: ({ text }) => {
+      if (text === 0) return '创建者'
+      if (text === 1) return '演讲者'
+      if (text === 2) return '听众'
+      return text
+    }
+  },
+  { title: '加入时间', dataIndex: 'joined_at', key: 'joined_at' }
+]
+const roomMemberModalVisible = ref(false)
+const roomMemberData = ref([])
+const roomMemberPagination = ref({ current: 1, pageSize: 10 })
+
+// 2. 修改handleRoomViewMembers方法，弹窗表格展示成员信息
 const handleRoomViewMembers = async (room) => {
   try {
     const token = localStorage.getItem('token')
     const res = await adminAPI.getRoomMembers(room.id, token)
-    Modal.info({
-      title: `查看「${room.name}」成员`,
-      content: res.data.members.map(m => `${m.username}（角色：${m.role}）`).join(', '),
-      okText: '关闭'
-    })
+    roomMemberData.value = res.data.members || []
+    roomMemberModalVisible.value = true
   } catch (e) {
     message.error('获取成员失败')
   }
+}
+const handleRoomMemberCancel = () => {
+  roomMemberModalVisible.value = false
 }
 const handleRoomForceClose = (room) => {
   Modal.confirm({
@@ -539,8 +570,14 @@ const handleRoomForceClose = (room) => {
     okType: 'danger',
     cancelText: '取消',
     onOk: async () => {
-      // TODO: 调用强制关闭接口
-      message.info('已预留强制关闭接口实现')
+      try {
+        const token = localStorage.getItem('token')
+        await api.post(`/admin/speech-rooms/${room.id}/force-close`, { token })
+        message.success('演讲室已强制关闭')
+        fetchRooms()
+      } catch (e) {
+        message.error(e?.response?.data?.message || '强制关闭失败')
+      }
     }
   })
 }
