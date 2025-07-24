@@ -26,11 +26,11 @@
 
     <!-- Tab切换及数量 -->
     <div class="tabs-with-count">
-      <a-tabs v-model:activeKey="activeTab" class="mobile-tabs" tabBarGutter="0">
+      <a-tabs v-model:activeKey="activeTab" class="mobile-tabs" :tabBarGutter="0">
         <a-tab-pane key="created" tab="我创建的演讲">
           <div class="tab-count-bar sort-bar">
             <span>我创建的演讲共{{ sortedCreatedList.length }}个</span>
-            <a-select v-model:value="createdSortType" size="small" class="sort-select" @change="saveCreatedSortType" dropdown-class-name="sort-select-dropdown">
+            <a-select v-model:value="createdSortType" size="small" class="sort-select" @change="saveCreatedSortType" popupClassName="sort-select-dropdown">
               <a-select-option value="default">默认排序</a-select-option>
               <a-select-option value="time">按创建时间排序</a-select-option>
               <a-select-option value="status">按房间状态排序</a-select-option>
@@ -74,8 +74,8 @@
         </a-tab-pane>
         <a-tab-pane key="joined" tab="我参与的演讲">
           <div class="tab-count-bar sort-bar">
-            <span>我参与的演讲共{{ joinedList.length }}个</span>
-            <a-select v-model:value="sortType" size="small" class="sort-select" @change="saveSortType" dropdown-class-name="sort-select-dropdown">
+            <span>我参与的演讲共{{ sortedJoinedList.length }}个</span>
+            <a-select v-model:value="sortType" size="small" class="sort-select" @change="saveSortType" popupClassName="sort-select-dropdown">
               <a-select-option value="default">默认排序</a-select-option>
               <a-select-option value="time">按创建时间排序</a-select-option>
               <a-select-option value="status">按房间状态排序</a-select-option>
@@ -120,7 +120,7 @@
         <a-tab-pane key="ended" tab="已结束的演讲">
           <div class="tab-count-bar sort-bar">
             <span>已结束的演讲共{{ sortedEndedList.length }}个</span>
-            <a-select v-model:value="endedSortType" size="small" class="sort-select" @change="saveEndedSortType" dropdown-class-name="sort-select-dropdown">
+            <a-select v-model:value="endedSortType" size="small" class="sort-select" @change="saveEndedSortType" popupClassName="sort-select-dropdown">
               <a-select-option value="default">默认排序</a-select-option>
               <a-select-option value="time">按创建时间排序</a-select-option>
               <a-select-option value="status">按房间状态排序</a-select-option>
@@ -167,7 +167,7 @@
       <div :class="['bottom-tab', activeBottom==='mine' ? 'active' : '']" @click="handleBottomTab('mine')">我的</div>
     </div>
 
-    <a-modal v-model:visible="detailModalVisible" title="房间详情" width="520px" :footer="null">
+    <a-modal v-model:visible="detailModalVisible" title="房间详情" width="520px" :footer="null"> <!-- TODO: AntD 4.x 用 open 替换 visible -->
       <template #title>
         <div class="room-detail-header">
           <span class="room-detail-title">{{ currentRoomDetail.name }}</span>
@@ -224,7 +224,7 @@
       </div>
     </a-modal>
 
-    <a-modal v-model:visible="inviteModalVisible" title="发送邀请" :footer="null">
+    <a-modal v-model:visible="inviteModalVisible" title="发送邀请" :footer="null"> <!-- TODO: AntD 4.x 用 open 替换 visible -->
       <a-form @submit.prevent="handleInviteSubmit">
         <a-form-item label="被邀请用户名">
           <a-input v-model:value="inviteForm.username" placeholder="请输入用户名" />
@@ -247,7 +247,7 @@
       </a-form>
     </a-modal>
 
-    <a-modal v-model:visible="invitationModalVisible" title="被邀请情况" width="600px" :footer="null">
+    <a-modal v-model:visible="invitationModalVisible" title="被邀请情况" width="600px" :footer="null"> <!-- TODO: AntD 4.x 用 open 替换 visible -->
       <div class="invitation-modal-header">
         <span></span>
         <a-select v-model:value="invitationSortType" size="small" style="width: 120px;" class="invitation-sort-select">
@@ -275,7 +275,7 @@
         </div>
       </div>
     </a-modal>
-    <a-modal v-model:visible="invitationDetailVisible" title="邀请详情" width="600px" :footer="null">
+    <a-modal v-model:visible="invitationDetailVisible" title="邀请详情" width="600px" :footer="null"> <!-- TODO: AntD 4.x 用 open 替换 visible -->
       <div v-if="invitationDetail">
         <div class="invitation-detail-title-row">
           <span class="invitation-detail-title">{{ invitationDetail.room_name }}</span>
@@ -294,7 +294,7 @@
       </div>
     </a-modal>
 
-    <a-modal v-model:visible="joinRoomModalVisible" title="加入演讲" :footer="null">
+    <a-modal v-model:visible="joinRoomModalVisible" title="加入演讲" :footer="null"> <!-- TODO: AntD 4.x 用 open 替换 visible -->
       <a-form @submit.prevent="handleJoinRoom">
         <a-form-item label="邀请码" required>
           <a-input v-model:value="joinRoomInviteCode" placeholder="请输入邀请码" />
@@ -306,7 +306,7 @@
       </a-form>
     </a-modal>
 
-    <a-modal v-model:visible="createRoomModalVisible" title="创建新演讲" :footer="null">
+    <a-modal v-model:visible="createRoomModalVisible" title="创建新演讲" :footer="null"> <!-- TODO: AntD 4.x 用 open 替换 visible -->
       <a-form @submit.prevent="handleCreateRoom">
         <a-form-item label="演讲标题" required>
           <a-input v-model:value="createRoomForm.name" placeholder="请输入演讲标题" />
@@ -330,10 +330,11 @@
 
 import { ref, h, onMounted, watch, computed } from 'vue'
 import { message } from 'ant-design-vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { userAPI } from '@/api'
 import { invitationAPI } from '@/api'
 import { speechRoomAPI } from '@/api'
+import { getToken } from '@/api'
 
 const createdList = ref([])
 const endedList = ref([])
@@ -529,7 +530,12 @@ onMounted(() => {
   }
   // 不再请求fetchCreatedRooms
   if (activeTab.value === 'joined') fetchJoinedRooms()
+  fetchCreatedRooms()
+  fetchJoinedRooms()
 })
+// 监听路由变化，每次进入首页自动刷新
+// 删除自动刷新相关的路由监听代码
+
 watch(activeTab, (tab) => {
   localStorage.setItem('popquiz_home_activeTab', tab)
   // 只要切换到任意Tab都请求一次joinedList，保证数据最新
@@ -679,8 +685,27 @@ function copyText(text) {
   message.success('已复制')
 }
 
-function enterRoom(room) {
-  router.push(`/room/${room.id}`)
+// 替换enterRoom函数
+async function enterRoom(room) {
+  const token = getToken();
+  if (!token) {
+    message.error('请先登录');
+    return;
+  }
+  try {
+    const res = await speechRoomAPI.enterRoom(room.id, token);
+    if (res.data && res.data.room_info) {
+      // 跳转并传递房间名
+      router.push({
+        path: `/room/${room.id}`,
+        query: { roomName: res.data.room_info.name }
+      });
+    } else {
+      message.error('获取房间信息失败');
+    }
+  } catch (e) {
+    message.error(e?.response?.data?.message || '进入房间失败');
+  }
 }
 
 const detailTableColumns = [
@@ -719,6 +744,7 @@ const detailTableData = computed(() => {
 
 
 const router = useRouter()
+const route = useRoute()
 function handleBottomTab(tab) {
   activeBottom.value = tab
   if(tab === 'mine') {
