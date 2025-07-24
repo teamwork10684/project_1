@@ -1121,11 +1121,20 @@ onMounted(() => {
 
 <style scoped>
 .home-container {
+  display: flex;
+  flex-direction: column;
   min-height: 100vh;
   background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
   padding: 20px;
   border-radius: 8px;
   overflow: hidden;
+}
+
+.header,
+.stats-section,
+.quick-actions,
+.invitation-section {
+  flex-shrink: 0;
 }
 
 .header {
@@ -1314,6 +1323,7 @@ onMounted(() => {
 }
 
 .presentations-section {
+  flex: 1 0 auto;
   background: rgba(255, 255, 255, 0.9);
   backdrop-filter: blur(10px);
   border-radius: 16px;

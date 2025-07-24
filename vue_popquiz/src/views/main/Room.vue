@@ -30,7 +30,12 @@
           v-bind="answerBoardQuestion"
           @submit="handleSubmitAnswer"
         />
-        <div v-else class="no-question-placeholder" style="height:100%;display:flex;align-items:center;justify-content:center;color:#999;font-size:1.2em;">当前没有题目</div>
+        <div
+          v-else
+          class="answer-board-placeholder"
+        >
+          当前未选择题目
+        </div>
       </div>
 
       <!-- 右侧：参与者面板 -->
@@ -118,6 +123,15 @@ const initialTip = {
   is_system: true
 };
 const discussionMessages = ref([]);
+
+// 题目讨论信号处理
+function handleQuestionDiscussion(data) {
+  console.log('handleQuestionDiscussion', data);
+  // 仅当当前答题板有题目且id匹配时追加
+  if (!answerBoardQuestion.value || !data.question_id) return;
+  if (data.question_id !== answerBoardQuestion.value.id) return;
+  answerBoardQuestion.value.discussions.push(data);
+}
 
 // 获取房间讨论列表
 const fetchRoomDiscussions = async () => {
@@ -388,6 +402,20 @@ const fetchUserRoomStats = async () => {
   }
 };
 
+// 获取对特定题目讨论消息的API方法
+async function fetchDiscussionMessages(questionId) {
+  try {
+    // Room.vue中token通过getToken()获取
+    const token = getToken();
+    const res = await discussionAPI.getQuestionDiscussions(questionId, token);
+    answerBoardQuestion.value.discussions = res.data?.discussions || [];
+    console.log('answerBoardQuestion.value.discussions', answerBoardQuestion.value.discussions);
+  } catch (e) {
+    console.log('fetchDiscussionMessages error', e);
+    answerBoardQuestion.value.discussions = [];
+  }
+}
+
 // 生命周期
 onMounted(async () => {
   if (checkTokenExpired()) {
@@ -425,6 +453,10 @@ onMounted(async () => {
   // 获取当前进行中题目及其统计
   try {
     await fetchCurrentQuestionAndStats();
+    // 新增：如果有当前题目，自动获取其讨论列表
+    if (answerBoardQuestion.value && answerBoardQuestion.value.id) {
+      await fetchDiscussionMessages(answerBoardQuestion.value.id);
+    }
   } catch (err) {
     answerBoardState.value = 'no-question';
     answerBoardQuestion.value = null;
@@ -492,6 +524,7 @@ onMounted(async () => {
         } catch {}
       }
     }
+    await fetchUserRoomStats();
   });
   // 新增：监听答题事件，自动刷新答题板
   eventBus.on('answerSubmitted', async (data) => {
@@ -503,6 +536,8 @@ onMounted(async () => {
       await fetchCurrentQuestionAndStats();
     }
   });
+  // 监听题目讨论信号
+  eventBus.on('questionDiscussion', handleQuestionDiscussion);
 });
 
 onUnmounted(() => {
@@ -511,6 +546,7 @@ onUnmounted(() => {
   wsConnected.value = false;
   cleanupWebSocketEvents();
   eventBus.off('answerSubmitted');
+  eventBus.off('questionDiscussion', handleQuestionDiscussion);
 });
 
 const handleQuestionSelect = async (item) => {
@@ -544,6 +580,8 @@ const handleQuestionSelect = async (item) => {
       end_time: data.time_info.end_time, // 新增
       discussions: []
     };
+    // 获取该题目的讨论列表
+    await fetchDiscussionMessages(qinfo.id);
   } catch (err) {
     answerBoardState.value = 'no-question';
     answerBoardQuestion.value = null;
@@ -571,7 +609,7 @@ const handleSubmitAnswer = async (selected) => {
     message.success('提交成功');
     // 提交后刷新答题板和统计
     await fetchCurrentQuestionAndStats();
-    await fetchUserRoomStats();
+    //await fetchUserRoomStats();
   } catch (err) {
     message.error(err?.response?.data?.message || '提交失败');
   }
@@ -964,6 +1002,21 @@ const handleSubmitAnswer = async (selected) => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+.answer-board-placeholder {
+  width: 100%;
+  height: 100%;
+  min-height: 240px;
+  background: #fff;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #b3b3b3;
+  font-size: 24px;
+  font-weight: 500;
+  box-shadow: 0 1px 4px rgba(22, 119, 255, 0.04);
 }
 
 
