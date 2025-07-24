@@ -12,6 +12,7 @@ from models.raw_text import RawText
 from module.aifilter.file_parser import extract_text_from_pdf, save_and_convert_upload_file, extract_text_from_whole_pdf
 from module.aifilter.ai_question import generate_question
 import yaml
+from sqlalchemy import func
 
 app = Flask(__name__)
 CORS(app, supports_credentials=True)
@@ -39,6 +40,27 @@ LIBREOFFICE_PATH = LIBREOFFICE_EXECUTABLE
 #flask监听端口
 FLASK_PORT = config.get('flask_port', 5000)
 
+# ========== 管理员登录相关 ===========
+import uuid
+ADMIN_USERNAME = "admin"
+ADMIN_PASSWORD = "f85309493ca1d841f7426f2d60f11214fcafe25288122869525d090ee8efe2c8"
+ADMIN_TOKENS = set()
+
+@app.route('/popquiz/admin/login', methods=['POST'])
+def admin_login():
+    data = request.get_json() or {}
+    username = data.get('username', '').strip()
+    password = data.get('password', '').strip()
+    if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
+        token = str(uuid.uuid4())
+        ADMIN_TOKENS.add(token)
+        return jsonify({'token': token, 'message': '管理员登录成功'}), 200
+    else:
+        return jsonify({'message': '账号或密码错误'}), 401
+
+def is_admin_token(token):
+    return token in ADMIN_TOKENS
+# ========== 管理员登录相关 END ===========
 
 # 用户注册
 @app.route('/popquiz/register', methods=['POST'])
@@ -1488,13 +1510,19 @@ def get_question_statistics_for_speaker_and_organizer(published_question_id):
     if not question:
         return jsonify({'message': '题目信息不存在'}), 404
     
-    # 统计演讲室总参与人数
-    total_participants = SpeechRoomMember.query.filter_by(room_id=room_id).count()
+    # 统计演讲室总参与人数（不包括创建者和演讲者）
+    total_participants = SpeechRoomMember.query.filter(
+        SpeechRoomMember.room_id == room_id,
+        SpeechRoomMember.user_id != room.creator_id,
+        SpeechRoomMember.user_id != room.speaker_id
+    ).count()
     
-    # 统计已答题人数
-    answered_count = QuestionAnswer.query.filter_by(
-        room_id=room_id,
-        question_id=published_question.question_id
+    # 统计已答题人数（不包括创建者和演讲者）
+    answered_count = QuestionAnswer.query.filter(
+        QuestionAnswer.room_id == room_id,
+        QuestionAnswer.question_id == published_question.question_id,
+        QuestionAnswer.user_id != room.creator_id,
+        QuestionAnswer.user_id != room.speaker_id
     ).count()
     
     # 统计未答题人数
@@ -1606,13 +1634,19 @@ def get_question_statistics_for_audience(published_question_id):
     if not question:
         return jsonify({'message': '题目信息不存在'}), 404
     
-    # 统计演讲室总参与人数
-    total_participants = SpeechRoomMember.query.filter_by(room_id=room_id).count()
-    
-    # 统计已答题人数
-    answered_count = QuestionAnswer.query.filter_by(
-        room_id=room_id,
-        question_id=published_question.question_id
+    # 统计演讲室总参与人数（不包括创建者和演讲者）
+    total_participants = SpeechRoomMember.query.filter(
+        SpeechRoomMember.room_id == room_id,
+        SpeechRoomMember.user_id != room.creator_id,
+        SpeechRoomMember.user_id != room.speaker_id
+    ).count()
+
+    # 统计已答题人数（不包括创建者和演讲者）
+    answered_count = QuestionAnswer.query.filter(
+        QuestionAnswer.room_id == room_id,
+        QuestionAnswer.question_id == published_question.question_id,
+        QuestionAnswer.user_id != room.creator_id,
+        QuestionAnswer.user_id != room.speaker_id
     ).count()
     
     # 统计未答题人数
@@ -1657,12 +1691,11 @@ def get_question_statistics_for_audience(published_question_id):
         
         wrong_count = answered_count - correct_count
         accuracy_rate = round((correct_count / answered_count * 100), 2) if answered_count > 0 else 0.0
-        
         question_answer = question.answer
     else:
         correct_count = None
         wrong_count = None
-        accuracy_rate = None
+        accuracy_rate = 0.0
         question_answer = None
     
     # 查询当前用户的答题记录
@@ -1908,9 +1941,13 @@ def get_user_room_statistics():
     room = SpeechRoom.query.get(room_id)
     if not room:
         return jsonify({'message': '房间不存在'}), 404
-    # 获取该房间所有已发布题目
+    # 获取该房间所有已发布题目，排除正在进行中的题目
     published_questions = PublishedQuestion.query.filter_by(room_id=room_id).all()
-    question_ids = [pq.question_id for pq in published_questions]
+    # 查找是否有正在进行中的题目
+    ongoing_pq = PublishedQuestion.query.filter_by(room_id=room_id, status=0).first()
+    ongoing_qid = ongoing_pq.question_id if ongoing_pq else None
+    # 排除正在进行中的题目
+    question_ids = [pq.question_id for pq in published_questions if pq.question_id != ongoing_qid]
     if not question_ids:
         return jsonify({'score': 0, 'accuracy': 0.0, 'correct_count': 0, 'wrong_count': 0, 'skipped_count': 0, 'message': '无答题数据'}), 200
     # 获取用户在该房间的所有答题记录
@@ -1942,7 +1979,8 @@ def get_user_room_statistics():
         'correct_count': correct_count,
         'wrong_count': wrong_count,
         'skipped_count': skipped_count,
-        'message': '获取成功'
+        'message': '获取成功',
+        'ongoing_question_id': ongoing_qid  # 可选：返回正在进行中的题目id，便于前端提示
     }), 200
 
 # 新增：异步任务队列（简单线程实现）
@@ -2176,6 +2214,9 @@ def add_user():
     请求参数：username, password
     """
     data = request.get_json()
+    token = request.headers.get('Authorization', '').replace('Bearer ', '').strip()
+    if not token or not is_admin_token(token):
+        return jsonify({'message': '无权限，需管理员登录'}), 401
     username = data.get('username', '').strip()
     password = data.get('password', '').strip()
     if not username or not password:
@@ -2197,6 +2238,9 @@ def edit_user(user_id):
     管理后台编辑用户（cjy修改）
     请求参数：username(可选), password(可选)
     """
+    token = request.headers.get('Authorization', '').replace('Bearer ', '').strip()
+    if not token or not is_admin_token(token):
+        return jsonify({'message': '无权限，需管理员登录'}), 401
     user = User.query.get(user_id)
     if not user:
         return jsonify({'message': '用户不存在'}), 404
@@ -2217,11 +2261,9 @@ def edit_user(user_id):
 # 管理后台-统计数据
 @app.route('/popquiz/admin/statistics', methods=['GET'])
 def admin_statistics():
-    """获取管理后台统计数据（cjy修改）"""
     token = request.args.get('token', '').strip()
-    if not token:
-        return jsonify({'message': '参数错误'}), 400
-    # TODO: 可扩展为管理员校验
+    if not token or not is_admin_token(token):
+        return jsonify({'message': '无权限，需管理员登录'}), 401
     user_count = User.query.count()
     room_count = SpeechRoom.query.count()
     active_room_count = SpeechRoom.query.filter_by(status=1).count()
@@ -2236,49 +2278,38 @@ def admin_statistics():
 # 管理后台-获取所有用户
 @app.route('/popquiz/admin/users', methods=['GET'])
 def admin_get_users():
-    """
-    获取所有用户列表（管理后台用，cjy修改）
-    支持分页、排序、用户名模糊搜索
-    """
     token = request.args.get('token', '').strip()
-    if not token:
-        return jsonify({'message': '参数错误'}), 400
-
+    if not token or not is_admin_token(token):
+        return jsonify({'message': '无权限，需管理员登录'}), 401
+    # ...原有逻辑...
     # 分页参数
     page = request.args.get('page', default=1, type=int)
     per_page = request.args.get('per_page', default=10, type=int)
     per_page = min(per_page, 100)  # 限制每页最大数量
-
     # 排序参数
     sort_by = request.args.get('sort_by', default='created_at')
     order = request.args.get('order', default='desc')
-
     # 搜索参数
     username = request.args.get('username', default=None, type=str)
-
     # 支持的排序字段
     valid_sort_fields = ['id', 'username', 'created_at', 'updated_at']
     if sort_by not in valid_sort_fields:
         sort_by = 'created_at'
     if order not in ['asc', 'desc']:
         order = 'desc'
-
     # 构建查询
     query = User.query
     if username:
         query = query.filter(User.username.like(f"%{username}%"))
-
     # 排序
     sort_column = getattr(User, sort_by)
     if order == 'desc':
         query = query.order_by(sort_column.desc())
     else:
         query = query.order_by(sort_column.asc())
-
     # 分页
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)
     users = pagination.items
-
     result = []
     for user in users:
         result.append({
@@ -2287,7 +2318,6 @@ def admin_get_users():
             'created_at': user.created_at.isoformat() if user.created_at else None,
             'updated_at': user.updated_at.isoformat() if user.updated_at else None
         })
-
     response_data = {
         'users': result,
         'pagination': {
@@ -2304,10 +2334,9 @@ def admin_get_users():
 # 管理后台-删除用户
 @app.route('/popquiz/admin/users/<int:user_id>', methods=['DELETE'])
 def admin_delete_user(user_id):
-    """删除指定ID的用户（管理后台用，cjy修改）"""
     token = request.get_json().get('token', '').strip() if request.is_json else ''
-    if not token:
-        return jsonify({'message': '参数错误'}), 400
+    if not token or not is_admin_token(token):
+        return jsonify({'message': '无权限，需管理员登录'}), 401
     user = User.query.get(user_id)
     if not user:
         return jsonify({'message': '用户不存在'}), 404
@@ -2318,11 +2347,56 @@ def admin_delete_user(user_id):
 # 管理后台-获取所有演讲室
 @app.route('/popquiz/admin/speech-rooms/all', methods=['GET'])
 def admin_get_rooms():
-    """获取所有演讲室列表（管理后台用，cjy修改）"""
     token = request.args.get('token', '').strip()
-    if not token:
-        return jsonify({'message': '参数错误'}), 400
-    rooms = SpeechRoom.query.all()
+    if not token or not is_admin_token(token):
+        return jsonify({'message': '无权限，需管理员登录'}), 401
+    # ...原有逻辑...
+    try:
+        page = int(request.args.get('page', 1))
+        per_page = int(request.args.get('per_page', 5))
+    except Exception:
+        page = 1
+        per_page = 5
+    sort_by = request.args.get('sort_by', 'id')
+    order = request.args.get('order', 'desc')
+    query = SpeechRoom.query
+    status = request.args.get('status', None)
+    if status is not None:
+        query = query.filter(SpeechRoom.status == int(status))
+    # 排序逻辑
+    if sort_by == 'id':
+        if order == 'asc':
+            query = query.order_by(SpeechRoom.id.asc())
+        else:
+            query = query.order_by(SpeechRoom.id.desc())
+    elif sort_by == 'total_participants':
+        # 先查所有房间，统计人数后排序
+        all_rooms = query.all()
+        room_participants = [
+            (r, SpeechRoomMember.query.filter_by(room_id=r.id).count()) for r in all_rooms
+        ]
+        reverse = (order != 'asc')
+        room_participants.sort(key=lambda x: x[1], reverse=reverse)
+        sorted_rooms = [x[0] for x in room_participants]
+        total = len(sorted_rooms)
+        start = (page - 1) * per_page
+        end = start + per_page
+        rooms = sorted_rooms[start:end]
+        pagination = type('Pagination', (), {
+            'items': rooms,
+            'pages': (total + per_page - 1) // per_page,
+            'has_next': end < total,
+            'has_prev': start > 0
+        })()
+    else:
+        if order == 'asc':
+            query = query.order_by(SpeechRoom.id.asc())
+        else:
+            query = query.order_by(SpeechRoom.id.desc())
+    if sort_by != 'total_participants':
+        total = query.count()
+        pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+        rooms = pagination.items
     result = []
     for r in rooms:
         creator = User.query.get(r.creator_id)
@@ -2344,23 +2418,41 @@ def admin_get_rooms():
             'created_at': r.created_at.isoformat() if r.created_at else None,
             'total_participants': participant_count
         })
-    return jsonify({'rooms': result}), 200
+    return jsonify({
+        'rooms': result,
+        'pagination': {
+            'page': page,
+            'per_page': per_page,
+            'total': total,
+            'pages': pagination.pages,
+            'has_next': pagination.has_next,
+            'has_prev': pagination.has_prev
+        }
+    }), 200
 
 # 管理后台-获取演讲室所有成员
 @app.route('/popquiz/admin/speech-rooms/<int:room_id>/members', methods=['GET'])
 def admin_get_room_members(room_id):
-    """获取指定演讲室的所有成员（管理后台用，cjy修改）"""
     token = request.args.get('token', '').strip()
-    if not token:
-        return jsonify({'message': '参数错误'}), 400
+    if not token or not is_admin_token(token):
+        return jsonify({'message': '无权限，需管理员登录'}), 401
     members = SpeechRoomMember.query.filter_by(room_id=room_id).all()
+    room = SpeechRoom.query.get(room_id)
+    if not room:
+        return jsonify({'message': '演讲室不存在'}), 404
     result = []
     for m in members:
         user = User.query.get(m.user_id)
+        if m.user_id == room.creator_id:
+            role = 0  # 创建者
+        elif room.speaker_id and m.user_id == room.speaker_id:
+            role = 1  # 演讲者
+        else:
+            role = 2  # 听众
         result.append({
             'user_id': m.user_id,
             'username': user.username if user else None,
-            'role': getattr(m, 'role', None),
+            'role': role,
             'joined_at': m.joined_at.isoformat() if m.joined_at else None
         })
     return jsonify({'room_id': room_id, 'members': result}), 200
@@ -2369,9 +2461,8 @@ def admin_get_room_members(room_id):
 @app.route('/popquiz/admin/user/<int:user_id>/speech-rooms', methods=['GET'])
 def admin_get_user_speech_rooms(user_id):
     token = request.args.get('token', '').strip()
-    if not token:
-        return jsonify({'message': '参数错误'}), 400
-    # TODO: 可扩展为管理员校验
+    if not token or not is_admin_token(token):
+        return jsonify({'message': '无权限，需管理员登录'}), 401
     member_rooms = SpeechRoomMember.query.filter_by(user_id=user_id).all()
     room_ids = [m.room_id for m in member_rooms]
     rooms = SpeechRoom.query.filter(SpeechRoom.id.in_(room_ids)).all() if room_ids else []
@@ -2404,8 +2495,8 @@ def admin_get_user_speech_rooms(user_id):
 @app.route('/popquiz/admin/user/<int:user_id>/invitations', methods=['GET'])
 def admin_get_user_invitations(user_id):
     token = request.args.get('token', '').strip()
-    if not token:
-        return jsonify({'message': '参数错误'}), 400
+    if not token or not is_admin_token(token):
+        return jsonify({'message': '无权限，需管理员登录'}), 401
     invitations = SpeechRoomInvitation.query.filter_by(invitee_id=user_id).all()
     result = []
     for inv in invitations:
@@ -2439,8 +2530,8 @@ def admin_get_user_invitations(user_id):
 @app.route('/popquiz/admin/user/<int:user_id>/created-rooms', methods=['GET'])
 def admin_get_user_created_rooms(user_id):
     token = request.args.get('token', '').strip()
-    if not token:
-        return jsonify({'message': '参数错误'}), 400
+    if not token or not is_admin_token(token):
+        return jsonify({'message': '无权限，需管理员登录'}), 401
     rooms = SpeechRoom.query.filter_by(creator_id=user_id).all()
     result = []
     for r in rooms:
@@ -2459,8 +2550,8 @@ def admin_get_user_created_rooms(user_id):
 @app.route('/popquiz/admin/speech-rooms/<int:room_id>', methods=['DELETE'])
 def admin_delete_speech_room(room_id):
     token = request.get_json().get('token', '').strip() if request.is_json else ''
-    if not token:
-        return jsonify({'message': '参数错误'}), 400
+    if not token or not is_admin_token(token):
+        return jsonify({'message': '无权限，需管理员登录'}), 401
     room = SpeechRoom.query.get(room_id)
     if not room:
         return jsonify({'message': '演讲室不存在'}), 404
@@ -2472,8 +2563,8 @@ def admin_delete_speech_room(room_id):
 @app.route('/popquiz/admin/speech-rooms/<int:room_id>/force-close', methods=['POST'])
 def admin_force_close_speech_room(room_id):
     token = request.get_json().get('token', '').strip() if request.is_json else ''
-    if not token:
-        return jsonify({'message': '参数错误'}), 400
+    if not token or not is_admin_token(token):
+        return jsonify({'message': '无权限，需管理员登录'}), 401
     room = SpeechRoom.query.get(room_id)
     if not room:
         return jsonify({'message': '演讲室不存在'}), 404
