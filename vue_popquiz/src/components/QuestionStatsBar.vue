@@ -65,10 +65,14 @@
           </div>
         </transition>
         <div class="discussion-area">
+          <div class="discussion-title">讨论区</div>
           <div v-if="discussionMessages && discussionMessages.length" class="discussion-list">
-            <div v-for="(msg, idx) in discussionMessages" :key="idx" class="discussion-msg-item">
-              <span class="discussion-msg-user">{{ msg.username }}：</span>
-              <span class="discussion-msg-text">{{ msg.message }}</span>
+            <div v-for="(msg, idx) in sortedDiscussionMessages" :key="idx" class="discussion-msg-item">
+              <div class="discussion-msg-user-row">
+                <span class="discussion-msg-user">{{ msg.username }}</span>
+                <span class="discussion-msg-time">{{ formatTime(msg.created_at) }}</span>
+              </div>
+              <div class="discussion-msg-text">{{ msg.content }}</div>
             </div>
           </div>
           <div v-else class="discussion-empty">暂无讨论</div>
@@ -82,12 +86,11 @@
 import { ref, onMounted, watch, nextTick, onUnmounted, computed } from 'vue';
 import { message } from 'ant-design-vue';
 import * as echarts from 'echarts';
-import { questionAPI } from '../api';
+import { questionAPI,discussionAPI } from '../api';
 import eventBus from '../utils/eventBus';
 
 const props = defineProps({
   questionList: { type: Array, required: false, default: () => [] }, // 题目列表
-  discussionMessages: { type: Array, required: false, default: () => [] },
   roomId: { type: [String, Number], required: true }, // 房间ID
   token: { type: String, required: true } // 用户token
 });
@@ -255,6 +258,26 @@ function handleBack() {
   emit('back');
 }
 
+const discussionMessages = ref([]);
+
+// 新增：讨论消息升序排序
+const sortedDiscussionMessages = computed(() => {
+  if (!discussionMessages.value) return [];
+  return discussionMessages.value.slice().sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+});
+
+// 获取讨论消息的API方法（假设有questionAPI.getDiscussionMessages）
+async function fetchDiscussionMessages(questionId) {
+  try {
+    // 这里假设有API接口获取讨论消息，需根据实际API调整
+    const res = await discussionAPI.getQuestionDiscussions(questionId, props.token);
+    discussionMessages.value = res.data?.discussions || [];
+    console.log('discussionMessages', discussionMessages.value);
+  } catch (e) {
+    discussionMessages.value = [];
+  }
+}
+
 async function handleSelectQuestion(item, idx) {
   try {
     // 获取题目答题统计（演讲者和组织者可见）
@@ -269,6 +292,7 @@ async function handleSelectQuestion(item, idx) {
         { label: 'D', text: data.question_info.option_d, count: data.statistics.option_d_count },
       ];
       questionData.value = {
+        id: data.question_info.id,
         question: data.question_info.question,
         options,
         unselectedCount: data.statistics.unanswered_count,
@@ -278,6 +302,8 @@ async function handleSelectQuestion(item, idx) {
       };
       selectedQuestion.value = item;
       showDetail.value = true;
+      // 新增：获取讨论消息
+      await fetchDiscussionMessages(data.question_info.id);
       emit('selectQuestion', item, idx);
     }
   } catch (e) {
@@ -290,6 +316,15 @@ const sortedQuestionList = computed(() => {
   return props.questionList.slice().sort((a, b) => new Date(b.publish_time) - new Date(a.publish_time));
 });
 
+// 新增：讨论题目消息处理函数
+async function handleQuestionDiscussion(data) {
+  // 仅在显示详情且题目id匹配时处理
+  if (!showDetail.value || !questionData.value.id) return;
+  if (data.question_id !== questionData.value.id) return;
+  // 新增消息
+  discussionMessages.value.push(data);
+}
+
 onMounted(() => {
   renderChart();
   nextTick(checkOverflow);
@@ -299,11 +334,13 @@ onMounted(() => {
   }
   // 监听答题事件，自动刷新统计
   eventBus.on('answerSubmitted', handleAnswerSubmitted);
+  eventBus.on('questionDiscussion', handleQuestionDiscussion);
 });
 
 onUnmounted(() => {
   if (timer) clearInterval(timer);
   eventBus.off('answerSubmitted', handleAnswerSubmitted);
+  eventBus.off('questionDiscussion', handleQuestionDiscussion);
 });
 
 // 新增：答题事件处理函数
@@ -355,6 +392,20 @@ watch(() => props.questionList, (newQuestionList) => {
     }
   }
 }, { immediate: true, deep: true });
+
+// 格式化时间（如 14:23:05 或 2024-05-01 14:23）
+function formatTime(val) {
+  if (!val) return '';
+  const d = new Date(val);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  const h = String(d.getHours()).padStart(2, '0');
+  const min = String(d.getMinutes()).padStart(2, '0');
+  const s = String(d.getSeconds()).padStart(2, '0');
+  // 只显示时分
+  return `${h}:${min}`;
+}
 </script>
 
 <style scoped>
@@ -454,7 +505,7 @@ watch(() => props.questionList, (newQuestionList) => {
 .countdown-timer {
   display: flex;
   align-items: center;
-  gap: 3px;
+  gap: 0;
   font-size: 16px;
   font-weight: 600;
   color: #1677ff;
@@ -462,6 +513,12 @@ watch(() => props.questionList, (newQuestionList) => {
   border-radius: 5px;
   padding: 2px 8px 2px 5px;
   margin-left: 8px;
+  min-width: 85px;
+  max-width: 85px;
+  max-height: 28px;
+  min-height: 28px;
+  justify-content: space-between;
+  box-sizing: border-box;
 }
 
 .countdown-timer.ended {
@@ -471,7 +528,10 @@ watch(() => props.questionList, (newQuestionList) => {
 }
 
 .timer-icon {
-  margin-right: 2px;
+  flex-shrink: 0;
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: 0;
 }
 
 .bar-chart {
@@ -719,35 +779,106 @@ watch(() => props.questionList, (newQuestionList) => {
   box-shadow: 0 1px 4px rgba(22, 119, 255, 0.04);
   flex-shrink: 0;
   margin-top: 4px;
+  /* 新增：最大高度和自适应高度 */
+  max-height: 100%;
+  overflow-y: auto;
+  padding: 12px 6px 8px 6px;
+  border: 1.5px solid #e6f0ff;
+  transition: box-shadow 0.2s, border 0.2s;
+  scrollbar-width: thin; /* Firefox */
+  scrollbar-color: #b3d1ff #f8fafd; /* 滚动条与轨道色 */
+}
+
+/* Webkit 浏览器滚动条美化 */
+.discussion-area::-webkit-scrollbar {
+  width: 5px;
+  background: #f8fafd;
+}
+.discussion-area::-webkit-scrollbar-thumb {
+  background: #b3d1ff;
+  border-radius: 6px;
+}
+.discussion-area::-webkit-scrollbar-thumb:hover {
+  background: #1677ff;
+}
+
+.discussion-title {
+  font-size: 17px;
+  font-weight: bold;
+  color: #1677ff;
+  margin-bottom: 8px;
+  padding-left: 2px;
+  letter-spacing: 1px;
 }
 
 .discussion-list {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 10px;
 }
 
 .discussion-msg-item {
-  font-size: 14px;
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 15px;
   color: #223354;
-  line-height: 1.5;
+  line-height: 1.7;
+  background: #f0f7ff;
+  border-radius: 7px;
+  padding: 2px 8px;
+  border: 1px solid #b3d1ff;
+  margin-bottom: 1px;
+  transition: background 0.15s, border 0.15s;
 }
 
+.discussion-msg-item:hover {
+  background: #e6f0ff;
+  border: 1px solid #1677ff;
+}
+
+.discussion-msg-user-row {
+  display: flex;
+  align-items: baseline;
+  width: 100%;
+  justify-content: space-between;
+  margin-bottom: 1px;
+}
 .discussion-msg-user {
   font-weight: 600;
   color: #1677ff;
-  margin-right: 4px;
+  font-size: 15px;
+  margin-right: 8px;
+  padding-left: 1px;
 }
-
+.discussion-msg-time {
+  color: #b3b3b3;
+  font-size: 12px;
+  white-space: nowrap;
+  align-self: flex-end;
+  font-family: 'Segoe UI', Arial, sans-serif;
+  letter-spacing: 0.5px;
+  margin-left: auto;
+}
 .discussion-msg-text {
-  color: #333;
+  color: #223354;
+  font-size: 15px;
+  word-break: break-all;
+  flex: none;
+  padding-left: 1px;
 }
 
 .discussion-empty {
   color: #aaa;
   text-align: center;
-  margin: 12px 0;
-  font-size: 14px;
+  margin: 16px 0;
+  font-size: 15px;
+  background: #f4f8ff;
+  border-radius: 7px;
+  padding: 12px 0;
+  border: 1px dashed #e6f0ff;
 }
 
 .main-content-scrollable {
