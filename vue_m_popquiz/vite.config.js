@@ -14,4 +14,18 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url))
     },
   },
+  server: {
+    proxy: {
+      '/popquiz': {
+        target: 'http://localhost:5000',
+        changeOrigin: true,
+        rewrite: path => path.replace(/^\/popquiz/, '/popquiz')
+      },
+      '/socket.io': {
+        target: 'http://localhost:5000',
+        ws: true,
+        changeOrigin: true
+      }
+    }
+  }
 })

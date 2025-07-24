@@ -36,7 +36,6 @@ SQLALCHEMY_DATABASE_URI = f"mysql+pymysql://{db_conf.get('user','root')}:{db_con
 
 app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:123456@localhost:3306/popquiz?charset=utf8mb4'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-=======
 app.config['SQLALCHEMY_DATABASE_URI'] = SQLALCHEMY_DATABASE_URI
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = config.get('sqlalchemy_track_modifications', False)
 
