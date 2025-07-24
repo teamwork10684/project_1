@@ -1,7 +1,7 @@
 question_generate: # 题目生成相关配置
 
   ollama_model_name: "deepseek-r1:7b"  # ollama模型名称
-  use_api: false  # 是否使用API提供商
+  use_api: true  # 是否使用API提供商
 
   api:
     api_key: "sk-175706aca2334a648482fe331b7e57c8" # 如果使用api，则需要提供api_key
@@ -12,7 +12,7 @@ database: # 数据库配置
   host: "localhost" # 数据库主机
   port: 3306 # 数据库端口
   user: "root" # 数据库用户名
-  password: "123456" # 数据库密码
+  password: "3335335353533m5" # 数据库密码
   name: "popquiz" # 数据库名
 
 upload_dir: "C:/popquiz_file" # 上传文件的根目录
