@@ -50,15 +50,15 @@
                     <div class="setting-input-group">
                       <a-input-number 
                         v-model:value="answerTimeLimit" 
-                        :min="60" 
-                        :max="120" 
+                        :min="10" 
+                        :max="180" 
                         size="small"
                         class="setting-input-number"
                       />
                       <span class="setting-unit">秒</span>
                     </div>
                   </div>
-                  <div class="setting-hint">60-120秒</div>
+                  <div class="setting-hint">10-180秒</div>
                 </div>
               </div>
             </div>
@@ -268,12 +268,12 @@ const validateSettings = () => {
     errors.push('自动发布间隔不能少于5分钟');
   }
   
-  if (answerTimeLimit.value < 60) {
-    errors.push('答题限时不能少于60秒');
+  if (answerTimeLimit.value < 10) {
+    errors.push('答题限时不能少于10秒');
   }
   
-  if (answerTimeLimit.value > 120) {
-    errors.push('答题限时不能超过120秒');
+  if (answerTimeLimit.value > 180) {
+    errors.push('答题限时不能超过180秒');
   }
   
   return errors;
