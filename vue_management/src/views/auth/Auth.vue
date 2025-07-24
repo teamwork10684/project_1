@@ -100,6 +100,8 @@ const handleSubmit = async () => {
   }
 };
 
+const ADMIN_HASHED_PASSWORD = 'f85309493ca1d841f7426f2d60f11214fcafe25288122869525d090ee8efe2c8'; 
+
 const handleLogin = async () => {
   loading.value = true;
   try {
