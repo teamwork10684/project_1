@@ -35,7 +35,7 @@
           <div ref="chartRef" class="bar-chart"></div>
           <div class="stats-info">
             <span class="stats-info-item accuracy" v-if="showCorrect && accuracy !== undefined && accuracy !== null">
-              正确率：<span class="stats-number">{{ accuracy }}%</span>
+              正确率：<span class="stats-number">{{ safeAccuracy }}%</span>
             </span>
             <span class="stats-info-item total">
               答题人数：<span class="stats-number">{{ statistics.answered_count }}</span>
@@ -46,10 +46,16 @@
         <div class="discussion-section">
           <div class="discussion-title">讨论区</div>
           <div class="discussion-list">
-            <div class="discussion-item" v-for="(msg, idx) in discussions" :key="idx">
-              <span class="author">{{ msg.author }}:</span>
-              <span class="content">{{ msg.content }}</span>
-            </div>
+            <template v-if="sortedDiscussions && sortedDiscussions.length">
+              <div class="discussion-item" v-for="(msg, idx) in sortedDiscussions" :key="idx">
+                <div class="discussion-msg-user-row">
+                  <span class="author">{{ msg.username }}</span>
+                  <span class="discussion-msg-time">{{ formatTime(msg.created_at || msg.timestamp) }}</span>
+                </div>
+                <div class="content">{{ msg.content }}</div>
+              </div>
+            </template>
+            <div v-else class="discussion-empty">当前暂无讨论</div>
           </div>
         </div>
       </div>
@@ -190,6 +196,11 @@ onMounted(() => {
 const totalAnswered = computed(() => props.options.reduce((sum, o) => sum + o.count, 0));
 const accuracy = computed(() => props.options.length > 0 ? Math.round((props.options[0].count / totalAnswered.value) * 100) : 0);
 
+// 安全的accuracy，防止NaN
+const safeAccuracy = computed(() => {
+  return typeof props.accuracy === 'number' && !isNaN(props.accuracy) ? props.accuracy : 0;
+});
+
 // 实时倒计时
 const realCountdown = ref(0);
 let timer = null;
@@ -245,6 +256,21 @@ const countdownText = computed(() => {
   const sec = String(realCountdown.value % 60).padStart(2, '0');
   return `${min}:${sec}`;
 });
+
+// 格式化时间（如 14:23:05 或 2024-05-01 14:23）
+function formatTime(val) {
+  if (!val) return '';
+  const d = new Date(val);
+  const h = String(d.getHours()).padStart(2, '0');
+  const min = String(d.getMinutes()).padStart(2, '0');
+  return `${h}:${min}`;
+}
+
+// 升序排序讨论内容
+const sortedDiscussions = computed(() => {
+  if (!props.discussions) return [];
+  return props.discussions.slice().sort((a, b) => new Date(a.created_at || a.timestamp) - new Date(b.created_at || b.timestamp));
+});
 </script>
 
 <style scoped>
@@ -252,18 +278,22 @@ const countdownText = computed(() => {
   border-radius: 12px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.3);
-  height: 100%;
   min-height: 0;
+  flex: 1 1 auto;
   display: flex;
   flex-direction: column;
+  overflow: auto;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+}
+.answer-board-card::-webkit-scrollbar {
+  display: none;
 }
 .answer-board-content {
   display: flex;
   flex-direction: column;
-  height: 100%;
   min-height: 0;
-  flex: 1 1 0%;
-  overflow: auto;
+  flex: 1 1 auto;
   scrollbar-width: none; /* Firefox */
   -ms-overflow-style: none; /* IE/Edge */
   border-radius: 12px;
@@ -274,8 +304,8 @@ const countdownText = computed(() => {
 .main-board-flex {
   display: flex;
   flex-direction: column;
-  height: 100%;
   min-height: 0;
+  flex: 1 1 auto;
   overflow: auto;
   scrollbar-width: none; /* Firefox */
   -ms-overflow-style: none; /* IE/Edge */
@@ -423,12 +453,14 @@ const countdownText = computed(() => {
   font-size: 1em;
 }
 .discussion-section {
-  flex: 1 1 0;
-  min-height: 120px;
+  min-height: 100px;
+  max-height: 90%;
   display: flex;
   flex-direction: column;
   padding: 12px 24px 24px 24px;
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+  /* 不要设置height */
 }
 .discussion-title {
   font-weight: 600;
@@ -437,21 +469,44 @@ const countdownText = computed(() => {
 }
 .discussion-list {
   flex: 1 1 auto;
-  overflow-y: auto;
-  max-height: 180px;
   margin-bottom: 8px;
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
 .discussion-item {
-  font-size: 0.95em;
-  color: #333;
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 15px;
+  color: #223354;
+  line-height: 1.7;
+  background: #f0f7ff;
+  border-radius: 7px;
+  padding: 2px 8px;
+  border: 1px solid #b3d1ff;
+  margin-bottom: 1px;
+  transition: background 0.15s, border 0.15s;
+}
+.discussion-item:hover {
+  background: #e6f0ff;
+  border: 1px solid #1677ff;
 }
 .author {
   font-weight: 600;
   color: #1677ff;
-  margin-right: 4px;
+  font-size: 15px;
+  margin-right: 8px;
+  padding-left: 1px;
+}
+.content {
+  color: #223354;
+  font-size: 15px;
+  word-break: break-all;
+  flex: none;
+  padding-left: 1px;
 }
 .discussion-input {
   display: flex;
@@ -510,5 +565,35 @@ const countdownText = computed(() => {
 }
 .timer-icon {
   margin-right: 6px;
+}
+.discussion-msg-user-row {
+  display: flex;
+  align-items: baseline;
+  width: 100%;
+  justify-content: space-between;
+  margin-bottom: 1px;
+}
+.discussion-msg-time {
+  color: #b3b3b3;
+  font-size: 12px;
+  white-space: nowrap;
+  align-self: flex-end;
+  font-family: 'Segoe UI', Arial, sans-serif;
+  letter-spacing: 0.5px;
+  margin-left: auto;
+}
+.discussion-empty {
+  color: #b3b3b3;
+  text-align: center;
+  margin: 0 auto;
+  font-size: 16px;
+  border-radius: 10px;
+  padding: 24px 0;
+  border: 1.5px dashed #e6f0ff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 80px;
+  width: 100%;
 }
 </style> 

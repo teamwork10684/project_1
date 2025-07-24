@@ -8,7 +8,7 @@
       </div>
       <div class="stat-card accuracy-card">
         <div class="stat-label">正确率</div>
-        <div class="stat-value accuracy">{{ props.stats.accuracy }}%</div>
+        <div class="stat-value accuracy">{{ Math.round(props.stats.accuracy) }}%</div>
       </div>
       <div class="stat-card detail-card">
         <div class="stat-detail-row">

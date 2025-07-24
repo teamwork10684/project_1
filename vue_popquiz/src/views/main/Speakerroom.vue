@@ -60,7 +60,6 @@
             <div class="reserved-content-2">
               <QuestionStatsBar
                 :questionList="publishedQuestions"
-                :discussionMessages="[]"
                 :roomId="roomId"
                 :token="token"
                 @selectQuestion="handleStatsSelectQuestion"

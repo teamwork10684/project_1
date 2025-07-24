@@ -1512,13 +1512,19 @@ def get_question_statistics_for_speaker_and_organizer(published_question_id):
     if not question:
         return jsonify({'message': '题目信息不存在'}), 404
     
-    # 统计演讲室总参与人数
-    total_participants = SpeechRoomMember.query.filter_by(room_id=room_id).count()
+    # 统计演讲室总参与人数（不包括创建者和演讲者）
+    total_participants = SpeechRoomMember.query.filter(
+        SpeechRoomMember.room_id == room_id,
+        SpeechRoomMember.user_id != room.creator_id,
+        SpeechRoomMember.user_id != room.speaker_id
+    ).count()
     
-    # 统计已答题人数
-    answered_count = QuestionAnswer.query.filter_by(
-        room_id=room_id,
-        question_id=published_question.question_id
+    # 统计已答题人数（不包括创建者和演讲者）
+    answered_count = QuestionAnswer.query.filter(
+        QuestionAnswer.room_id == room_id,
+        QuestionAnswer.question_id == published_question.question_id,
+        QuestionAnswer.user_id != room.creator_id,
+        QuestionAnswer.user_id != room.speaker_id
     ).count()
     
     # 统计未答题人数
@@ -1630,13 +1636,19 @@ def get_question_statistics_for_audience(published_question_id):
     if not question:
         return jsonify({'message': '题目信息不存在'}), 404
     
-    # 统计演讲室总参与人数
-    total_participants = SpeechRoomMember.query.filter_by(room_id=room_id).count()
-    
-    # 统计已答题人数
-    answered_count = QuestionAnswer.query.filter_by(
-        room_id=room_id,
-        question_id=published_question.question_id
+    # 统计演讲室总参与人数（不包括创建者和演讲者）
+    total_participants = SpeechRoomMember.query.filter(
+        SpeechRoomMember.room_id == room_id,
+        SpeechRoomMember.user_id != room.creator_id,
+        SpeechRoomMember.user_id != room.speaker_id
+    ).count()
+
+    # 统计已答题人数（不包括创建者和演讲者）
+    answered_count = QuestionAnswer.query.filter(
+        QuestionAnswer.room_id == room_id,
+        QuestionAnswer.question_id == published_question.question_id,
+        QuestionAnswer.user_id != room.creator_id,
+        QuestionAnswer.user_id != room.speaker_id
     ).count()
     
     # 统计未答题人数
@@ -1681,12 +1693,11 @@ def get_question_statistics_for_audience(published_question_id):
         
         wrong_count = answered_count - correct_count
         accuracy_rate = round((correct_count / answered_count * 100), 2) if answered_count > 0 else 0.0
-        
         question_answer = question.answer
     else:
         correct_count = None
         wrong_count = None
-        accuracy_rate = None
+        accuracy_rate = 0.0
         question_answer = None
     
     # 查询当前用户的答题记录
@@ -1932,9 +1943,13 @@ def get_user_room_statistics():
     room = SpeechRoom.query.get(room_id)
     if not room:
         return jsonify({'message': '房间不存在'}), 404
-    # 获取该房间所有已发布题目
+    # 获取该房间所有已发布题目，排除正在进行中的题目
     published_questions = PublishedQuestion.query.filter_by(room_id=room_id).all()
-    question_ids = [pq.question_id for pq in published_questions]
+    # 查找是否有正在进行中的题目
+    ongoing_pq = PublishedQuestion.query.filter_by(room_id=room_id, status=0).first()
+    ongoing_qid = ongoing_pq.question_id if ongoing_pq else None
+    # 排除正在进行中的题目
+    question_ids = [pq.question_id for pq in published_questions if pq.question_id != ongoing_qid]
     if not question_ids:
         return jsonify({'score': 0, 'accuracy': 0.0, 'correct_count': 0, 'wrong_count': 0, 'skipped_count': 0, 'message': '无答题数据'}), 200
     # 获取用户在该房间的所有答题记录
@@ -1966,7 +1981,8 @@ def get_user_room_statistics():
         'correct_count': correct_count,
         'wrong_count': wrong_count,
         'skipped_count': skipped_count,
-        'message': '获取成功'
+        'message': '获取成功',
+        'ongoing_question_id': ongoing_qid  # 可选：返回正在进行中的题目id，便于前端提示
     }), 200
 
 # 新增：异步任务队列（简单线程实现）
