@@ -26,11 +26,11 @@
 
     <!-- Tab切换及数量 -->
     <div class="tabs-with-count">
-      <a-tabs v-model:activeKey="activeTab" class="mobile-tabs" tabBarGutter="0">
+      <a-tabs v-model:activeKey="activeTab" class="mobile-tabs" :tabBarGutter="0">
         <a-tab-pane key="created" tab="我创建的演讲">
           <div class="tab-count-bar sort-bar">
-            <span>我创建的演讲共{{ createdList.length }}个</span>
-            <a-select v-model:value="createdSortType" size="small" class="sort-select" @change="saveCreatedSortType" dropdown-class-name="sort-select-dropdown">
+            <span>我创建的演讲共{{ sortedCreatedList.length }}个</span>
+            <a-select v-model:value="createdSortType" size="small" class="sort-select" @change="saveCreatedSortType" popupClassName="sort-select-dropdown">
               <a-select-option value="default">默认排序</a-select-option>
               <a-select-option value="time">按创建时间排序</a-select-option>
               <a-select-option value="status">按房间状态排序</a-select-option>
@@ -38,57 +38,44 @@
             </a-select>
           </div>
           <div v-if="sortedCreatedList.length === 0" class="empty-tip">暂无创建的演讲</div>
-          <div v-for="item in sortedCreatedList" :key="item.id">
-            <div class="custom-room-card">
-              <div class="card-top-gradient">
-                <a-tag v-if="item.status===1" color="green" class="status-tag">进行中</a-tag>
-                <a-tag v-else-if="item.status===2" color="#d9d9d9" class="status-tag">已结束</a-tag>
-                <a-tag v-else color="orange" class="status-tag">等待开始</a-tag>
-                <span class="room-id">ID: {{ item.id }}</span>
-              </div>
-              <div class="card-main">
-                <div class="room-title">{{ item.name }}</div>
-                <div class="room-desc">{{ item.desc || '暂无描述' }}</div>
-                <div class="room-info-row">
-                  <span class="info-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="#888" d="M12 12c2.7 0 8 1.34 8 4v2H4v-2c0-2.66 5.3-4 8-4zm0-2a4 4 0 1 1 0-8 4 4 0 0 1 0 8z"/></svg></span>
-                  <span class="info-text">{{ item.participants }}人参与</span>
-                  <span class="info-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="#888" d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V9h14v11zm0-13H5V6h14v1z"/></svg></span>
-                  <span class="info-text">{{ formatTime(item.time) }}</span>
+          <div class="room-list-scroll">
+            <div v-for="item in sortedCreatedList" :key="item.id">
+              <div class="custom-room-card">
+                <div class="card-top-gradient">
+                  <a-tag v-if="item.status==1" color="green" class="status-tag">进行中</a-tag>
+                  <a-tag v-else-if="item.status==2" color="#d9d9d9" class="status-tag">已结束</a-tag>
+                  <a-tag v-else color="orange" class="status-tag">等待开始</a-tag>
+                  <span class="room-id">ID: {{ item.id }}</span>
                 </div>
-              </div>
-              <div class="card-actions-row">
-                <a-button type="link" size="small" class="action-btn">
-                  <span class="btn-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="#1677ff" d="M10 17l6-5-6-5v10z"/></svg></span>进入房间
-                </a-button>
-                <a-button type="link" size="small" class="action-btn" @click="() => showRoomDetail(item)">
-                  <span class="btn-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="#1677ff" d="M12 20c4.41 0 8-3.59 8-8s-3.59-8-8-8-8 3.59-8 8 3.59 8 8 8zm0-14c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6 2.69-6 6-6zm-1 9h2v2h-2zm0-8h2v6h-2z"/></svg></span>查看详情
-                </a-button>
-                <a-button type="link" size="small" class="action-btn" @click="() => copyInvite(item.invite)">
-                  <span class="btn-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="#1677ff" d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg></span>复制邀请码
-                </a-button>
+                <div class="card-main">
+                  <div class="room-title">{{ item.name }}</div>
+                  <div class="room-desc">{{ item.desc || '暂无描述' }}</div>
+                  <div class="room-info-row">
+                    <span class="info-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="#888" d="M12 12c2.7 0 8 1.34 8 4v2H4v-2c0-2.66 5.3-4 8-4zm0-2a4 4 0 1 1 0-8 4 4 0 0 1 0 8z"/></svg></span>
+                    <span class="info-text">{{ item.total_participants || 0 }}人参与</span>
+                    <span class="info-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="#888" d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V9h14v11zm0-13H5V6h14v1z"/></svg></span>
+                    <span class="info-text">{{ formatTime(item.time) }}</span>
+                  </div>
+                </div>
+                <div class="card-actions-row">
+                  <a-button type="link" size="small" class="action-btn" @click="enterRoom(item)">
+                    <span class="btn-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="#1677ff" d="M10 17l6-5-6-5v10z"/></svg></span>进入房间
+                  </a-button>
+                  <a-button type="link" size="small" class="action-btn" @click="showRoomDetail(item)">
+                    <span class="btn-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="#1677ff" d="M12 20c4.41 0 8-3.59 8-8s-3.59-8-8-8-8 3.59-8 8 3.59 8 8 8zm0-14c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6 2.69-6 6-6zm-1 9h2v2h-2zm0-8h2v6h-2z"/></svg></span>查看详情
+                  </a-button>
+                  <a-button v-if="item.status!==2" type="link" size="small" class="action-btn" @click="() => copyInvite(item.invite)">
+                    <span class="btn-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="#1677ff" d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg></span>复制邀请码
+                  </a-button>
+                </div>
               </div>
             </div>
           </div>
         </a-tab-pane>
-        <a-tab-pane key="ended" tab="已结束的演讲">
-          <div class="tab-count-bar sort-bar">
-            <span>已结束的演讲共{{ endedList.length }}个</span>
-            <a-select v-model:value="endedSortType" size="small" class="sort-select" @change="saveEndedSortType" dropdown-class-name="sort-select-dropdown">
-              <a-select-option value="default">默认排序</a-select-option>
-              <a-select-option value="time">按创建时间排序</a-select-option>
-              <a-select-option value="status">按房间状态排序</a-select-option>
-              <a-select-option value="creator">自己创建的优先</a-select-option>
-            </a-select>
-          </div>
-          <div v-if="sortedEndedList.length === 0" class="empty-tip">暂无已结束的演讲</div>
-          <div v-for="item in sortedEndedList" :key="item.id">
-            <PresentationCard :item="item" />
-          </div>
-        </a-tab-pane>
         <a-tab-pane key="joined" tab="我参与的演讲">
           <div class="tab-count-bar sort-bar">
-            <span>我参与的演讲共{{ joinedList.length }}个</span>
-            <a-select v-model:value="sortType" size="small" class="sort-select" @change="saveSortType" dropdown-class-name="sort-select-dropdown">
+            <span>我参与的演讲共{{ sortedJoinedList.length }}个</span>
+            <a-select v-model:value="sortType" size="small" class="sort-select" @change="saveSortType" popupClassName="sort-select-dropdown">
               <a-select-option value="default">默认排序</a-select-option>
               <a-select-option value="time">按创建时间排序</a-select-option>
               <a-select-option value="status">按房间状态排序</a-select-option>
@@ -96,33 +83,77 @@
             </a-select>
           </div>
           <div v-if="sortedJoinedList.length === 0" class="empty-tip">暂无参与的演讲</div>
-          <div v-for="item in sortedJoinedList" :key="item.id">
-            <div class="custom-room-card">
-              <div class="card-top-gradient">
-                <a-tag v-if="item.status===1" color="green" class="status-tag">进行中</a-tag>
-                <a-tag v-else color="orange" class="status-tag">等待开始</a-tag>
-                <span class="room-id">ID: {{ item.id }}</span>
-              </div>
-              <div class="card-main">
-                <div class="room-title">{{ item.name }}</div>
-                <div class="room-desc">{{ item.desc || '暂无描述' }}</div>
-                <div class="room-info-row">
-                  <span class="info-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="#888" d="M12 12c2.7 0 8 1.34 8 4v2H4v-2c0-2.66 5.3-4 8-4zm0-2a4 4 0 1 1 0-8 4 4 0 0 1 0 8z"/></svg></span>
-                  <span class="info-text">{{ item.participants }}人参与</span>
-                  <span class="info-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="#888" d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V9h14v11zm0-13H5V6h14v1z"/></svg></span>
-                  <span class="info-text">{{ formatTime(item.time) }}</span>
+          <div class="room-list-scroll">
+            <div v-for="item in sortedJoinedList" :key="item.id">
+              <div class="custom-room-card">
+                <div class="card-top-gradient">
+                  <a-tag v-if="item.status===1" color="green" class="status-tag">进行中</a-tag>
+                  <a-tag v-else-if="item.status===2" color="#d9d9d9" class="status-tag">已结束</a-tag>
+                  <a-tag v-else color="orange" class="status-tag">等待开始</a-tag>
+                  <span class="room-id">ID: {{ item.id }}</span>
+                </div>
+                <div class="card-main">
+                  <div class="room-title">{{ item.name }}</div>
+                  <div class="room-desc">{{ item.desc || '暂无描述' }}</div>
+                  <div class="room-info-row">
+                    <span class="info-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="#888" d="M12 12c2.7 0 8 1.34 8 4v2H4v-2c0-2.66 5.3-4 8-4zm0-2a4 4 0 1 1 0-8 4 4 0 0 1 0 8z"/></svg></span>
+                    <span class="info-text">{{ item.total_participants || 0 }}人参与</span>
+                    <span class="info-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="#888" d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V9h14v11zm0-13H5V6h14v1z"/></svg></span>
+                    <span class="info-text">{{ formatTime(item.time) }}</span>
+                  </div>
+                </div>
+                <div class="card-actions-row">
+                  <a-button type="link" size="small" class="action-btn" @click="enterRoom(item)">
+                    <span class="btn-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="#1677ff" d="M10 17l6-5-6-5v10z"/></svg></span>进入房间
+                  </a-button>
+                  <a-button type="link" size="small" class="action-btn" @click="showRoomDetail(item)">
+                    <span class="btn-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="#1677ff" d="M12 20c4.41 0 8-3.59 8-8s-3.59-8-8-8-8 3.59-8 8 3.59 8 8 8zm0-14c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6 2.69-6 6-6zm-1 9h2v2h-2zm0-8h2v6h-2z"/></svg></span>查看详情
+                  </a-button>
+                  <a-button v-if="username === item.creator_name" type="link" size="small" class="action-btn" @click="() => copyInvite(item.invite)">
+                    <span class="btn-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="#1677ff" d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg></span>复制邀请码
+                  </a-button>
                 </div>
               </div>
-              <div class="card-actions-row">
-                <a-button type="link" size="small" class="action-btn">
-                  <span class="btn-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="#1677ff" d="M10 17l6-5-6-5v10z"/></svg></span>进入房间
-                </a-button>
-                <a-button type="link" size="small" class="action-btn" @click="() => showRoomDetail(item)">
-                  <span class="btn-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="#1677ff" d="M12 20c4.41 0 8-3.59 8-8s-3.59-8-8-8-8 3.59-8 8 3.59 8 8 8zm0-14c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6 2.69-6 6-6zm-1 9h2v2h-2zm0-8h2v6h-2z"/></svg></span>查看详情
-                </a-button>
-                <a-button type="link" size="small" class="action-btn" @click="() => copyInvite(item.invite)">
-                  <span class="btn-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="#1677ff" d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg></span>复制邀请码
-                </a-button>
+            </div>
+          </div>
+        </a-tab-pane>
+        <a-tab-pane key="ended" tab="已结束的演讲">
+          <div class="tab-count-bar sort-bar">
+            <span>已结束的演讲共{{ sortedEndedList.length }}个</span>
+            <a-select v-model:value="endedSortType" size="small" class="sort-select" @change="saveEndedSortType" popupClassName="sort-select-dropdown">
+              <a-select-option value="default">默认排序</a-select-option>
+              <a-select-option value="time">按创建时间排序</a-select-option>
+              <a-select-option value="status">按房间状态排序</a-select-option>
+              <a-select-option value="creator">自己创建的优先</a-select-option>
+            </a-select>
+          </div>
+          <div v-if="sortedEndedList.length === 0" class="empty-tip">暂无已结束的演讲</div>
+          <div class="room-list-scroll">
+            <div v-for="item in sortedEndedList" :key="item.id">
+              <div class="custom-room-card">
+                <div class="card-top-gradient">
+                  <a-tag v-if="item.status==1" color="green" class="status-tag">进行中</a-tag>
+                  <a-tag v-else-if="item.status==2" color="#d9d9d9" class="status-tag">已结束</a-tag>
+                  <a-tag v-else color="orange" class="status-tag">等待开始</a-tag>
+                  <span class="room-id">ID: {{ item.id }}</span>
+                </div>
+                <div class="card-main">
+                  <div class="room-title">{{ item.name }}</div>
+                  <div class="room-desc">{{ item.desc || '暂无描述' }}</div>
+                  <div class="room-info-row">
+                    <span class="info-text">{{ item.total_participants || 0 }}人参与</span>
+                    <span class="info-text">{{ formatTime(item.time) }}</span>
+                  </div>
+                </div>
+                <div class="card-actions-row">
+                  <a-button type="link" size="small" class="action-btn">
+                    <span class="btn-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="#1677ff" d="M10 17l6-5-6-5v10z"/></svg></span>进入房间
+                  </a-button>
+                  <a-button type="link" size="small" class="action-btn" @click="() => showRoomDetail(item)">
+                    <span class="btn-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="#1677ff" d="M12 20c4.41 0 8-3.59 8-8s-3.59-8-8-8-8 3.59-8 8 3.59 8 8 8zm0-14c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6 2.69-6 6-6zm-1 9h2v2h-2zm0-8h2v6h-2z"/></svg></span>查看详情
+                  </a-button>
+                  <!-- 不显示复制邀请码按钮 -->
+                </div>
               </div>
             </div>
           </div>
@@ -136,28 +167,64 @@
       <div :class="['bottom-tab', activeBottom==='mine' ? 'active' : '']" @click="handleBottomTab('mine')">我的</div>
     </div>
 
-    <a-modal v-model:visible="detailModalVisible" title="房间详情" width="520px" :footer="null">
+    <a-modal v-model:visible="detailModalVisible" title="房间详情" width="520px" :footer="null"> <!-- TODO: AntD 4.x 用 open 替换 visible -->
       <template #title>
-        <span>房间详情</span>
-      </template>
-      <div v-if="currentRoomDetail">
-        <div class="room-detail-title-row">
+        <div class="room-detail-header">
           <span class="room-detail-title">{{ currentRoomDetail.name }}</span>
-          <a-tag v-if="currentRoomDetail.status===2" color="#d9d9d9">已结束</a-tag>
-          <a-tag v-else-if="currentRoomDetail.status===1" color="green">进行中</a-tag>
+          <a-tag v-if="currentRoomDetail.status == 2" color="#d9d9d9">已结束</a-tag>
+          <a-tag v-else-if="currentRoomDetail.status == 1" color="green">进行中</a-tag>
           <a-tag v-else color="orange">等待开始</a-tag>
         </div>
-        <a-table :dataSource="detailTableData" :pagination="false" :showHeader="false" class="room-detail-table">
-          <a-table-column v-for="col in detailTableColumns" :key="col.key" :dataIndex="col.dataIndex" :width="col.width" />
-        </a-table>
-        <div class="room-detail-btn-row">
-          <a-button type="primary" @click="enterRoom(currentRoomDetail)"><template #icon><svg width="16" height="16" viewBox="0 0 24 24"><path fill="#fff" d="M10 17l6-5-6-5v10z"/></svg></template>进入房间</a-button>
-          <a-button @click="detailModalVisible=false">关闭</a-button>
+      </template>
+      <div class="room-detail-content">
+        <div class="room-detail-table">
+          <div class="room-detail-row">
+            <span class="room-detail-label">房间ID</span>
+            <span class="room-detail-value">{{ currentRoomDetail.id }}</span>
+          </div>
+          <div v-if="currentRoomDetail.role == 0" class="room-detail-row">
+            <span class="room-detail-label">听众邀请码</span>
+            <span class="room-detail-value invite-row">
+              <span class="invite-code">{{ currentRoomDetail.invite || '-' }}</span>
+              <a class="copy-btn" @click="copyText(currentRoomDetail.invite)">复制</a>
+            </span>
+          </div>
+          <div v-if="currentRoomDetail.role == 0" class="room-detail-row">
+            <span class="room-detail-label">演讲者邀请码</span>
+            <span class="room-detail-value invite-row">
+              <span class="invite-code">{{ currentRoomDetail.speaker_invite_code || '-' }}</span>
+              <a class="copy-btn" @click="copyText(currentRoomDetail.speaker_invite_code)">复制</a>
+            </span>
+          </div>
+          <div class="room-detail-row">
+            <span class="room-detail-label">演讲描述</span>
+            <span class="room-detail-value">{{ currentRoomDetail.desc || '-' }}</span>
+          </div>
+          <div class="room-detail-row">
+            <span class="room-detail-label">创建时间</span>
+            <span class="room-detail-value">{{ formatTime(currentRoomDetail.time) }}</span>
+          </div>
+          <div class="room-detail-row">
+            <span class="room-detail-label">组织者</span>
+            <span class="room-detail-value">{{ currentRoomDetail.creator_name || '-' }}</span>
+          </div>
+          <div class="room-detail-row">
+            <span class="room-detail-label">演讲者</span>
+            <span class="room-detail-value">{{ currentRoomDetail.speaker_name || '-' }}</span>
+          </div>
+          <div class="room-detail-row">
+            <span class="room-detail-label">参与数量</span>
+            <span class="room-detail-value">{{ currentRoomDetail.total_participants || 0 }}人</span>
+          </div>
         </div>
+      </div>
+      <div class="room-detail-btn-row">
+        <a-button type="primary" @click="enterRoom(currentRoomDetail)"><template #icon><svg width="16" height="16" viewBox="0 0 24 24"><path fill="#fff" d="M10 17l6-5-6-5v10z"/></svg></template>进入房间</a-button>
+        <a-button @click="detailModalVisible=false">关闭</a-button>
       </div>
     </a-modal>
 
-    <a-modal v-model:visible="inviteModalVisible" title="发送邀请" :footer="null">
+    <a-modal v-model:visible="inviteModalVisible" title="发送邀请" :footer="null"> <!-- TODO: AntD 4.x 用 open 替换 visible -->
       <a-form @submit.prevent="handleInviteSubmit">
         <a-form-item label="被邀请用户名">
           <a-input v-model:value="inviteForm.username" placeholder="请输入用户名" />
@@ -180,7 +247,7 @@
       </a-form>
     </a-modal>
 
-    <a-modal v-model:visible="invitationModalVisible" title="被邀请情况" width="600px" :footer="null">
+    <a-modal v-model:visible="invitationModalVisible" title="被邀请情况" width="600px" :footer="null"> <!-- TODO: AntD 4.x 用 open 替换 visible -->
       <div class="invitation-modal-header">
         <span></span>
         <a-select v-model:value="invitationSortType" size="small" style="width: 120px;" class="invitation-sort-select">
@@ -208,7 +275,7 @@
         </div>
       </div>
     </a-modal>
-    <a-modal v-model:visible="invitationDetailVisible" title="邀请详情" width="600px" :footer="null">
+    <a-modal v-model:visible="invitationDetailVisible" title="邀请详情" width="600px" :footer="null"> <!-- TODO: AntD 4.x 用 open 替换 visible -->
       <div v-if="invitationDetail">
         <div class="invitation-detail-title-row">
           <span class="invitation-detail-title">{{ invitationDetail.room_name }}</span>
@@ -227,7 +294,7 @@
       </div>
     </a-modal>
 
-    <a-modal v-model:visible="joinRoomModalVisible" title="加入演讲" :footer="null">
+    <a-modal v-model:visible="joinRoomModalVisible" title="加入演讲" :footer="null"> <!-- TODO: AntD 4.x 用 open 替换 visible -->
       <a-form @submit.prevent="handleJoinRoom">
         <a-form-item label="邀请码" required>
           <a-input v-model:value="joinRoomInviteCode" placeholder="请输入邀请码" />
@@ -239,7 +306,7 @@
       </a-form>
     </a-modal>
 
-    <a-modal v-model:visible="createRoomModalVisible" title="创建新演讲" :footer="null">
+    <a-modal v-model:visible="createRoomModalVisible" title="创建新演讲" :footer="null"> <!-- TODO: AntD 4.x 用 open 替换 visible -->
       <a-form @submit.prevent="handleCreateRoom">
         <a-form-item label="演讲标题" required>
           <a-input v-model:value="createRoomForm.name" placeholder="请输入演讲标题" />
@@ -263,10 +330,11 @@
 
 import { ref, h, onMounted, watch, computed } from 'vue'
 import { message } from 'ant-design-vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { userAPI } from '@/api'
 import { invitationAPI } from '@/api'
 import { speechRoomAPI } from '@/api'
+import { getToken } from '@/api'
 
 const createdList = ref([])
 const endedList = ref([])
@@ -295,17 +363,15 @@ function saveEndedSortType(val) {
 }
 
 const sortedCreatedList = computed(() => {
-  let arr = [...createdList.value]
+  // 只显示当前用户为创建者（role==0）的房间
+  let arr = joinedList.value.filter(room => room.role == 0)
   if (createdSortType.value === 'default') {
     arr.sort((a, b) => a.id - b.id)
   } else if (createdSortType.value === 'time') {
     arr.sort((a, b) => new Date(b.time) - new Date(a.time))
   } else if (createdSortType.value === 'status') {
-    // 进行中(status===1)在前，等待开始(0)其次，已结束(2)最后
-    arr.sort((a, b) => {
-      const statusOrder = {1: 0, 0: 1, 2: 2}
-      return statusOrder[a.status] - statusOrder[b.status]
-    })
+    const statusOrder = {1: 0, 0: 1, 2: 2}
+    arr.sort((a, b) => statusOrder[a.status] - statusOrder[b.status])
   } else if (createdSortType.value === 'creator') {
     arr.sort((a, b) => {
       const aSelf = a.creator_id == userId ? -1 : 1
@@ -317,17 +383,22 @@ const sortedCreatedList = computed(() => {
 })
 
 const sortedEndedList = computed(() => {
-  let arr = [...endedList.value]
+  // 合并 createdList 和 joinedList，过滤 status===2，按id去重
+  const map = new Map();
+  createdList.value.concat(joinedList.value).forEach(room => {
+    if (room.status == 2) {
+      map.set(room.id, room);
+    }
+  });
+  let arr = Array.from(map.values());
+  // 保持原有排序逻辑
   if (endedSortType.value === 'default') {
     arr.sort((a, b) => a.id - b.id)
   } else if (endedSortType.value === 'time') {
     arr.sort((a, b) => new Date(b.time) - new Date(a.time))
   } else if (endedSortType.value === 'status') {
-    // 进行中(status===1)在前，等待开始(0)其次，已结束(2)最后
-    arr.sort((a, b) => {
-      const statusOrder = {1: 0, 0: 1, 2: 2}
-      return statusOrder[a.status] - statusOrder[b.status]
-    })
+    const statusOrder = {1: 0, 0: 1, 2: 2}
+    arr.sort((a, b) => statusOrder[a.status] - statusOrder[b.status])
   } else if (endedSortType.value === 'creator') {
     arr.sort((a, b) => {
       const aSelf = a.creator_id == userId ? -1 : 1
@@ -335,7 +406,7 @@ const sortedEndedList = computed(() => {
       return aSelf - bSelf
     })
   }
-  return arr
+  return arr;
 })
 
 const sortedJoinedList = computed(() => {
@@ -402,12 +473,15 @@ async function fetchJoinedRooms() {
         desc: room.description,
         status: room.status,
         participants: room.role,
+        total_participants: room.total_participants, // 新增
         time: room.created_at ? room.created_at.replace('T', ' ').replace('Z', '') : '',
         invite: room.invite_code,
         speaker_invite_code: room.speaker_invite_code, // 保证详情弹窗可用
         creator_id: room.creator_id,
         speaker_id: room.speaker_id,
-        role: room.role
+        role: room.role,
+        creator_name: room.creator_name,
+        speaker_name: room.speaker_name
       }))
     } else {
       joinedList.value = []
@@ -454,23 +528,30 @@ onMounted(() => {
   if (savedTab && ['created','ended','joined'].includes(savedTab)) {
     activeTab.value = savedTab
   }
-  if (activeTab.value === 'created') fetchCreatedRooms()
-  if (activeTab.value === 'ended') fetchEndedRooms()
+  // 不再请求fetchCreatedRooms
   if (activeTab.value === 'joined') fetchJoinedRooms()
+  fetchCreatedRooms()
+  fetchJoinedRooms()
 })
+// 监听路由变化，每次进入首页自动刷新
+// 删除自动刷新相关的路由监听代码
+
 watch(activeTab, (tab) => {
   localStorage.setItem('popquiz_home_activeTab', tab)
-  if (tab === 'created') fetchCreatedRooms()
-  if (tab === 'ended') fetchEndedRooms()
-  if (tab === 'joined') fetchJoinedRooms()
+  // 只要切换到任意Tab都请求一次joinedList，保证数据最新
+  fetchJoinedRooms()
 })
 
-
+watch([createdList, joinedList], () => {
+  console.log('createdList', createdList.value)
+  console.log('joinedList', joinedList.value)
+  console.log('sortedEndedList', sortedEndedList.value)
+})
 
 // 操作按钮逻辑
 const quickBtns = [
   { text: '创建新演讲', icon: `<svg width='20' height='20' viewBox='0 0 24 24'><path fill='#fff' d='M19 11h-6V5h-2v6H5v2h6v6h2v-6h6z'/></svg>` },
-  { text: '加入新演讲', icon: `<svg width='20' height='20' viewBox='0 0 24 24'><path fill='#fff' d='M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z'/></svg>` },
+  { text: '加入演讲', icon: `<svg width='20' height='20' viewBox='0 0 24 24'><path fill='#fff' d='M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z'/></svg>` },
   { text: '发送邀请', icon: `<svg width='20' height='20' viewBox='0 0 24 24'><path fill='#fff' d='M21 6.5a.5.5 0 0 0-.5-.5H7.707l3.147-3.146a.5.5 0 1 0-.708-.708l-4 4a.5.5 0 0 0 0 .708l4 4a.5.5 0 0 0 .708-.708L7.707 7H20.5a.5.5 0 0 0 .5-.5z'/></svg>` },
   { text: '被邀请情况', icon: `<svg width='20' height='20' viewBox='0 0 24 24'><path fill='#fff' d='M12 12c2.7 0 8 1.34 8 4v2H4v-2c0-2.66 5.3-4 8-4zm0-2a4 4 0 1 1 0-8 4 4 0 0 1 0 8z'/></svg>` },
 ]
@@ -485,7 +566,7 @@ function handleQuickBtn(idx) {
     createRoomForm.value = { name: '', description: '', isSpeaker: false }
     createRoomModalVisible.value = true
   }
-  if (quickBtns[idx].text === '加入新演讲') {
+  if (quickBtns[idx].text === '加入演讲') {
     joinRoomInviteCode.value = ''
     joinRoomModalVisible.value = true
   }
@@ -508,7 +589,7 @@ async function handleCreateRoom() {
     await speechRoomAPI.createSpeechRoom({
       name: createRoomForm.value.name,
       description: createRoomForm.value.description,
-      session_token,
+      session_token: localStorage.getItem('token'),
       is_speaker: !!createRoomForm.value.isSpeaker
     })
     message.success('演讲创建成功')
@@ -590,9 +671,13 @@ function copyInvite(invite) {
 }
 
 function showRoomDetail(room) {
+  console.log('【房间详情调试】role:', room.role, typeof room.role)
+  console.log('【房间详情调试】invite:', room.invite)
+  console.log('【房间详情调试】speaker_invite_code:', room.speaker_invite_code)
   currentRoomDetail.value = room
   detailModalVisible.value = true
 }
+window.showRoomDetail = showRoomDetail
 
 function copyText(text) {
   if (!text) return
@@ -600,9 +685,27 @@ function copyText(text) {
   message.success('已复制')
 }
 
-function enterRoom(room) {
-  // 这里预留跳转逻辑
-  message.info('进入房间功能待实现')
+// 替换enterRoom函数
+async function enterRoom(room) {
+  const token = getToken();
+  if (!token) {
+    message.error('请先登录');
+    return;
+  }
+  try {
+    const res = await speechRoomAPI.enterRoom(room.id, token);
+    if (res.data && res.data.room_info) {
+      // 跳转并传递房间名
+      router.push({
+        path: `/room/${room.id}`,
+        query: { roomName: res.data.room_info.name }
+      });
+    } else {
+      message.error('获取房间信息失败');
+    }
+  } catch (e) {
+    message.error(e?.response?.data?.message || '进入房间失败');
+  }
 }
 
 const detailTableColumns = [
@@ -612,16 +715,21 @@ const detailTableColumns = [
 const detailTableData = computed(() => {
   if (!currentRoomDetail.value) return []
   const isOrganizer = currentRoomDetail.value.creator_id === currentRoomDetail.value.speaker_id
-  return [
+  const showInvite = username === currentRoomDetail.value.creator_name
+  const arr = [
     { label: '房间ID', value: currentRoomDetail.value.id },
-    { label: '听众邀请码', value: h('span', {}, [
+  ]
+  if (showInvite) {
+    arr.push({ label: '听众邀请码', value: h('span', {}, [
       currentRoomDetail.value.invite || '-',
       h('a', { style: 'margin-left:8px;color:#1677ff;cursor:pointer;', onClick: () => copyText(currentRoomDetail.value.invite) }, '复制')
-    ]) },
-    { label: '演讲者邀请码', value: h('span', {}, [
+    ]) })
+    arr.push({ label: '演讲者邀请码', value: h('span', {}, [
       currentRoomDetail.value.speaker_invite_code || '-',
       h('a', { style: 'margin-left:8px;color:#1677ff;cursor:pointer;', onClick: () => copyText(currentRoomDetail.value.speaker_invite_code) }, '复制')
-    ]) },
+    ]) })
+  }
+  arr.push(
     { label: '演讲描述', value: currentRoomDetail.value.desc || '-' },
     { label: '创建时间', value: formatTime(currentRoomDetail.value.time) },
     { label: '组织者', value: h('span', { style: 'font-weight:600;color:#1677ff;' }, 'user') },
@@ -630,11 +738,13 @@ const detailTableData = computed(() => {
       isOrganizer ? h('span', { style: 'margin-left:8px;background:#eaf3ff;color:#1677ff;border-radius:8px;padding:2px 8px;font-size:13px;font-weight:600;display:inline-block;' }, '组织者') : null
     ]) },
     { label: '参与数量', value: (currentRoomDetail.value.participants || currentRoomDetail.value.role || 0) + '人' }
-  ]
+  )
+  return arr
 })
 
 
 const router = useRouter()
+const route = useRoute()
 function handleBottomTab(tab) {
   activeBottom.value = tab
   if(tab === 'mine') {
@@ -785,6 +895,10 @@ const sortedInvitationList = computed(() => {
 const joinRoomModalVisible = ref(false)
 const joinRoomInviteCode = ref('')
 
+const createRoomModalVisible = ref(false)
+const createRoomForm = ref({ name: '', description: '', isSpeaker: false })
+
+const username = localStorage.getItem('username')
 
 </script>
 
@@ -870,35 +984,24 @@ const joinRoomInviteCode = ref('')
 .tabs-with-count {
   position: relative;
 }
-.tab-count-bar {
-  margin: 0 0 12px 0;
-  padding: 8px 0 8px 16px;
-  font-size: 16px;
-  font-weight: bold;
-  color: #1677ff;
-  background: #f4f8ff;
-  border-radius: 10px;
-  box-shadow: 0 2px 8px rgba(22,119,255,0.06);
-}
-.mobile-tabs {
-  margin-bottom: 32px;
-}
-.mobile-tabs {
-  margin: 8px 0 8px 0;
-  background: #fff;
-  --ant-tabs-tab-font-size: 16px;
-  --ant-tabs-tab-padding: 10px 0;
-}
-.mobile-tabs :deep(.ant-tabs-nav) {
-  justify-content: space-around !important;
+/* 让Tabs外层和Tab本身都100%宽度，Tab等分 */
+.mobile-tabs :deep(.ant-tabs-nav),
+.mobile-tabs :deep(.ant-tabs-nav-list) {
+  display: flex !important;
+  width: 100% !important;
 }
 .mobile-tabs :deep(.ant-tabs-tab) {
-  flex: 1 1 0;
-  text-align: center;
-  font-size: 16px;
+  flex: 1 1 0 !important;
+  width: 100% !important;
+  max-width: none !important;
+  min-width: 0 !important;
+  text-align: center !important;
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  margin: 0 !important;
   padding: 10px 0 !important;
-  margin: 0 4px !important;
-  min-width: 0;
+  box-sizing: border-box !important;
 }
 .mobile-tabs :deep(.ant-tabs-tab-active) {
   font-weight: bold;
@@ -1058,23 +1161,61 @@ const joinRoomInviteCode = ref('')
   align-items: center;
   margin-right: 2px;
 }
-.room-detail-title-row {
+.room-detail-header {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 12px;
+  gap: 16px;
+  margin-bottom: 24px;
+  padding-left: 8px;
 }
 .room-detail-title {
-  font-size: 22px;
+  font-size: 24px;
   font-weight: bold;
   color: #1677ff;
+  letter-spacing: 1px;
+}
+.room-detail-content {
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 4px 24px rgba(22,119,255,0.08);
+  padding: 24px 0 8px 0;
+  margin-bottom: 12px;
 }
 .room-detail-table {
-  margin-bottom: 18px;
+  margin-bottom: 0;
   border-radius: 14px;
   overflow: hidden;
-  background: #f7faff;
-  box-shadow: 0 2px 12px rgba(22,119,255,0.06);
+  background: transparent;
+  box-shadow: none;
+  padding: 0 0 0 0;
+}
+.room-detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 14px 18px 10px 18px;
+  border-bottom: 1px solid #f0f0f0;
+  font-size: 16px;
+  background: #fff;
+}
+.room-detail-row:last-child {
+  border-bottom: none;
+}
+.room-detail-label {
+  color: #888;
+  font-weight: 500;
+  min-width: 90px;
+  text-align: left;
+  flex-shrink: 0;
+  letter-spacing: 1px;
+}
+.room-detail-value {
+  color: #222;
+  font-weight: 600;
+  flex: 1;
+  text-align: right;
+  word-break: break-all;
+  letter-spacing: 0.5px;
 }
 .room-detail-btn-row {
   display: flex;
@@ -1235,5 +1376,35 @@ const joinRoomInviteCode = ref('')
 }
 .invitation-sort-select {
   border-radius: 8px;
+}
+.room-list-scroll {
+  max-height: 400px; /* 控制滚动区域高度 */
+  overflow-y: auto; /* 启用滚动 */
+  padding-right: 8px; /* 给滚动条留出空间 */
+}
+.invite-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  word-break: break-all;
+}
+.invite-code {
+  flex: 1;
+  text-align: left;
+  color: #222;
+  font-weight: 600;
+}
+.copy-btn {
+  color: #1677ff;
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 6px;
+  transition: background 0.2s;
+}
+.copy-btn:hover {
+  background: #eaf3ff;
 }
 </style> 

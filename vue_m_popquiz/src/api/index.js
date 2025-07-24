@@ -132,6 +132,9 @@ export const questionAPI = {
   
   // 获取题目答题情况统计（听众）
   getQuestionStatisticsForAudience: (publishedQuestionId, token) => api.get(`/published-questions/${publishedQuestionId}/statistics-for-audience?token=${token}`),
+  
+  // 获取房间所有被发布题目
+  getPublishedQuestions: (roomId, token) => api.get(`/speech-rooms/${roomId}/published-questions?token=${token}`),
 };
 
 // 讨论管理API

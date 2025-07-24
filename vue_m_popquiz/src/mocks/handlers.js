@@ -79,86 +79,30 @@ export const handlers = [
           "name": "Python基础教程",
           "description": "介绍Python编程语言的基础知识",
           "creator_id": 1,
+          "creator_name": "张三",
           "speaker_id": 2,
+          "speaker_name": "李四",
           "role": 0,
           "invite_code": "aB3cD7eF9gH2jk5m",
           "speaker_invite_code": "XY8ZN4pQ6rS1tUVw",
           "status": 0,
-          "created_at": "2024-01-01T10:00:00Z"
+          "created_at": "2024-01-01T10:00:00Z",
+          "total_participants": 15
         },
         {
           "id": 2,
           "name": "javaScript基础教程",
           "description": "介绍JS编程语言的基础知识",
           "creator_id": 1,
+          "creator_name": "张三",
           "speaker_id": 2,
-          "role": 1,
-          "invite_code": "kkkkkkkkkkkkkkkk",
-          "speaker_invite_code": "XY8ZN4pQ6rS1tUVw",
-          "status": 1,
-          "created_at": "2024-02-01T08:00:00Z"
-        },
-
-
-      ]
-    };
-    return HttpResponse.json(roomsData, { status: 200 });
-  }),
-
-  http.get(`${API_BASE_URL}/user/created-rooms`, async ({ request }) => { // 测试获取用户创建的演讲室列表
-    console.log('尝试获取用户参与/创建的所有演讲室列表');
-
-    // 1. 从 URLSearchParams 中获取 token 参数
-    const url = new URL(request.url); // 创建 URL 对象来解析 URL
-    const token = url.searchParams.get('token'); // 获取 'token' query 参数
-
-    console.log(`从 query 参数接收到的 Token: ${token}`);
-
-    // 2. 验证 token 是否有效
-    let isAuthenticated = false;
-    let userId = null;
-
-
-    if (token === "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9") {
-      isAuthenticated = true;
-      userId = "001"; // 假设这个token对应用户ID 001
-    } else {
-      return HttpResponse.json({ "message": "token无效或已过期" }, { status: 401 });
-    }
-
-
-    if (!isAuthenticated) {
-      console.log(`Token 无效或缺失: ${token}`);
-      return HttpResponse.json({ "message": "参数错误" }, { status: 400 });
-    }
-
-    // 3. 如果 token 有效，则返回 rooms 数据
-    console.log(`Token 验证成功，用户 ${userId} 请求演讲室列表`);
-    const roomsData = {
-      "rooms": [
-        {
-          "id": 1,
-          "name": "Python基础教程",
-          "description": "介绍Python编程语言的基础知识",
-          "creator_id": 1,
-          "speaker_id": 2,
+          "speaker_name": "李四",
           "role": 0,
-          "invite_code": "aB3cD7eF9gH2jk5m",
-          "speaker_invite_code": "XY8ZN4pQ6rS1tUVw",
-          "status": 0,
-          "created_at": "2024-01-01T10:00:00Z"
-        },
-        {
-          "id": 2,
-          "name": "javaScript基础教程",
-          "description": "介绍JS编程语言的基础知识",
-          "creator_id": 1,
-          "speaker_id": 2,
-          "role": 1,
           "invite_code": "kkkkkkkkkkkkkkkk",
           "speaker_invite_code": "XY8ZN4pQ6rS1tUVw",
           "status": 1,
-          "created_at": "2024-02-01T08:00:00Z"
+          "created_at": "2024-02-01T08:00:00Z",
+          "total_participants": 20
         },
 
         {
@@ -166,18 +110,86 @@ export const handlers = [
           "name": "音乐鉴赏",
           "description": "艺术审美补完计划",
           "creator_id": 1,
+          "creator_name": "张三",
           "speaker_id": 2,
-          "role": 100,
+          "speaker_name": "李四",
+          "role": 1,
           "invite_code": "music-123",
           "speaker_invite_code": "music-123",
           "status": 2,
-          "created_at": "2024-03-01T18:00:00Z"
+          "created_at": "2024-03-01T18:00:00Z",
+          "total_participants": 10
         },
 
       ]
     };
     return HttpResponse.json(roomsData, { status: 200 });
   }),
+
+  // http.get(`${API_BASE_URL}/user/created-rooms`, async ({ request }) => { // 测试获取用户创建的演讲室列表
+  //   console.log('尝试获取用户参与/创建的所有演讲室列表');
+
+  //   // 1. 从 URLSearchParams 中获取 token 参数
+  //   const url = new URL(request.url); // 创建 URL 对象来解析 URL
+  //   const token = url.searchParams.get('token'); // 获取 'token' query 参数
+
+  //   console.log(`从 query 参数接收到的 Token: ${token}`);
+
+  //   // 2. 验证 token 是否有效
+  //   let isAuthenticated = false;
+  //   let userId = null;
+
+
+  //   if (token === "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9") {
+  //     isAuthenticated = true;
+  //     userId = "001"; // 假设这个token对应用户ID 001
+  //   } else {
+  //     return HttpResponse.json({ "message": "token无效或已过期" }, { status: 401 });
+  //   }
+
+
+  //   if (!isAuthenticated) {
+  //     console.log(`Token 无效或缺失: ${token}`);
+  //     return HttpResponse.json({ "message": "参数错误" }, { status: 400 });
+  //   }
+
+  //   // 3. 如果 token 有效，则返回 rooms 数据
+  //   console.log(`Token 验证成功，用户 ${userId} 请求演讲室列表`);
+  //   const roomsData = {
+  //     "rooms": [
+  //       {
+  //         "id": 1,
+  //         "name": "Python基础教程",
+  //         "description": "介绍Python编程语言的基础知识",
+  //         "creator_id": 1,
+  //         "creator_name": "张三",
+  //         "speaker_id": 2,
+  //         "speaker_name": "李四",
+  //         "role": 0,
+  //         "invite_code": "aB3cD7eF9gH2jk5m",
+  //         "speaker_invite_code": "XY8ZN4pQ6rS1tUVw",
+  //         "status": 0,
+  //         "created_at": "2024-01-01T10:00:00Z"
+  //       },
+  //       {
+  //         "id": 2,
+  //         "name": "javaScript基础教程",
+  //         "description": "介绍JS编程语言的基础知识",
+  //         "creator_id": 1,
+  //         "creator_name": "张三",
+  //         "speaker_id": 2,
+  //         "speaker_name": "李四",
+  //         "role": 1,
+  //         "invite_code": "kkkkkkkkkkkkkkkk",
+  //         "speaker_invite_code": "XY8ZN4pQ6rS1tUVw",
+  //         "status": 1,
+  //         "created_at": "2024-02-01T08:00:00Z"
+  //       },
+
+  //     ]
+  //   };
+  //   return HttpResponse.json(roomsData, { status: 200 });
+  // }),
 
   http.post(`${API_BASE_URL}/invitations`, async ({ request }) => {//测试邀请功能
     const { token, invitee_username } = await request.json();
@@ -291,39 +303,31 @@ export const handlers = [
     }
   }),
 
-  http.post(`${API_BASE_URL}/login`, async({request}) => {
-    const { username, password } = await request.json(); 
-    console.log(`尝试登录 - 用户名: ${username}, 密码: ${password}`);
+  http.post(`${API_BASE_URL}/speech-rooms`, async({request}) => {//测试创建新演讲室功能
+    const { session_token } = await request.json(); 
 
-    // 根据用户名和密码进行条件判断
-    if (username === 'user' && password === '123456') { 
-        return HttpResponse.json({
-          "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9", // 模拟的 token
-          "message": "登录成功"
-        }, { status: 200 }); 
+    if (session_token == "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9") { 
+      const speech_room_data = {
+        "id": 1,
+        "name": "Python基础教程",
+        "description": "介绍Python编程语言的基础知识",
+        "creator_id": 1,
+        "speaker_id": null,
+        "invite_code": "aB3cD7eF9gH2jK5m",
+        "speaker_invite_code": "xY8zN4pQ6rS1tU3vW",
+        "status": 0,
+        "created_at": "2024-01-01T10:00:00Z",
+        "message": "演讲室创建成功"
+      }
+        return HttpResponse.json(speech_room_data, { status: 200 }); 
       } else { 
         return HttpResponse.json({
-          "message": "登录失败",
-        }, { status: 401 }); // 模拟一些延迟
+          "message":"请先登录",
+        }, { status: 401 }); 
       }
     }),
 
- http.post(`${API_BASE_URL}/register`, async({request}) => {
-    const { username, password } = await request.json(); 
-    console.log(`尝试注册 - 用户名: ${username}, 密码: ${password}`);
 
-    // 根据用户名和密码进行条件判断
-    if (username === 'user' && password === '123456') { 
-        return HttpResponse.json({
-          "id": "001", // 模拟的 token
-          "message": "注册成功"
-        }, { status: 200 }); 
-      } else { 
-        return HttpResponse.json({
-          "message": "用户名已存在",
-        }, { status: 401 }); // 模拟一些延迟
-      }
-    }),
 ];
 
 

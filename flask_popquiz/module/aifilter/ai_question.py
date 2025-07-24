@@ -347,8 +347,8 @@ def generate_question_by_api_batch(text_list, count=1, api_config=API_CONFIG):
         ],
     )
     response_text = completion.choices[0].message.content
-    print(response_text)
     response_text = filter_markdown(response_text)
+    print(response_text)
     try:
         data = pyjson.loads(response_text)
         # 兼容AI返回外层包裹对象或直接数组

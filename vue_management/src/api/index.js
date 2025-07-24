@@ -2,7 +2,7 @@ import axios from 'axios';
 import { message } from 'ant-design-vue';
 import router from '../router';
 
-// ´´½¨axiosÊµÀý
+// åˆ›å»ºaxioså®žä¾‹
 const api = axios.create({
     baseURL: 'http://localhost:5000/popquiz',
     timeout: 10000,
@@ -11,7 +11,7 @@ const api = axios.create({
     },
 });
 
-// ÇëÇóÀ¹½ØÆ÷ - Ìí¼Ótoken
+// è¯·æ±‚æ‹¦æˆªå™¨ - æ·»åŠ token
 api.interceptors.request.use(
     (config) => {
         const token = localStorage.getItem('token');
@@ -25,160 +25,68 @@ api.interceptors.request.use(
     }
 );
 
-// ÏìÓ¦À¹½ØÆ÷ - ´¦Àítoken¹ýÆÚ
+// å“åº”æ‹¦æˆªå™¨ - å¤„ç†tokenè¿‡æœŸ
 api.interceptors.response.use(
     (response) => {
         return response;
     },
     (error) => {
         if (error.response?.status === 401) {
-            // token¹ýÆÚ»òÎÞÐ§
+            // tokenè¿‡æœŸæˆ–æ— æ•ˆ
             localStorage.removeItem('token');
             localStorage.removeItem('username');
-            message.error('µÇÂ¼ÒÑ¹ýÆÚ£¬ÇëÖØÐÂµÇÂ¼');
-            router.push('/auth');
+            message.error('ç™»å½•å·²è¿‡æœŸï¼Œè¯·é‡æ–°ç™»å½•');
+            router.push('/');
         }
         return Promise.reject(error);
     }
 );
 
-// ÓÃ»§¹ÜÀíAPI
+// ç”¨æˆ·ç®¡ç†API
 export const userAPI = {
-    // ÓÃ»§×¢²á
-    register: (data) => api.post('/register', data),
-
-    // ÓÃ»§µÇÂ¼
-    login: (data) => api.post('/login', data),
-
-    // ÓÃ»§ÍË³öµÇÂ¼
-    logout: (data) => api.post('/logout', data),
-
-    // »ñÈ¡ÓÃ»§²ÎÓëµÄËùÓÐÑÝ½²ÊÒ
-    getUserSpeechRooms: (token) => api.get(`/user/speech-rooms?token=${token}`),
-
-    // »ñÈ¡ÓÃ»§ËùÓÐ±»ÑûÇë¼ÇÂ¼
-    getUserInvitations: (token) => api.get(`/user/invitations?token=${token}`),
-
-    // »ñÈ¡ÓÃ»§´´½¨µÄËùÓÐÑÝ½²ÊÒ
-    getUserCreatedRooms: (token, params = {}) => {
-        const queryParams = new URLSearchParams({ token, ...params });
-        return api.get(`/user/created-rooms?${queryParams}`);
-    },
-    // ÐÂÔöÓÃ»§£¨cjyÐÂÔö£©
-    addUser: (data) => api.post('/users', data),
-    // ±à¼­ÓÃ»§£¨cjyÐÂÔö£©
-    editUser: (userId, data) => api.put(`/users/${userId}`, data),
+    // æ–°å¢žç”¨æˆ·ï¼ˆcjyæ–°å¢žï¼‰
+    addUser: (data, token) => api.post('/users', data, { headers: { Authorization: `Bearer ${token}` } }),
+    // ç¼–è¾‘ç”¨æˆ·ï¼ˆcjyæ–°å¢žï¼‰
+    editUser: (userId, data, token) => api.put(`/users/${userId}`, data, { headers: { Authorization: `Bearer ${token}` } }),
 };
 
-// ÑÝ½²ÊÒ¹ÜÀíAPI
-export const speechRoomAPI = {
-    // ´´½¨ÑÝ½²ÊÒ
-    createSpeechRoom: (data) => api.post('/speech-rooms', data),
-
-    // ¼ÓÈëÑÝ½²ÊÒ
-    joinRoom: (data) => api.post('/join-room', data),
-
-    // ½øÈë·¿¼ä»ñÈ¡·¿¼äÐÅÏ¢ºÍ½ÇÉ«ÐÅÏ¢
-    enterRoom: (roomId, token) => api.get(`/speech-rooms/${roomId}/enter?token=${token}`),
-
-    // ¿ªÊ¼ÑÝ½²
-    startSpeech: (roomId, token) => api.post(`/speech-rooms/${roomId}/start`, { token }),
-
-    // ½áÊøÑÝ½²
-    endSpeech: (roomId, token) => api.post(`/speech-rooms/${roomId}/end`, { token }),
-
-    // »ñÈ¡ÑÝ½²ÊÒ²ÎÓë×ÜÈËÊý
-    getRoomParticipantsCount: (roomId, token) => api.get(`/speech-rooms/${roomId}/participants/count?token=${token}`),
-
-    // »ñÈ¡ÑÝ½²ÊÒÔÚÏßÈËÔ±ÁÐ±í
-    getRoomOnlineParticipants: (roomId, token) => api.get(`/speech-rooms/${roomId}/online-participants?token=${token}`),
-
-    // »ñÈ¡Ö¸¶¨ÑÝ½²ÊÒµÄËùÓÐÌâÄ¿
-    getRoomQuestions: (roomId, token) => api.get(`/speech-rooms/${roomId}/questions?token=${token}`),
-};
-
-// ÑûÇë¹ÜÀíAPI
-export const invitationAPI = {
-    // ·¢ÆðÑûÇë
-    inviteUser: (data) => api.post('/invitations', data),
-
-    // ½ÓÊÜÑûÇë
-    acceptInvitation: (data) => api.post('/invitations/accept', data),
-
-    // ¾Ü¾øÑûÇë
-    rejectInvitation: (data) => api.post('/invitations/reject', data),
-};
-
-// ´ðÌâAPI
-export const answerAPI = {
-    // ÌýÖÚ´ðÌâ
-    answerQuestion: (roomId, data) => api.post(`/speech-rooms/${roomId}/answer-question`, data),
-};
-
-// ÌâÄ¿¹ÜÀíAPI
-export const questionAPI = {
-    // ¸ù¾ÝÎÄ±¾ÉêÇë´´½¨ÌâÄ¿
-    requestQuestionsByText: (data) => api.post('/request-questions-by-text', data),
-
-    // ·¢²¼ÌâÄ¿
-    publishQuestion: (roomId, data) => api.post(`/speech-rooms/${roomId}/publish-question`, data),
-
-    // »ñÈ¡·¿¼ä×îÐÂ·¢²¼»¹Î´½áÊøµÄÌâÄ¿£¨ÑÝ½²ÕßºÍ×éÖ¯Õß£©
-    getCurrentQuestionForSpeakerAndOrganizer: (roomId, token) => api.get(`/speech-rooms/${roomId}/current-question-for-speaker-and-organizer?token=${token}`),
-
-    // »ñÈ¡·¿¼ä×îÐÂ·¢²¼»¹Î´½áÊøµÄÌâÄ¿£¨ÌýÖÚ£©
-    getCurrentQuestionForAudience: (roomId, token) => api.get(`/speech-rooms/${roomId}/current-question-for-audience?token=${token}`),
-
-    // »ñÈ¡ÌâÄ¿´ðÌâÇé¿öÍ³¼Æ£¨ÑÝ½²ÕßºÍ×éÖ¯Õß£©
-    getQuestionStatisticsForSpeakerAndOrganizer: (publishedQuestionId, token) => api.get(`/published-questions/${publishedQuestionId}/statistics-for-speaker-and-organizer?token=${token}`),
-
-    // »ñÈ¡ÌâÄ¿´ðÌâÇé¿öÍ³¼Æ£¨ÌýÖÚ£©
-    getQuestionStatisticsForAudience: (publishedQuestionId, token) => api.get(`/published-questions/${publishedQuestionId}/statistics-for-audience?token=${token}`),
-};
-
-// ÌÖÂÛ¹ÜÀíAPI
-export const discussionAPI = {
-    // ·¢±íÌÖÂÛ
-    createDiscussion: (data) => api.post('/discussions', data),
-
-    // »ñÈ¡ÌÖÂÛÁÐ±í
-    getDiscussions: (roomId, token) => api.get(`/discussions?room_id=${roomId}&token=${token}`),
-
-    // »ñÈ¡Ö¸¶¨ÌâÄ¿µÄËùÓÐÌÖÂÛ
-    getQuestionDiscussions: (questionId, token) => api.get(`/questions/${questionId}/discussions?token=${token}`),
-};
-
-// ¹ÜÀíºóÌ¨API
+// ç®¡ç†åŽå°API
 export const adminAPI = {
-    // »ñÈ¡Í³¼ÆÊý¾Ý
+    // èŽ·å–ç»Ÿè®¡æ•°æ®
     getStats: (token) => api.get('/admin/statistics', { params: { token } }),
-    // »ñÈ¡ËùÓÐÓÃ»§
+    // èŽ·å–æ‰€æœ‰ç”¨æˆ·
     getUsers: (token, params = {}) => api.get('/admin/users', { params: { token, ...params } }),
-    // É¾³ýÓÃ»§
+    // åˆ é™¤ç”¨æˆ·
     deleteUser: (id, token) => api.delete(`/admin/users/${id}`, { data: { token } }),
-    // »ñÈ¡ËùÓÐÑÝ½²ÊÒ
-    getRooms: (token) => api.get('/admin/speech-rooms/all', { params: { token } }),
-    // »ñÈ¡ÑÝ½²ÊÒ³ÉÔ±
+    // èŽ·å–æ‰€æœ‰æ¼”è®²å®¤
+    getRooms: (token, params = {}) => api.get('/admin/speech-rooms/all', { params: { token, ...params } }),
+    // èŽ·å–æ¼”è®²å®¤æˆå‘˜
     getRoomMembers: (roomId, token) => api.get(`/admin/speech-rooms/${roomId}/members`, { params: { token } }),
 }
 
-// ¹¤¾ßº¯Êý
+// ç®¡ç†å‘˜API
+export const adminAuthAPI = {
+    // ç®¡ç†å‘˜ç™»å½•
+    adminLogin: (data) => api.post('/admin/login', data),
+};
+
+// å·¥å…·å‡½æ•°
 export const checkTokenExpired = () => {
     const token = localStorage.getItem('token');
     if (!token) {
-        message.error('ÇëÏÈµÇÂ¼');
-        router.push('/auth');
+        message.error('è¯·å…ˆç™»å½•');
+        router.push('/');
         return true;
     }
     return false;
 };
 
-// »ñÈ¡±¾µØ´æ´¢µÄtoken
+// èŽ·å–æœ¬åœ°å­˜å‚¨çš„token
 export const getToken = () => {
     return localStorage.getItem('token');
 };
 
-// »ñÈ¡±¾µØ´æ´¢µÄÓÃ»§Ãû
+// èŽ·å–æœ¬åœ°å­˜å‚¨çš„ç”¨æˆ·å
 export const getUsername = () => {
     return localStorage.getItem('username');
 };

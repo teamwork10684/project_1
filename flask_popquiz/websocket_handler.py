@@ -1,6 +1,5 @@
 from flask_socketio import SocketIO, emit, join_room, leave_room
 from flask import request
-import json
 from datetime import datetime
 from models import db
 from models.speech_room_online import SpeechRoomOnline
@@ -39,6 +38,7 @@ def handle_disconnect():
 
 @socketio.on('join_room')
 def handle_join_room(data):
+    print(f"[WebSocket] join_room: {data}")
     room_id = data.get('room_id')
     user_id = data.get('user_id')
     username = data.get('username')
