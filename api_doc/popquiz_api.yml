@@ -1,12 +1,12 @@
-openapi: '3.0.3'
+openapi: "3.0.3"
 info:
   title: PopQuiz API
-  version: '1.0'
+  version: "1.0"
   description: |
     PopQuiz演讲室管理系统API文档
-    
+
     本API提供演讲室管理、用户管理、题目管理等功能。
-    
+
     ## 相关文档
     - [WebSocket API文档](./websocket_api.yml) - 实时通信API
     - [WebSocket使用说明](./websocket_usage.md) - 详细使用指南
@@ -23,7 +23,7 @@ paths:
     post:
       tags:
         - 用户管理
-      summary: 用户注册 
+      summary: 用户注册
       description: 用户注册账号
       requestBody:
         required: true
@@ -43,7 +43,7 @@ paths:
                   format: password
                   example: "123456"
       responses:
-        '201':
+        "201":
           description: 注册成功
           content:
             application/json:
@@ -56,7 +56,7 @@ paths:
                   message:
                     type: string
                     example: "注册成功"
-        '400':
+        "400":
           description: 参数错误或用户名已存在
           content:
             application/json:
@@ -90,7 +90,7 @@ paths:
                   format: password
                   example: "123456"
       responses:
-        '200':
+        "200":
           description: 登录成功
           content:
             application/json:
@@ -103,7 +103,7 @@ paths:
                   message:
                     type: string
                     example: "登录成功"
-        '401':
+        "401":
           description: 登录失败
           content:
             application/json:
@@ -146,7 +146,7 @@ paths:
                   description: 是否直接担任演讲者
                   example: false
       responses:
-        '201':
+        "201":
           description: 创建成功
           content:
             application/json:
@@ -184,7 +184,7 @@ paths:
                   message:
                     type: string
                     example: "演讲室创建成功"
-        '400':
+        "400":
           description: 参数错误
           content:
             application/json:
@@ -194,7 +194,7 @@ paths:
                   message:
                     type: string
                     example: "演讲室名称不能为空"
-        '401':
+        "401":
           description: 未授权
           content:
             application/json:
@@ -204,7 +204,7 @@ paths:
                   message:
                     type: string
                     example: "请先登录"
-        '403':
+        "403":
           description: 无权限
           content:
             application/json:
@@ -214,7 +214,7 @@ paths:
                   message:
                     type: string
                     example: "不是房间创建者或演讲者，无权限批量出题"
-        '500':
+        "500":
           description: 服务器错误
           content:
             application/json:
@@ -243,7 +243,7 @@ paths:
                   type: string
                   description: 用户身份token
       responses:
-        '200':
+        "200":
           description: 退出成功
           content:
             application/json:
@@ -253,7 +253,7 @@ paths:
                   message:
                     type: string
                     example: "退出成功"
-        '401':
+        "401":
           description: 未授权或token无效
           content:
             application/json:
@@ -277,7 +277,7 @@ paths:
             type: string
           description: 用户身份token
       responses:
-        '200':
+        "200":
           description: 用户演讲室列表
           content:
             application/json:
@@ -379,7 +379,7 @@ paths:
                     speaker_invite_code: null
                     status: 0
                     created_at: "2024-01-03T09:15:00Z"
-        '400':
+        "400":
           description: 参数错误
           content:
             application/json:
@@ -389,7 +389,7 @@ paths:
                   message:
                     type: string
                     example: "参数错误"
-        '401':
+        "401":
           description: 未授权或token无效
           content:
             application/json:
@@ -413,7 +413,7 @@ paths:
             type: string
           description: 用户身份token
       responses:
-        '200':
+        "200":
           description: 用户被邀请记录列表
           content:
             application/json:
@@ -504,7 +504,7 @@ paths:
                     status: 1
                     room_status: 1
                     invited_time: "2024-01-02T13:00:00Z"
-        '400':
+        "400":
           description: 参数错误
           content:
             application/json:
@@ -514,7 +514,7 @@ paths:
                   message:
                     type: string
                     example: "参数错误"
-        '401':
+        "401":
           description: 未授权或token无效
           content:
             application/json:
@@ -555,7 +555,7 @@ paths:
                   type: integer
                   description: 邀请角色（0-听众，1-演讲者）
       responses:
-        '201':
+        "201":
           description: 邀请成功
           content:
             application/json:
@@ -567,7 +567,7 @@ paths:
                   message:
                     type: string
                     example: "邀请已发送|邀请已存在"
-        '400':
+        "400":
           description: 参数错误
           content:
             application/json:
@@ -577,7 +577,7 @@ paths:
                   message:
                     type: string
                     example: "参数错误或用户不存在"
-        '401':
+        "401":
           description: 未授权或token无效
           content:
             application/json:
@@ -610,7 +610,7 @@ paths:
                   type: string
                   description: 用户身份token
       responses:
-        '200':
+        "200":
           description: 接受成功
           content:
             application/json:
@@ -623,7 +623,7 @@ paths:
                   message:
                     type: string
                     example: "邀请已接受"
-        '400':
+        "400":
           description: 参数错误
           content:
             application/json:
@@ -633,7 +633,7 @@ paths:
                   message:
                     type: string
                     example: "参数错误或邀请不存在"
-        '401':
+        "401":
           description: 未授权或token无效
           content:
             application/json:
@@ -666,7 +666,7 @@ paths:
                   type: string
                   description: 用户身份token
       responses:
-        '200':
+        "200":
           description: 拒绝成功
           content:
             application/json:
@@ -679,7 +679,7 @@ paths:
                   message:
                     type: string
                     example: "邀请已拒绝"
-        '400':
+        "400":
           description: 参数错误
           content:
             application/json:
@@ -689,7 +689,7 @@ paths:
                   message:
                     type: string
                     example: "参数错误或邀请不存在"
-        '401':
+        "401":
           description: 未授权或token无效
           content:
             application/json:
@@ -722,7 +722,7 @@ paths:
                   type: string
                   description: 演讲室邀请码
       responses:
-        '200':
+        "200":
           description: 加入成功
           content:
             application/json:
@@ -734,7 +734,7 @@ paths:
                   message:
                     type: string
                     example: "加入成功"
-        '400':
+        "400":
           description: 参数错误或邀请码无效
           content:
             application/json:
@@ -744,7 +744,7 @@ paths:
                   message:
                     type: string
                     example: "邀请码无效或已过期"
-        '401':
+        "401":
           description: 未授权或token无效
           content:
             application/json:
@@ -780,7 +780,7 @@ paths:
                   type: string
                   description: 用户身份token
       responses:
-        '200':
+        "200":
           description: 开始演讲成功
           content:
             application/json:
@@ -802,7 +802,7 @@ paths:
                   message:
                     type: string
                     example: "演讲已开始"
-        '400':
+        "400":
           description: 参数错误或房间状态不允许
           content:
             application/json:
@@ -812,7 +812,7 @@ paths:
                   message:
                     type: string
                     example: "房间状态不允许开始演讲"
-        '401':
+        "401":
           description: 未授权或token无效
           content:
             application/json:
@@ -822,7 +822,7 @@ paths:
                   message:
                     type: string
                     example: "token无效或已过期"
-        '403':
+        "403":
           description: 权限不足
           content:
             application/json:
@@ -832,7 +832,7 @@ paths:
                   message:
                     type: string
                     example: "只有房间创建者和演讲者才能开始演讲"
-        '404':
+        "404":
           description: 演讲室不存在
           content:
             application/json:
@@ -868,7 +868,7 @@ paths:
                   type: string
                   description: 用户身份token
       responses:
-        '200':
+        "200":
           description: 结束演讲成功
           content:
             application/json:
@@ -885,7 +885,7 @@ paths:
                   message:
                     type: string
                     example: "演讲已结束"
-        '400':
+        "400":
           description: 参数错误或房间状态不允许
           content:
             application/json:
@@ -895,7 +895,7 @@ paths:
                   message:
                     type: string
                     example: "房间状态不允许结束演讲"
-        '401':
+        "401":
           description: 未授权或token无效
           content:
             application/json:
@@ -905,7 +905,7 @@ paths:
                   message:
                     type: string
                     example: "token无效或已过期"
-        '403':
+        "403":
           description: 权限不足
           content:
             application/json:
@@ -915,7 +915,7 @@ paths:
                   message:
                     type: string
                     example: "只有房间创建者和演讲者才能结束演讲"
-        '404':
+        "404":
           description: 演讲室不存在
           content:
             application/json:
@@ -945,7 +945,7 @@ paths:
             type: string
           description: 用户身份token
       responses:
-        '200':
+        "200":
           description: 获取成功
           content:
             application/json:
@@ -971,7 +971,7 @@ paths:
                   message:
                     type: string
                     example: "获取成功"
-        '401':
+        "401":
           description: 未授权或token无效
           content:
             application/json:
@@ -981,7 +981,7 @@ paths:
                   message:
                     type: string
                     example: "token无效或已过期"
-        '404':
+        "404":
           description: 演讲室不存在
           content:
             application/json:
@@ -1011,7 +1011,7 @@ paths:
             type: string
           description: 用户身份token
       responses:
-        '200':
+        "200":
           description: 获取在线人员列表成功
           content:
             application/json:
@@ -1069,7 +1069,7 @@ paths:
                     username: "user004"
                     role: 2
                 message: "获取在线人员列表成功"
-        '401':
+        "401":
           description: 未授权或token无效
           content:
             application/json:
@@ -1079,7 +1079,7 @@ paths:
                   message:
                     type: string
                     example: "token无效或已过期"
-        '403':
+        "403":
           description: 权限不足
           content:
             application/json:
@@ -1089,7 +1089,7 @@ paths:
                   message:
                     type: string
                     example: "您不是该演讲室的成员"
-        '404':
+        "404":
           description: 演讲室不存在
           content:
             application/json:
@@ -1153,7 +1153,7 @@ paths:
             enum: [0, 1, 2]
           description: 房间状态过滤（0-等待开始，1-进行中，2-已结束）
       responses:
-        '200':
+        "200":
           description: 用户创建的演讲室列表
           content:
             application/json:
@@ -1257,7 +1257,7 @@ paths:
                   pages: 3
                   has_next: true
                   has_prev: false
-        '400':
+        "400":
           description: 参数错误
           content:
             application/json:
@@ -1267,7 +1267,7 @@ paths:
                   message:
                     type: string
                     example: "参数错误"
-        '401':
+        "401":
           description: 未授权或token无效
           content:
             application/json:
@@ -1277,7 +1277,7 @@ paths:
                   message:
                     type: string
                     example: "token无效或已过期"
-        '500':
+        "500":
           description: 服务器错误
           content:
             application/json:
@@ -1322,7 +1322,7 @@ paths:
                   description: 被讨论的题目ID（可选，-1表示不针对题目的讨论）
                   example: 5
       responses:
-        '201':
+        "201":
           description: 发表讨论成功
           content:
             application/json:
@@ -1357,7 +1357,7 @@ paths:
                   message:
                     type: string
                     example: "讨论发表成功"
-        '400':
+        "400":
           description: 参数错误
           content:
             application/json:
@@ -1367,7 +1367,7 @@ paths:
                   message:
                     type: string
                     example: "讨论内容不能为空"
-        '401':
+        "401":
           description: 未授权或token无效
           content:
             application/json:
@@ -1377,7 +1377,7 @@ paths:
                   message:
                     type: string
                     example: "token无效或已过期"
-        '403':
+        "403":
           description: 权限不足
           content:
             application/json:
@@ -1387,7 +1387,7 @@ paths:
                   message:
                     type: string
                     example: "您不是该演讲室的成员"
-        '404':
+        "404":
           description: 演讲室不存在
           content:
             application/json:
@@ -1416,7 +1416,7 @@ paths:
             type: string
           description: 用户身份token
       responses:
-        '200':
+        "200":
           description: 获取讨论列表成功
           content:
             application/json:
@@ -1487,7 +1487,7 @@ paths:
                     question_id: -1
                     is_system: true
                     created_at: "2024-01-01T10:00:00Z"
-        '400':
+        "400":
           description: 参数错误
           content:
             application/json:
@@ -1497,7 +1497,7 @@ paths:
                   message:
                     type: string
                     example: "参数错误"
-        '401':
+        "401":
           description: 未授权或token无效
           content:
             application/json:
@@ -1507,7 +1507,7 @@ paths:
                   message:
                     type: string
                     example: "token无效或已过期"
-        '404':
+        "404":
           description: 演讲室不存在
           content:
             application/json:
@@ -1538,7 +1538,7 @@ paths:
             type: string
           description: 用户身份token
       responses:
-        '200':
+        "200":
           description: 获取题目讨论列表成功
           content:
             application/json:
@@ -1619,7 +1619,7 @@ paths:
                     content: "这个问题在Web开发中也很常见"
                     is_system: false
                     created_at: "2024-01-01T11:00:00Z"
-        '400':
+        "400":
           description: 参数错误
           content:
             application/json:
@@ -1629,7 +1629,7 @@ paths:
                   message:
                     type: string
                     example: "参数错误"
-        '401':
+        "401":
           description: 未授权或token无效
           content:
             application/json:
@@ -1639,7 +1639,7 @@ paths:
                   message:
                     type: string
                     example: "token无效或已过期"
-        '404':
+        "404":
           description: 题目不存在
           content:
             application/json:
@@ -1670,7 +1670,7 @@ paths:
             type: string
           description: 用户身份token
       responses:
-        '200':
+        "200":
           description: 获取题目列表成功
           content:
             application/json:
@@ -1762,7 +1762,7 @@ paths:
                     created: true
                     published: true
                     created_at: "2024-01-01T11:00:00Z"
-        '400':
+        "400":
           description: 参数错误
           content:
             application/json:
@@ -1772,7 +1772,7 @@ paths:
                   message:
                     type: string
                     example: "参数错误"
-        '401':
+        "401":
           description: 未授权或token无效
           content:
             application/json:
@@ -1782,7 +1782,7 @@ paths:
                   message:
                     type: string
                     example: "token无效或已过期"
-        '403':
+        "403":
           description: 权限不足
           content:
             application/json:
@@ -1792,7 +1792,7 @@ paths:
                   message:
                     type: string
                     example: "您不是该演讲室的成员"
-        '404':
+        "404":
           description: 演讲室不存在
           content:
             application/json:
@@ -1823,7 +1823,7 @@ paths:
             type: string
           description: 用户身份token
       responses:
-        '200':
+        "200":
           description: 获取当前题目成功
           content:
             application/json:
@@ -1919,7 +1919,7 @@ paths:
                     option_c: "南边"
                     option_d: "北边"
                     answer: "A"
-        '204':
+        "204":
           description: 当前没有进行中的题目
           content:
             application/json:
@@ -1937,7 +1937,7 @@ paths:
                   message:
                     type: string
                     example: "当前没有进行中的题目"
-        '400':
+        "400":
           description: 参数错误
           content:
             application/json:
@@ -1947,7 +1947,7 @@ paths:
                   message:
                     type: string
                     example: "参数错误"
-        '401':
+        "401":
           description: 未授权或token无效
           content:
             application/json:
@@ -1957,7 +1957,7 @@ paths:
                   message:
                     type: string
                     example: "token无效或已过期"
-        '403':
+        "403":
           description: 权限不足
           content:
             application/json:
@@ -1967,7 +1967,7 @@ paths:
                   message:
                     type: string
                     example: "您不是该演讲室的成员"
-        '404':
+        "404":
           description: 演讲室不存在
           content:
             application/json:
@@ -1998,7 +1998,7 @@ paths:
             type: string
           description: 用户身份token
       responses:
-        '200':
+        "200":
           description: 获取答题统计成功
           content:
             application/json:
@@ -2137,7 +2137,7 @@ paths:
                   end_time: "2024-01-01T10:05:00Z"
                   time_limit: 60
                   status: 1
-        '400':
+        "400":
           description: 参数错误
           content:
             application/json:
@@ -2147,7 +2147,7 @@ paths:
                   message:
                     type: string
                     example: "参数错误"
-        '401':
+        "401":
           description: 未授权或token无效
           content:
             application/json:
@@ -2157,7 +2157,7 @@ paths:
                   message:
                     type: string
                     example: "token无效或已过期"
-        '403':
+        "403":
           description: 权限不足
           content:
             application/json:
@@ -2167,7 +2167,7 @@ paths:
                   message:
                     type: string
                     example: "您不是该演讲室的成员"
-        '404':
+        "404":
           description: 发布题目不存在
           content:
             application/json:
@@ -2198,7 +2198,7 @@ paths:
             type: string
           description: 用户身份token
       responses:
-        '200':
+        "200":
           description: 获取答题统计成功
           content:
             application/json:
@@ -2347,7 +2347,7 @@ paths:
                   time_limit: 60
                   status: 1
                   my_answer: "A"
-        '400':
+        "400":
           description: 参数错误
           content:
             application/json:
@@ -2357,7 +2357,7 @@ paths:
                   message:
                     type: string
                     example: "参数错误"
-        '401':
+        "401":
           description: 未授权或token无效
           content:
             application/json:
@@ -2367,7 +2367,7 @@ paths:
                   message:
                     type: string
                     example: "token无效或已过期"
-        '403':
+        "403":
           description: 权限不足
           content:
             application/json:
@@ -2377,7 +2377,7 @@ paths:
                   message:
                     type: string
                     example: "您不是该演讲室的成员"
-        '404':
+        "404":
           description: 发布题目不存在
           content:
             application/json:
@@ -2424,7 +2424,7 @@ paths:
                   description: 答题时间限制（秒），可选，默认60秒
                   example: 60
       responses:
-        '201':
+        "201":
           description: 题目发布成功
           content:
             application/json:
@@ -2507,7 +2507,7 @@ paths:
                   option_c: "南边"
                   option_d: "北边"
                 message: "题目发布成功"
-        '400':
+        "400":
           description: 参数错误或题目已发布
           content:
             application/json:
@@ -2517,7 +2517,7 @@ paths:
                   message:
                     type: string
                     example: "题目ID无效或该房间已有进行中的题目"
-        '401':
+        "401":
           description: 未授权或token无效
           content:
             application/json:
@@ -2527,7 +2527,7 @@ paths:
                   message:
                     type: string
                     example: "token无效或已过期"
-        '403':
+        "403":
           description: 权限不足
           content:
             application/json:
@@ -2537,7 +2537,7 @@ paths:
                   message:
                     type: string
                     example: "只有房间创建者和演讲者才能发布题目"
-        '404':
+        "404":
           description: 演讲室或题目不存在
           content:
             application/json:
@@ -2547,7 +2547,7 @@ paths:
                   message:
                     type: string
                     example: "演讲室或题目不存在"
-        '409':
+        "409":
           description: 冲突
           content:
             application/json:
@@ -2557,7 +2557,7 @@ paths:
                   message:
                     type: string
                     example: "该房间已有进行中的题目，请等待当前题目结束"
-        '500':
+        "500":
           description: 服务器错误
           content:
             application/json:
@@ -2588,7 +2588,7 @@ paths:
             type: string
           description: 用户身份token
       responses:
-        '200':
+        "200":
           description: 获取当前题目成功
           content:
             application/json:
@@ -2690,7 +2690,7 @@ paths:
                     option_d: "北边"
                   has_answered: false
                   user_answer: null
-        '204':
+        "204":
           description: 当前没有进行中的题目
           content:
             application/json:
@@ -2708,7 +2708,7 @@ paths:
                   message:
                     type: string
                     example: "当前没有进行中的题目"
-        '400':
+        "400":
           description: 参数错误
           content:
             application/json:
@@ -2718,7 +2718,7 @@ paths:
                   message:
                     type: string
                     example: "参数错误"
-        '401':
+        "401":
           description: 未授权或token无效
           content:
             application/json:
@@ -2728,7 +2728,7 @@ paths:
                   message:
                     type: string
                     example: "token无效或已过期"
-        '403':
+        "403":
           description: 权限不足
           content:
             application/json:
@@ -2738,7 +2738,7 @@ paths:
                   message:
                     type: string
                     example: "您不是该演讲室的成员"
-        '404':
+        "404":
           description: 演讲室不存在
           content:
             application/json:
@@ -2769,7 +2769,7 @@ paths:
             type: string
           description: 用户身份token
       responses:
-        '200':
+        "200":
           description: 进入房间成功
           content:
             application/json:
@@ -2860,7 +2860,7 @@ paths:
                   role: 0
 
                 message: "进入房间成功"
-        '400':
+        "400":
           description: 参数错误
           content:
             application/json:
@@ -2870,7 +2870,7 @@ paths:
                   message:
                     type: string
                     example: "参数错误"
-        '401':
+        "401":
           description: 未授权或token无效
           content:
             application/json:
@@ -2880,7 +2880,7 @@ paths:
                   message:
                     type: string
                     example: "token无效或已过期"
-        '403':
+        "403":
           description: 权限不足
           content:
             application/json:
@@ -2890,7 +2890,7 @@ paths:
                   message:
                     type: string
                     example: "您不是该演讲室的成员"
-        '404':
+        "404":
           description: 演讲室不存在
           content:
             application/json:
@@ -2938,7 +2938,7 @@ paths:
                   description: 用户选择的答案（A/B/C/D）
                   example: "A"
       responses:
-        '200':
+        "200":
           description: 答题成功
           content:
             application/json:
@@ -2982,7 +2982,7 @@ paths:
                 selected_answer: "A"
                 created_at: "2024-01-01T10:02:30Z"
                 message: "答题成功"
-        '400':
+        "400":
           description: 参数错误或重复答题
           content:
             application/json:
@@ -2992,7 +2992,7 @@ paths:
                   message:
                     type: string
                     example: "参数错误或您已经回答过这道题目"
-        '401':
+        "401":
           description: 未授权或token无效
           content:
             application/json:
@@ -3002,7 +3002,7 @@ paths:
                   message:
                     type: string
                     example: "token无效或已过期"
-        '403':
+        "403":
           description: 权限不足
           content:
             application/json:
@@ -3012,7 +3012,7 @@ paths:
                   message:
                     type: string
                     example: "您不是该演讲室的成员或没有答题权限"
-        '404':
+        "404":
           description: 演讲室或题目不存在
           content:
             application/json:
@@ -3022,7 +3022,7 @@ paths:
                   message:
                     type: string
                     example: "演讲室或题目不存在"
-        '409':
+        "409":
           description: 题目已结束
           content:
             application/json:
@@ -3032,7 +3032,7 @@ paths:
                   message:
                     type: string
                     example: "题目已结束，无法答题"
-        '500':
+        "500":
           description: 服务器错误
           content:
             application/json:
@@ -3048,7 +3048,7 @@ paths:
     delete:
       tags:
         - 演讲室管理
-      summary: 删除演讲室  # cjy添加
+      summary: 删除演讲室 # cjy添加
       description: |
         删除指定ID的演讲室，仅限房间创建者或管理员操作。删除后相关成员、题目、讨论等数据一并清理。
       parameters:
@@ -3071,7 +3071,7 @@ paths:
                   type: string
                   description: 用户身份token
       responses:
-        '200':
+        "200":
           description: 删除成功
           content:
             application/json:
@@ -3084,7 +3084,7 @@ paths:
                   message:
                     type: string
                     example: "演讲室删除成功"
-        '400':
+        "400":
           description: 参数错误
           content:
             application/json:
@@ -3094,7 +3094,7 @@ paths:
                   message:
                     type: string
                     example: "参数错误"
-        '401':
+        "401":
           description: 未授权或token无效
           content:
             application/json:
@@ -3104,7 +3104,7 @@ paths:
                   message:
                     type: string
                     example: "token无效或已过期"
-        '403':
+        "403":
           description: 权限不足
           content:
             application/json:
@@ -3114,7 +3114,7 @@ paths:
                   message:
                     type: string
                     example: "只有房间创建者或管理员才能删除演讲室"
-        '404':
+        "404":
           description: 演讲室不存在
           content:
             application/json:
@@ -3124,7 +3124,7 @@ paths:
                   message:
                     type: string
                     example: "演讲室不存在"
-        '500':
+        "500":
           description: 服务器错误
           content:
             application/json:
@@ -3138,11 +3138,11 @@ paths:
   /users:
     get:
       tags:
-        - 用户管理  # cjy修改
+        - 用户管理 # cjy修改
       summary: 获取所有用户列表（管理后台用）
       description: 获取所有用户的基本信息，供管理后台用户管理表格使用。
       responses:
-        '200':
+        "200":
           description: 成功返回用户列表
           content:
             application/json:
@@ -3168,7 +3168,6 @@ paths:
                           type: string
                           format: date-time
                           example: "2024-01-01T10:00:00Z"
- 
 
   /uploaded-files:
     post:
@@ -3200,7 +3199,7 @@ paths:
                   description: 用户身份token
                   example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
       responses:
-        '201':
+        "201":
           description: 上传成功
           content:
             application/json:
@@ -3238,7 +3237,7 @@ paths:
                     type: string
                     format: date-time
                     example: "2024-05-01T10:00:00Z"
-        '400':
+        "400":
           description: 参数错误或文件类型不支持
           content:
             application/json:
@@ -3248,7 +3247,7 @@ paths:
                   message:
                     type: string
                     example: "文件类型不支持"
-        '401':
+        "401":
           description: 未授权或token无效
           content:
             application/json:
@@ -3258,7 +3257,7 @@ paths:
                   message:
                     type: string
                     example: "token无效或已过期"
-        '403':
+        "403":
           description: 无权限上传
           content:
             application/json:
@@ -3268,7 +3267,7 @@ paths:
                   message:
                     type: string
                     example: "无权限上传文件"
-        '413':
+        "413":
           description: 文件过大
           content:
             application/json:
@@ -3278,7 +3277,7 @@ paths:
                   message:
                     type: string
                     example: "文件大小超出限制"
-        '415':
+        "415":
           description: 不支持的媒体类型
           content:
             application/json:
@@ -3288,7 +3287,7 @@ paths:
                   message:
                     type: string
                     example: "不支持的文件类型"
-        '500':
+        "500":
           description: 服务器内部错误
           content:
             application/json:
@@ -3326,7 +3325,7 @@ paths:
                   description: 用户身份token
                   example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
       responses:
-        '200':
+        "200":
           description: 删除成功
           content:
             application/json:
@@ -3339,7 +3338,7 @@ paths:
                   message:
                     type: string
                     example: "文件删除成功"
-        '400':
+        "400":
           description: 参数错误或无权限
           content:
             application/json:
@@ -3349,7 +3348,7 @@ paths:
                   message:
                     type: string
                     example: "无权限删除该文件"
-        '404':
+        "404":
           description: 文件不存在
           content:
             application/json:
@@ -3385,7 +3384,7 @@ paths:
                   description: 用户身份token
                   example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
       responses:
-        '200':
+        "200":
           description: 获取成功
           content:
             application/json:
@@ -3422,7 +3421,7 @@ paths:
                           type: string
                           format: date-time
                           example: "2024-05-01T10:00:00Z"
-        '400':
+        "400":
           description: 参数错误
           content:
             application/json:
@@ -3432,7 +3431,7 @@ paths:
                   message:
                     type: string
                     example: "参数错误"
-        '401':
+        "401":
           description: 未授权或token无效
           content:
             application/json:
@@ -3442,7 +3441,7 @@ paths:
                   message:
                     type: string
                     example: "token无效或已过期"
-        '403':
+        "403":
           description: 无权限
           content:
             application/json:
@@ -3452,7 +3451,7 @@ paths:
                   message:
                     type: string
                     example: "无权限查看该房间文件"
-        '404':
+        "404":
           description: 房间不存在
           content:
             application/json:
@@ -3483,14 +3482,14 @@ paths:
             type: string
           description: 文件名（含扩展名）
       responses:
-        '200':
+        "200":
           description: 成功返回文件内容
           content:
             application/octet-stream:
               schema:
                 type: string
                 format: binary
-        '404':
+        "404":
           description: 文件不存在
           content:
             application/json:
@@ -3526,7 +3525,7 @@ paths:
                   description: 文件ID
                   example: 123
       responses:
-        '200':
+        "200":
           description: 成功返回文件url
           content:
             application/json:
@@ -3536,7 +3535,7 @@ paths:
                   url:
                     type: string
                     example: "http://localhost:5000/popquiz/static-files/1/example.pdf"
-        '404':
+        "404":
           description: 文件不存在
           content:
             application/json:
@@ -3567,7 +3566,7 @@ paths:
             type: string
           description: 用户身份token
       responses:
-        '200':
+        "200":
           description: 发布题目列表
           content:
             application/json:
@@ -3599,7 +3598,7 @@ paths:
                           type: string
                           format: date-time
                           description: 发布时间
-        '400':
+        "400":
           description: 参数错误
           content:
             application/json:
@@ -3609,7 +3608,7 @@ paths:
                   message:
                     type: string
                     example: "参数错误"
-        '401':
+        "401":
           description: 未授权或token无效
           content:
             application/json:
@@ -3619,7 +3618,7 @@ paths:
                   message:
                     type: string
                     example: "token无效或已过期"
-        '404':
+        "404":
           description: 房间不存在
           content:
             application/json:
@@ -3655,7 +3654,7 @@ paths:
                   description: 房间ID
                   example: 1
       responses:
-        '200':
+        "200":
           description: 获取成功
           content:
             application/json:
@@ -3687,7 +3686,7 @@ paths:
                     type: string
                     description: 提示信息
                     example: "获取成功"
-        '400':
+        "400":
           description: 参数错误
           content:
             application/json:
@@ -3697,7 +3696,7 @@ paths:
                   message:
                     type: string
                     example: "参数错误"
-        '401':
+        "401":
           description: 未授权或token无效
           content:
             application/json:
@@ -3707,7 +3706,7 @@ paths:
                   message:
                     type: string
                     example: "token无效或已过期"
-        '404':
+        "404":
           description: 房间不存在
           content:
             application/json:
@@ -3749,7 +3748,7 @@ paths:
                   description: 文件页码
                   example: 5
       responses:
-        '202':
+        "202":
           description: 已接收生成请求，稍后通过WebSocket通知
           content:
             application/json:
@@ -3763,7 +3762,7 @@ paths:
                   message:
                     type: string
                     example: "题目生成请求已接收，生成结果将通过WebSocket通知"
-        '400':
+        "400":
           description: 参数错误
           content:
             application/json:
@@ -3773,7 +3772,7 @@ paths:
                   message:
                     type: string
                     example: "参数错误"
-        '401':
+        "401":
           description: 未授权或token无效
           content:
             application/json:
@@ -3783,7 +3782,7 @@ paths:
                   message:
                     type: string
                     example: "token无效或已过期"
-        '404':
+        "404":
           description: 文件不存在
           content:
             application/json:
@@ -3793,7 +3792,7 @@ paths:
                   message:
                     type: string
                     example: "文件不存在"
-        '500':
+        "500":
           description: 服务器错误
           content:
             application/json:
@@ -3834,7 +3833,7 @@ paths:
                   description: 题目数量
                   example: 5
       responses:
-        '202':
+        "202":
           description: 已接收批量生成请求，稍后通过WebSocket通知
           content:
             application/json:
@@ -3844,7 +3843,7 @@ paths:
                   message:
                     type: string
                     example: "请求成功，等待后台解析并出题"
-        '400':
+        "400":
           description: 参数错误
           content:
             application/json:
@@ -3854,7 +3853,7 @@ paths:
                   message:
                     type: string
                     example: "参数错误"
-        '401':
+        "401":
           description: 未授权或token无效
           content:
             application/json:
@@ -3864,7 +3863,7 @@ paths:
                   message:
                     type: string
                     example: "token无效或已过期"
-        '404':
+        "404":
           description: 文件不存在
           content:
             application/json:
@@ -3874,7 +3873,7 @@ paths:
                   message:
                     type: string
                     example: "文件不存在"
-        '500':
+        "500":
           description: 服务器错误
           content:
             application/json:
@@ -3884,3 +3883,401 @@ paths:
                   message:
                     type: string
                     example: "批量出题请求失败"
+
+  # =========================
+  # cjy修改：管理后台专用接口
+  # =========================
+
+  /admin/users/{user_id}:
+    delete:
+      tags:
+        - 用户管理
+      summary: 删除用户 # cjy新增
+      description: 管理员删除指定用户
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: 用户ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - token
+              properties:
+                token:
+                  type: string
+                  description: 管理员token
+      responses:
+        "200":
+          description: 删除成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user_id:
+                    type: integer
+                    description: 被删除的用户ID
+                  message:
+                    type: string
+                    example: "用户删除成功"
+        "400":
+          description: 参数错误
+        "401":
+          description: 未授权或token无效
+        "403":
+          description: 权限不足
+        "404":
+          description: 用户不存在
+
+  /admin/speech-rooms/all:
+    get:
+      tags:
+        - 演讲室管理
+      summary: 获取所有演讲室（管理后台用） # cjy新增
+      description: 管理员获取所有演讲室列表，支持分页、状态过滤
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema:
+            type: string
+          description: 管理员token
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 1
+          description: 页码
+        - name: per_page
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 10
+          description: 每页数量
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: integer
+            enum: [0, 1, 2]
+          description: 房间状态过滤（0-等待开始，1-进行中，2-已结束）
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rooms:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                          description: 演讲室ID
+                        name:
+                          type: string
+                          description: 演讲室名称
+                        description:
+                          type: string
+                          description: 演讲室描述
+                        creator_id:
+                          type: integer
+                          description: 创建者ID
+                        creator_name:
+                          type: string
+                          description: 创建者用户名
+                        speaker_id:
+                          type: integer
+                          nullable: true
+                          description: 演讲者ID
+                        speaker_name:
+                          type: string
+                          nullable: true
+                          description: 演讲者用户名
+                        status:
+                          type: integer
+                          description: 房间状态（0-等待开始，1-进行中，2-已结束）
+                        created_at:
+                          type: string
+                          format: date-time
+                          description: 创建时间
+                        total_participants:
+                          type: integer
+                          description: 参与总人数
+                  pagination:
+                    type: object
+                    properties:
+                      page:
+                        type: integer
+                      per_page:
+                        type: integer
+                      total:
+                        type: integer
+                      pages:
+                        type: integer
+        "401":
+          description: 未授权或token无效
+        "403":
+          description: 权限不足
+
+  /admin/speech-rooms/{room_id}/members:
+    get:
+      tags:
+        - 演讲室管理
+      summary: 获取演讲室所有成员（管理后台用） # cjy新增
+      description: 获取指定演讲室的所有成员（不区分在线/离线）
+      parameters:
+        - name: room_id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: 演讲室ID
+        - name: token
+          in: query
+          required: true
+          schema:
+            type: string
+          description: 管理员token
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  room_id:
+                    type: integer
+                  members:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        user_id:
+                          type: integer
+                        username:
+                          type: string
+                        role:
+                          type: integer
+                          description: 角色（0-创建者，1-演讲者，2-听众）
+                        joined_at:
+                          type: string
+                          format: date-time
+        "401":
+          description: 未授权或token无效
+        "403":
+          description: 权限不足
+        "404":
+          description: 演讲室不存在
+
+  /admin/statistics:
+    get:
+      tags:
+        - 管理后台
+      summary: 获取管理后台统计数据 # cjy新增
+      description: 获取用户总数、演讲室总数、活跃演讲室数、已结束演讲室数等统计信息
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema:
+            type: string
+          description: 管理员token
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user_count:
+                    type: integer
+                    description: 用户总数
+                  room_count:
+                    type: integer
+                    description: 演讲室总数
+                  active_room_count:
+                    type: integer
+                    description: 活跃演讲室数
+                  ended_room_count:
+                    type: integer
+                    description: 已结束演讲室数
+        "401":
+          description: 未授权或token无效
+        "403":
+          description: 权限不足
+
+  /admin/users:
+    get:
+      tags:
+        - 用户管理
+      summary: 获取所有用户列表（管理后台用，cjy新增）
+      description: 获取所有用户的基本信息，支持分页、排序、用户名模糊搜索。
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema:
+            type: string
+          description: 管理员token
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+          description: 页码，从1开始
+        - name: per_page
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 10
+            minimum: 1
+            maximum: 100
+          description: 每页数量，最大100
+        - name: sort_by
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [id, username, created_at, updated_at]
+            default: created_at
+          description: 排序字段
+        - name: order
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+          description: 排序方向
+        - name: username
+          in: query
+          required: false
+          schema:
+            type: string
+          description: 用户名模糊搜索
+      responses:
+        "200":
+          description: 成功返回用户列表
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  users:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                          example: 1
+                        username:
+                          type: string
+                          example: "admin"
+                        created_at:
+                          type: string
+                          format: date-time
+                          example: "2024-01-01T10:00:00Z"
+                        updated_at:
+                          type: string
+                          format: date-time
+                          example: "2024-01-01T10:00:00Z"
+                  pagination:
+                    type: object
+                    properties:
+                      page:
+                        type: integer
+                        description: 当前页码
+                        example: 1
+                      per_page:
+                        type: integer
+                        description: 每页数量
+                        example: 10
+                      total:
+                        type: integer
+                        description: 总记录数
+                        example: 25
+                      pages:
+                        type: integer
+                        description: 总页数
+                        example: 3
+                      has_next:
+                        type: boolean
+                        description: 是否有下一页
+                        example: true
+                      has_prev:
+                        type: boolean
+                        description: 是否有上一页
+                        example: false
+        "400":
+          description: 参数错误
+        "401":
+          description: 未授权或token无效
+        "403":
+          description: 权限不足
+
+  /admin/login:
+    post:
+      tags:
+        - 管理后台
+      summary: 管理员登录
+      description: 管理员登录，返回管理员token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - username
+                - password
+              properties:
+                username:
+                  type: string
+                  example: "admin"
+                password:
+                  type: string
+                  format: password
+                  example: "admin123"
+      responses:
+        "200":
+          description: 登录成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                    example: "admin-token-xxxx"
+                  message:
+                    type: string
+                    example: "管理员登录成功"
+        "401":
+          description: 登录失败
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "账号或密码错误"

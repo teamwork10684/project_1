@@ -1,12 +1,8 @@
 from flask import Flask, request, jsonify, send_from_directory
-import ollama
 from flask_cors import CORS
-from module.aifilter.aifilter import filter_markdown
 from models import db, User, UserSession, SpeechRoom, SpeechRoomMember, SpeechRoomInvitation, Question,QuestionAnswer, SpeechRoomOnline, Discussion, PublishedQuestion
-from werkzeug.security import generate_password_hash
 import uuid
 from datetime import datetime
-from sqlalchemy import and_
 from sqlalchemy import text
 from websocket_handler import socketio
 from models.uploaded_file import UploadedFile
@@ -16,8 +12,7 @@ from models.raw_text import RawText
 from module.aifilter.file_parser import extract_text_from_pdf, save_and_convert_upload_file, extract_text_from_whole_pdf
 from module.aifilter.ai_question import generate_question
 import yaml
-from flask import Response
-from threading import Thread
+from sqlalchemy import func
 
 app = Flask(__name__)
 CORS(app, supports_credentials=True)
@@ -34,11 +29,9 @@ SQLALCHEMY_DATABASE_URI = f"mysql+pymysql://{db_conf.get('user','root')}:{db_con
 
 # SQLAlchemy配置
 
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:123456@localhost:3306/popquiz?charset=utf8mb4'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
 app.config['SQLALCHEMY_DATABASE_URI'] = SQLALCHEMY_DATABASE_URI
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = config.get('sqlalchemy_track_modifications', False)
-
 
 db.init_app(app)
 # 文件上传存放路径
@@ -49,6 +42,27 @@ LIBREOFFICE_PATH = LIBREOFFICE_EXECUTABLE
 #flask监听端口
 FLASK_PORT = config.get('flask_port', 5000)
 
+# ========== 管理员登录相关 ===========
+import uuid
+ADMIN_USERNAME = "admin"
+ADMIN_PASSWORD = "f85309493ca1d841f7426f2d60f11214fcafe25288122869525d090ee8efe2c8"
+ADMIN_TOKENS = set()
+
+@app.route('/popquiz/admin/login', methods=['POST'])
+def admin_login():
+    data = request.get_json() or {}
+    username = data.get('username', '').strip()
+    password = data.get('password', '').strip()
+    if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
+        token = str(uuid.uuid4())
+        ADMIN_TOKENS.add(token)
+        return jsonify({'token': token, 'message': '管理员登录成功'}), 200
+    else:
+        return jsonify({'message': '账号或密码错误'}), 401
+
+def is_admin_token(token):
+    return token in ADMIN_TOKENS
+# ========== 管理员登录相关 END ===========
 
 # 用户注册
 @app.route('/popquiz/register', methods=['POST'])
@@ -1873,51 +1887,6 @@ def get_file_url():
     from flask import request as flask_request
     url = flask_request.host_url.rstrip('/') + url
     return jsonify({'url': url}), 200
-# 新增用户接口（cjy修改）
-@app.route('/popquiz/users', methods=['POST'])
-def add_user():
-    """
-    管理后台新增用户（cjy修改）
-    请求参数：username, password
-    """
-    data = request.get_json()
-    username = data.get('username', '').strip()
-    password = data.get('password', '').strip()
-    if not username or not password:
-        return jsonify({'message': '参数错误'}), 400
-    # 检查用户名是否已存在
-    if User.query.filter_by(username=username).first():
-        return jsonify({'message': '用户名已存在'}), 400
-    # 创建新用户
-    from werkzeug.security import generate_password_hash
-    user = User(username=username, password=generate_password_hash(password))
-    db.session.add(user)
-    db.session.commit()
-    return jsonify({'id': user.id, 'message': '新增成功'}), 201
-
-# 编辑用户接口（cjy修改）
-@app.route('/popquiz/users/<int:user_id>', methods=['PUT'])
-def edit_user(user_id):
-    """
-    管理后台编辑用户（cjy修改）
-    请求参数：username(可选), password(可选)
-    """
-    user = User.query.get(user_id)
-    if not user:
-        return jsonify({'message': '用户不存在'}), 404
-    data = request.get_json()
-    username = data.get('username', '').strip()
-    password = data.get('password', '').strip()
-    # 检查用户名是否已存在（如果有修改）
-    if username and username != user.username:
-        if User.query.filter_by(username=username).first():
-            return jsonify({'message': '用户名已存在'}), 400
-        user.username = username
-    if password:
-        from werkzeug.security import generate_password_hash
-        user.password = generate_password_hash(password)
-    db.session.commit()
-    return jsonify({'id': user.id, 'message': '编辑成功'}), 200
 
 @app.route('/popquiz/speech-rooms/<int:room_id>/published-questions', methods=['GET'])
 def get_room_published_questions(room_id):
@@ -2103,7 +2072,7 @@ def request_generate_question():
     # 启动后台线程提取文本
     t = threading.Thread(target=async_extract_text_and_generate, args=(file_id, page, room_id))
     t.start()
-    return jsonify({'message': '提取任务已接收，稍后通过WebSocket通知'}), 202
+    return jsonify({'message': '任务已接收，稍后通知出题结果'}), 202
 
 @app.route('/popquiz/batch-generate-questions', methods=['POST'])
 def batch_generate_questions():
@@ -2133,43 +2102,68 @@ def batch_generate_questions():
     if not isinstance(count, int) or count <= 0:
         return jsonify({'message': '参数错误'}), 400
     try:
+        t = threading.Thread(target=async_extract_file_and_generate, args=(file_id, count, room_id))
+        t.start()
         return jsonify({'message': '请求成功，等待后台解析并出题'}), 202
     except Exception as e:
         return jsonify({'message': '批量出题请求失败'}), 500
 
 def async_extract_file_and_generate(file_id, count, room_id):
-    """异步批量出题：解析整个PDF文件，生成count道题"""
+    """异步批量出题：解析整个PDF文件，将每页文本各插一条raw_text记录（page=-1），并收集内容到all_text，预留出题逻辑"""
+    print(f"开始异步批量出题: file_id={file_id}, 共{count}道题目")
     with app.app_context():
         from sqlalchemy.orm import scoped_session, sessionmaker
         Session = scoped_session(sessionmaker(bind=db.engine))
         session = Session()
+        all_text = []
         try:
-            file_obj = session.query(UploadedFile).get(file_id)
-            if not file_obj or file_obj.status != 1:
-                print(f"文件不存在或已删除: file_id={file_id}")
-                return
-            file_path = file_obj.file_path
-            ext = (file_obj.file_extension or '').lower()
-            if ext != 'pdf':
-                print(f"暂只支持PDF批量出题: {ext}")
-                return
-            # 解析整个PDF文本
-            all_texts = extract_text_from_whole_pdf(file_path)
-            if not all_texts:
-                print(f"PDF解析无内容: file_id={file_id}")
-                return
-            from module.aifilter.ai_question import generate_question
-            for i in range(min(count, len(all_texts))):
-                text = all_texts[i]
-                if not text.strip():
-                    continue
-                try:
-                    # 传is_batch=True
-                    prompt, question, shuffled_options, new_answer = generate_question(text, is_batch=True)
-                    # 插入questions表
+            # 检查是否已解析过
+            exists = session.query(RawText).filter_by(file_id=file_id, page=-1).first()
+            if exists:
+                # 已有记录，取所有file_id和page=-1的记录，按id排序
+                raw_records = session.query(RawText).filter_by(file_id=file_id, page=-1).order_by(RawText.id.asc()).all()
+                for raw in raw_records:
+                    all_text.append(raw.content)
+                print(f"已存在记录: file_id={file_id}, page=-1, 共{len(all_text)}页")
+            else:
+                file_obj = session.query(UploadedFile).get(file_id)
+                if not file_obj or file_obj.status != 1:
+                    print(f"文件不存在或已删除: file_id={file_id}")
+                    return
+                file_path = file_obj.file_path
+                ext = (file_obj.file_extension or '').lower()
+                if ext != 'pdf':
+                    print(f"暂只支持PDF批量出题: {ext}")
+                    return
+                # 解析整个PDF文本
+                all_texts = extract_text_from_whole_pdf(file_path)
+                if not all_texts:
+                    print(f"PDF解析无内容: file_id={file_id}")
+                    return
+                # 每页内容各插一条记录，page都为-1，并加入all_text
+                for i, text in enumerate(all_texts):
+                    if not text.strip():
+                        continue
+                    raw = RawText(
+                        room_id=room_id,
+                        file_id=file_id,
+                        page=-1,
+                        content=text,
+                        source_type=1,  # 0-ppt, 1-pdf, 2-其它
+                        used_count=0
+                    )
+                    session.add(raw)
+                    session.commit()
+                    all_text.append(text)
+            print(f"PDF文本解析成功: file_id={file_id}, 共{len(all_text)}页，每页内容均已插入page=-1记录")
+            try:
+                print(f"开始调用API批量出题: file_id={file_id}, 共{len(all_text)}页")
+                question_list=generate_question(all_text,is_batch=True,count=count)
+                for question in question_list:
+                    prompt, question, shuffled_options, new_answer = question
                     q = Question(
                         room_id=room_id,
-                        raw_text=text,
+                        raw_text=file_id,#批量出题的raw_text为file_id
                         prompt=prompt,
                         question=question,
                         option_a=shuffled_options[0],
@@ -2182,11 +2176,388 @@ def async_extract_file_and_generate(file_id, count, room_id):
                     )
                     session.add(q)
                     session.commit()
-                    print(f"批量题目插入成功: file_id={file_id}, idx={i}, qid={q.id}")
-                except Exception as e:
-                    print(f"AI批量出题失败: {e}")
+                print(f"批量生成题目插入成功, 共{len(question_list)}道题目 file_id={file_id}")
+                from websocket_handler import socketio
+                socketio.emit('question_generated', {
+                    'room_id': room_id,
+                    'question_id': -1,
+                    'page': -1
+                }, room=str(room_id))
+            except Exception as e:
+                print(f"批量生成题目失败: {e}")
         finally:
             session.close()
+
+# =========================
+# cjy修改：管理后台专用接口
+# =========================
+
+# 新增用户接口（cjy修改）
+@app.route('/popquiz/users', methods=['POST'])
+def add_user():
+    """
+    管理后台新增用户（cjy修改）
+    请求参数：username, password
+    """
+    data = request.get_json()
+    token = request.headers.get('Authorization', '').replace('Bearer ', '').strip()
+    if not token or not is_admin_token(token):
+        return jsonify({'message': '无权限，需管理员登录'}), 401
+    username = data.get('username', '').strip()
+    password = data.get('password', '').strip()
+    if not username or not password:
+        return jsonify({'message': '参数错误'}), 400
+    # 检查用户名是否已存在
+    if User.query.filter_by(username=username).first():
+        return jsonify({'message': '用户名已存在'}), 400
+    # 创建新用户
+    from werkzeug.security import generate_password_hash
+    user = User(username=username, password=generate_password_hash(password))
+    db.session.add(user)
+    db.session.commit()
+    return jsonify({'id': user.id, 'message': '新增成功'}), 201
+
+# 编辑用户接口（cjy修改）
+@app.route('/popquiz/users/<int:user_id>', methods=['PUT'])
+def edit_user(user_id):
+    """
+    管理后台编辑用户（cjy修改）
+    请求参数：username(可选), password(可选)
+    """
+    token = request.headers.get('Authorization', '').replace('Bearer ', '').strip()
+    if not token or not is_admin_token(token):
+        return jsonify({'message': '无权限，需管理员登录'}), 401
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({'message': '用户不存在'}), 404
+    data = request.get_json()
+    username = data.get('username', '').strip()
+    password = data.get('password', '').strip()
+    # 检查用户名是否已存在（如果有修改）
+    if username and username != user.username:
+        if User.query.filter_by(username=username).first():
+            return jsonify({'message': '用户名已存在'}), 400
+        user.username = username
+    if password:
+        from werkzeug.security import generate_password_hash
+        user.password = generate_password_hash(password)
+    db.session.commit()
+    return jsonify({'id': user.id, 'message': '编辑成功'}), 200
+    
+# 管理后台-统计数据
+@app.route('/popquiz/admin/statistics', methods=['GET'])
+def admin_statistics():
+    token = request.args.get('token', '').strip()
+    if not token or not is_admin_token(token):
+        return jsonify({'message': '无权限，需管理员登录'}), 401
+    user_count = User.query.count()
+    room_count = SpeechRoom.query.count()
+    active_room_count = SpeechRoom.query.filter_by(status=1).count()
+    ended_room_count = SpeechRoom.query.filter_by(status=2).count()
+    return jsonify({
+        'user_count': user_count,
+        'room_count': room_count,
+        'active_room_count': active_room_count,
+        'ended_room_count': ended_room_count
+    }), 200
+
+# 管理后台-获取所有用户
+@app.route('/popquiz/admin/users', methods=['GET'])
+def admin_get_users():
+    token = request.args.get('token', '').strip()
+    if not token or not is_admin_token(token):
+        return jsonify({'message': '无权限，需管理员登录'}), 401
+    # ...原有逻辑...
+    # 分页参数
+    page = request.args.get('page', default=1, type=int)
+    per_page = request.args.get('per_page', default=10, type=int)
+    per_page = min(per_page, 100)  # 限制每页最大数量
+    # 排序参数
+    sort_by = request.args.get('sort_by', default='created_at')
+    order = request.args.get('order', default='desc')
+    # 搜索参数
+    username = request.args.get('username', default=None, type=str)
+    # 支持的排序字段
+    valid_sort_fields = ['id', 'username', 'created_at', 'updated_at']
+    if sort_by not in valid_sort_fields:
+        sort_by = 'created_at'
+    if order not in ['asc', 'desc']:
+        order = 'desc'
+    # 构建查询
+    query = User.query
+    if username:
+        query = query.filter(User.username.like(f"%{username}%"))
+    # 排序
+    sort_column = getattr(User, sort_by)
+    if order == 'desc':
+        query = query.order_by(sort_column.desc())
+    else:
+        query = query.order_by(sort_column.asc())
+    # 分页
+    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+    users = pagination.items
+    result = []
+    for user in users:
+        result.append({
+            'id': user.id,
+            'username': user.username,
+            'created_at': user.created_at.isoformat() if user.created_at else None,
+            'updated_at': user.updated_at.isoformat() if user.updated_at else None
+        })
+    response_data = {
+        'users': result,
+        'pagination': {
+            'page': page,
+            'per_page': per_page,
+            'total': pagination.total,
+            'pages': pagination.pages,
+            'has_next': pagination.has_next,
+            'has_prev': pagination.has_prev
+        }
+    }
+    return jsonify(response_data), 200
+
+# 管理后台-删除用户
+@app.route('/popquiz/admin/users/<int:user_id>', methods=['DELETE'])
+def admin_delete_user(user_id):
+    token = request.get_json().get('token', '').strip() if request.is_json else ''
+    if not token or not is_admin_token(token):
+        return jsonify({'message': '无权限，需管理员登录'}), 401
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({'message': '用户不存在'}), 404
+    db.session.delete(user)
+    db.session.commit()
+    return jsonify({'user_id': user_id, 'message': '用户删除成功'}), 200
+
+# 管理后台-获取所有演讲室
+@app.route('/popquiz/admin/speech-rooms/all', methods=['GET'])
+def admin_get_rooms():
+    token = request.args.get('token', '').strip()
+    if not token or not is_admin_token(token):
+        return jsonify({'message': '无权限，需管理员登录'}), 401
+    # ...原有逻辑...
+    try:
+        page = int(request.args.get('page', 1))
+        per_page = int(request.args.get('per_page', 5))
+    except Exception:
+        page = 1
+        per_page = 5
+    sort_by = request.args.get('sort_by', 'id')
+    order = request.args.get('order', 'desc')
+    query = SpeechRoom.query
+    status = request.args.get('status', None)
+    if status is not None:
+        query = query.filter(SpeechRoom.status == int(status))
+    # 排序逻辑
+    if sort_by == 'id':
+        if order == 'asc':
+            query = query.order_by(SpeechRoom.id.asc())
+        else:
+            query = query.order_by(SpeechRoom.id.desc())
+    elif sort_by == 'total_participants':
+        # 先查所有房间，统计人数后排序
+        all_rooms = query.all()
+        room_participants = [
+            (r, SpeechRoomMember.query.filter_by(room_id=r.id).count()) for r in all_rooms
+        ]
+        reverse = (order != 'asc')
+        room_participants.sort(key=lambda x: x[1], reverse=reverse)
+        sorted_rooms = [x[0] for x in room_participants]
+        total = len(sorted_rooms)
+        start = (page - 1) * per_page
+        end = start + per_page
+        rooms = sorted_rooms[start:end]
+        pagination = type('Pagination', (), {
+            'items': rooms,
+            'pages': (total + per_page - 1) // per_page,
+            'has_next': end < total,
+            'has_prev': start > 0
+        })()
+    else:
+        if order == 'asc':
+            query = query.order_by(SpeechRoom.id.asc())
+        else:
+            query = query.order_by(SpeechRoom.id.desc())
+    if sort_by != 'total_participants':
+        total = query.count()
+        pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+        rooms = pagination.items
+    result = []
+    for r in rooms:
+        creator = User.query.get(r.creator_id)
+        creator_name = creator.username if creator else None
+        speaker_name = None
+        if r.speaker_id:
+            speaker = User.query.get(r.speaker_id)
+            speaker_name = speaker.username if speaker else None
+        participant_count = SpeechRoomMember.query.filter_by(room_id=r.id).count()
+        result.append({
+            'id': r.id,
+            'name': r.name,
+            'description': r.description,
+            'creator_id': r.creator_id,
+            'creator_name': creator_name,
+            'speaker_id': r.speaker_id,
+            'speaker_name': speaker_name,
+            'status': r.status,
+            'created_at': r.created_at.isoformat() if r.created_at else None,
+            'total_participants': participant_count
+        })
+    return jsonify({
+        'rooms': result,
+        'pagination': {
+            'page': page,
+            'per_page': per_page,
+            'total': total,
+            'pages': pagination.pages,
+            'has_next': pagination.has_next,
+            'has_prev': pagination.has_prev
+        }
+    }), 200
+
+# 管理后台-获取演讲室所有成员
+@app.route('/popquiz/admin/speech-rooms/<int:room_id>/members', methods=['GET'])
+def admin_get_room_members(room_id):
+    token = request.args.get('token', '').strip()
+    if not token or not is_admin_token(token):
+        return jsonify({'message': '无权限，需管理员登录'}), 401
+    members = SpeechRoomMember.query.filter_by(room_id=room_id).all()
+    room = SpeechRoom.query.get(room_id)
+    if not room:
+        return jsonify({'message': '演讲室不存在'}), 404
+    result = []
+    for m in members:
+        user = User.query.get(m.user_id)
+        if m.user_id == room.creator_id:
+            role = 0  # 创建者
+        elif room.speaker_id and m.user_id == room.speaker_id:
+            role = 1  # 演讲者
+        else:
+            role = 2  # 听众
+        result.append({
+            'user_id': m.user_id,
+            'username': user.username if user else None,
+            'role': role,
+            'joined_at': m.joined_at.isoformat() if m.joined_at else None
+        })
+    return jsonify({'room_id': room_id, 'members': result}), 200
+
+# cjy修改：管理后台-获取指定用户参与的所有演讲室
+@app.route('/popquiz/admin/user/<int:user_id>/speech-rooms', methods=['GET'])
+def admin_get_user_speech_rooms(user_id):
+    token = request.args.get('token', '').strip()
+    if not token or not is_admin_token(token):
+        return jsonify({'message': '无权限，需管理员登录'}), 401
+    member_rooms = SpeechRoomMember.query.filter_by(user_id=user_id).all()
+    room_ids = [m.room_id for m in member_rooms]
+    rooms = SpeechRoom.query.filter(SpeechRoom.id.in_(room_ids)).all() if room_ids else []
+    created_rooms = SpeechRoom.query.filter_by(creator_id=user_id).all()
+    all_rooms = {r.id: r for r in rooms + created_rooms}
+    result = []
+    for r in all_rooms.values():
+        participant_count = SpeechRoomMember.query.filter_by(room_id=r.id).count()
+        creator = User.query.get(r.creator_id)
+        creator_name = creator.username if creator else None
+        speaker_name = None
+        if r.speaker_id:
+            speaker = User.query.get(r.speaker_id)
+            speaker_name = speaker.username if speaker else None
+        result.append({
+            'id': r.id,
+            'name': r.name,
+            'description': r.description,
+            'creator_id': r.creator_id,
+            'speaker_id': r.speaker_id,
+            'status': r.status,
+            'created_at': r.created_at.isoformat() if r.created_at else None,
+            'total_participants': participant_count,
+            'creator_name': creator_name,
+            'speaker_name': speaker_name
+        })
+    return jsonify({'rooms': result}), 200
+
+# cjy修改：管理后台-获取指定用户所有被邀请记录
+@app.route('/popquiz/admin/user/<int:user_id>/invitations', methods=['GET'])
+def admin_get_user_invitations(user_id):
+    token = request.args.get('token', '').strip()
+    if not token or not is_admin_token(token):
+        return jsonify({'message': '无权限，需管理员登录'}), 401
+    invitations = SpeechRoomInvitation.query.filter_by(invitee_id=user_id).all()
+    result = []
+    for inv in invitations:
+        room = SpeechRoom.query.get(inv.room_id)
+        if not room:
+            continue
+        creator = User.query.get(room.creator_id)
+        creator_name = creator.username if creator else None
+        speaker_name = None
+        if room.speaker_id:
+            speaker = User.query.get(room.speaker_id)
+            speaker_name = speaker.username if speaker else None
+        participant_count = SpeechRoomMember.query.filter_by(room_id=room.id).count()
+        result.append({
+            'id': inv.id,
+            'room_id': room.id,
+            'room_name': room.name,
+            'description': room.description,
+            'created_at': room.created_at.isoformat() if room.created_at else None,
+            'creator_name': creator_name,
+            'speaker_name': speaker_name,
+            'total_participants': participant_count,
+            'role': inv.role,
+            'status': inv.status,
+            'room_status': room.status,
+            'invited_time': inv.invited_time.isoformat() if inv.invited_time else None
+        })
+    return jsonify({'invitations': result}), 200
+
+# cjy修改：管理后台-获取指定用户创建的所有演讲室
+@app.route('/popquiz/admin/user/<int:user_id>/created-rooms', methods=['GET'])
+def admin_get_user_created_rooms(user_id):
+    token = request.args.get('token', '').strip()
+    if not token or not is_admin_token(token):
+        return jsonify({'message': '无权限，需管理员登录'}), 401
+    rooms = SpeechRoom.query.filter_by(creator_id=user_id).all()
+    result = []
+    for r in rooms:
+        result.append({
+            'id': r.id,
+            'name': r.name,
+            'description': r.description,
+            'creator_id': r.creator_id,
+            'speaker_id': r.speaker_id,
+            'status': r.status,
+            'created_at': r.created_at.isoformat() if r.created_at else None
+        })
+    return jsonify({'rooms': result}), 200
+
+# cjy修改：管理后台-删除指定演讲室
+@app.route('/popquiz/admin/speech-rooms/<int:room_id>', methods=['DELETE'])
+def admin_delete_speech_room(room_id):
+    token = request.get_json().get('token', '').strip() if request.is_json else ''
+    if not token or not is_admin_token(token):
+        return jsonify({'message': '无权限，需管理员登录'}), 401
+    room = SpeechRoom.query.get(room_id)
+    if not room:
+        return jsonify({'message': '演讲室不存在'}), 404
+    db.session.delete(room)
+    db.session.commit()
+    return jsonify({'room_id': room_id, 'message': '演讲室删除成功'}), 200
+
+# cjy修改：管理后台-强制关闭指定演讲室
+@app.route('/popquiz/admin/speech-rooms/<int:room_id>/force-close', methods=['POST'])
+def admin_force_close_speech_room(room_id):
+    token = request.get_json().get('token', '').strip() if request.is_json else ''
+    if not token or not is_admin_token(token):
+        return jsonify({'message': '无权限，需管理员登录'}), 401
+    room = SpeechRoom.query.get(room_id)
+    if not room:
+        return jsonify({'message': '演讲室不存在'}), 404
+    # 设为已结束
+    room.status = 2
+    db.session.commit()
+    return jsonify({'room_id': room_id, 'message': '演讲室已强制关闭'}), 200
 
 if __name__ == '__main__':
     socketio.run(app, host='0.0.0.0', port=FLASK_PORT, debug=True,allow_unsafe_werkzeug=True)
