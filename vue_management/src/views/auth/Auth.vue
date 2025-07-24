@@ -31,7 +31,8 @@
 import { ref, computed, watch, onMounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { message } from 'ant-design-vue';
-import { userAPI } from '@/api';
+import { userAPI, adminAuthAPI } from '@/api';
+import { sha256 } from 'js-sha256';
 
 const router = useRouter();
 const route = useRoute();
@@ -100,21 +101,32 @@ const handleSubmit = async () => {
   }
 };
 
+const ADMIN_HASHED_PASSWORD = 'f85309493ca1d841f7426f2d60f11214fcafe25288122869525d090ee8efe2c8'; // 'admin123' 的SHA-256
+
 const handleLogin = async () => {
   loading.value = true;
   try {
-    const res = await userAPI.login({
-      username: form.value.username,
-      password: form.value.password
-    });
-    const data = res.data;
-    if (data.token) {
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('username', form.value.username);
-      message.success('登录成功');
-      router.push('/admin');
+    const inputHash = sha256(form.value.password);
+    console.log('sha256 :', inputHash);
+    if (form.value.username === 'admin' && inputHash === ADMIN_HASHED_PASSWORD) {
+      
+      // 管理员登录
+      const res = await adminAuthAPI.adminLogin({
+        username: form.value.username,
+        password: inputHash // 传哈希值给后端
+      });
+      const data = res.data;
+      if (data.token) {
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('username', form.value.username);
+        message.success('管理员登录成功');
+        router.push('/admin');
+      } else {
+        message.error(data.message || '管理员登录失败');
+      }
     } else {
-      message.error(data.message || '登录失败');
+      // 非管理员禁止登录
+      message.error('仅允许管理员账号登录');
     }
   } catch (error) {
     if (error.response?.data?.message) {
@@ -130,10 +142,11 @@ const handleLogin = async () => {
 const handleRegister = async () => {
   loading.value = true;
   try {
-    const res = await userAPI.register({
+    const token = localStorage.getItem('token');
+    const res = await userAPI.addUser({
       username: form.value.username,
       password: form.value.password
-    });
+    }, token);
     const data = res.data;
     if (data.id) {
       message.success('注册成功');

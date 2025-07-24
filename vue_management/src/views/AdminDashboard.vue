@@ -403,7 +403,8 @@ const handleUserModalOk = async () => {
   }
   userModalLoading.value = true
   try {
-    await userAPI.editUser(userForm.value.id, { username: userForm.value.username, password: userForm.value.password })
+    const token = localStorage.getItem('token');
+    await userAPI.editUser(userForm.value.id, { username: userForm.value.username, password: userForm.value.password }, token)
     message.success('编辑成功')
     userModalVisible.value = false
     fetchUsers()
@@ -483,7 +484,8 @@ const handleAddUserOk = async () => {
   }
   addUserLoading.value = true;
   try {
-    const res = await userAPI.addUser({ username: addUserForm.value.username, password: addUserForm.value.password });
+    const token = localStorage.getItem('token');
+    const res = await userAPI.addUser({ username: addUserForm.value.username, password: addUserForm.value.password }, token);
     if (res.data && res.data.id) {
       message.success('新增成功');
       addUserModalVisible.value = false;
