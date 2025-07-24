@@ -12,6 +12,7 @@ from models.raw_text import RawText
 from module.aifilter.file_parser import extract_text_from_pdf, save_and_convert_upload_file, extract_text_from_whole_pdf
 from module.aifilter.ai_question import generate_question
 import yaml
+from sqlalchemy import func
 
 app = Flask(__name__)
 CORS(app, supports_credentials=True)
@@ -2322,7 +2323,55 @@ def admin_get_rooms():
     token = request.args.get('token', '').strip()
     if not token:
         return jsonify({'message': '参数错误'}), 400
-    rooms = SpeechRoom.query.all()
+    # 新增分页参数
+    try:
+        page = int(request.args.get('page', 1))
+        per_page = int(request.args.get('per_page', 5))
+    except Exception:
+        page = 1
+        per_page = 5
+    sort_by = request.args.get('sort_by', 'id')
+    order = request.args.get('order', 'desc')
+    query = SpeechRoom.query
+    status = request.args.get('status', None)
+    if status is not None:
+        query = query.filter(SpeechRoom.status == int(status))
+    # 排序逻辑
+    if sort_by == 'id':
+        if order == 'asc':
+            query = query.order_by(SpeechRoom.id.asc())
+        else:
+            query = query.order_by(SpeechRoom.id.desc())
+    elif sort_by == 'total_participants':
+        # 先查所有房间，统计人数后排序
+        all_rooms = query.all()
+        room_participants = [
+            (r, SpeechRoomMember.query.filter_by(room_id=r.id).count()) for r in all_rooms
+        ]
+        reverse = (order != 'asc')
+        room_participants.sort(key=lambda x: x[1], reverse=reverse)
+        sorted_rooms = [x[0] for x in room_participants]
+        # 分页
+        total = len(sorted_rooms)
+        start = (page - 1) * per_page
+        end = start + per_page
+        rooms = sorted_rooms[start:end]
+        pagination = type('Pagination', (), {
+            'items': rooms,
+            'pages': (total + per_page - 1) // per_page,
+            'has_next': end < total,
+            'has_prev': start > 0
+        })()
+    else:
+        # 默认按id
+        if order == 'asc':
+            query = query.order_by(SpeechRoom.id.asc())
+        else:
+            query = query.order_by(SpeechRoom.id.desc())
+    if sort_by != 'total_participants':
+        total = query.count()
+        pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+        rooms = pagination.items
     result = []
     for r in rooms:
         creator = User.query.get(r.creator_id)
@@ -2331,6 +2380,7 @@ def admin_get_rooms():
         if r.speaker_id:
             speaker = User.query.get(r.speaker_id)
             speaker_name = speaker.username if speaker else None
+        # 统计当前成员人数（所有角色）
         participant_count = SpeechRoomMember.query.filter_by(room_id=r.id).count()
         result.append({
             'id': r.id,
@@ -2344,7 +2394,17 @@ def admin_get_rooms():
             'created_at': r.created_at.isoformat() if r.created_at else None,
             'total_participants': participant_count
         })
-    return jsonify({'rooms': result}), 200
+    return jsonify({
+        'rooms': result,
+        'pagination': {
+            'page': page,
+            'per_page': per_page,
+            'total': total,
+            'pages': pagination.pages,
+            'has_next': pagination.has_next,
+            'has_prev': pagination.has_prev
+        }
+    }), 200
 
 # 管理后台-获取演讲室所有成员
 @app.route('/popquiz/admin/speech-rooms/<int:room_id>/members', methods=['GET'])
@@ -2354,13 +2414,23 @@ def admin_get_room_members(room_id):
     if not token:
         return jsonify({'message': '参数错误'}), 400
     members = SpeechRoomMember.query.filter_by(room_id=room_id).all()
+    room = SpeechRoom.query.get(room_id)
+    if not room:
+        return jsonify({'message': '演讲室不存在'}), 404
     result = []
     for m in members:
         user = User.query.get(m.user_id)
+        # 动态判断角色
+        if m.user_id == room.creator_id:
+            role = 0  # 创建者
+        elif room.speaker_id and m.user_id == room.speaker_id:
+            role = 1  # 演讲者
+        else:
+            role = 2  # 听众
         result.append({
             'user_id': m.user_id,
             'username': user.username if user else None,
-            'role': getattr(m, 'role', None),
+            'role': role,
             'joined_at': m.joined_at.isoformat() if m.joined_at else None
         })
     return jsonify({'room_id': room_id, 'members': result}), 200

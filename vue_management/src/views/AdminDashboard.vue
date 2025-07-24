@@ -138,7 +138,7 @@
         </a-tab-pane>
         <a-tab-pane key="speeches" tab="演讲室管理">
           <a-card title="演讲室信息" :bodyStyle="{padding: '0'}" :headStyle="{padding: '0 24px'}">
-            <a-table :columns="roomColumns" :data-source="roomData" row-key="id" bordered :pagination="{ position: ['bottomCenter'] }" style="width: 100%">
+            <a-table :columns="roomColumns" :data-source="roomData" row-key="id" bordered :pagination="{ current: roomPagination.current, pageSize: roomPagination.pageSize, total: roomPagination.total, position: ['bottomCenter'] }" style="width: 100%" @change="handleRoomTableChange">
               <template #bodyCell="{ column, record }">
                 <template v-if="column.key === 'action'">
                   <a-space>
@@ -178,13 +178,32 @@
         <div style="margin-bottom: 8px; font-weight: bold;">参与的所有演讲室：</div>
         <a-table :columns="[{title:'ID',dataIndex:'id'},{title:'名称',dataIndex:'name'},{title:'描述',dataIndex:'description'}]" :data-source="userDetail.speechRooms" row-key="id" size="small" :pagination="false" />
         <div style="margin: 12px 0 8px 0; font-weight: bold;">所有被邀请记录：</div>
-        <a-table :columns="[{title:'房间名',dataIndex:'room_name'},{title:'角色',dataIndex:'role'},{title:'状态',dataIndex:'status'}]" :data-source="userDetail.invitations" row-key="id" size="small" :pagination="false" />
+        <a-table :columns="invitationColumns" :data-source="userDetail.invitations" row-key="id" size="small" :pagination="false" />
         <div style="margin: 12px 0 8px 0; font-weight: bold;">创建的所有演讲室：</div>
         <a-table :columns="[{title:'ID',dataIndex:'id'},{title:'名称',dataIndex:'name'},{title:'描述',dataIndex:'description'}]" :data-source="userDetail.createdRooms" row-key="id" size="small" :pagination="false" />
       </template>
     </a-modal>
     <!-- 演讲室成员弹窗 -->
     <a-modal v-model:open="roomMemberModalVisible" title="演讲室成员" :footer="null" width="600px" @cancel="handleRoomMemberCancel">
+      <div style="margin-bottom: 16px; display: flex; justify-content: center; align-items: center; gap: 16px;">
+        <a-radio-group v-model:value="roomMemberSortKey" @change="sortRoomMembers" button-style="solid">
+          <a-radio-button value="role">按角色排序</a-radio-button>
+          <a-radio-button value="joined_at">按加入时间排序</a-radio-button>
+        </a-radio-group>
+        <a-tooltip :title="roomMemberSortOrder === 'asc' ? '升序' : '降序'">
+          <a-button
+            size="small"
+            type="primary"
+            shape="circle"
+            @click="roomMemberSortOrder = roomMemberSortOrder === 'asc' ? 'desc' : 'asc'; sortRoomMembers()"
+            style="margin-left: 8px; display: flex; align-items: center; justify-content: center;"
+          >
+            <template #icon>
+              <i :class="roomMemberSortOrder === 'asc' ? 'anticon anticon-arrow-up' : 'anticon anticon-arrow-down'" />
+            </template>
+          </a-button>
+        </a-tooltip>
+      </div>
       <a-table
         :columns="roomMemberColumns"
         :data-source="roomMemberData"
@@ -490,25 +509,79 @@ const handleLogout = () => {
 }
 
 // 演讲室信息表头
+const roomStatusFilter = ref(null)
+
 const roomColumns = [
-  { title: 'ID', dataIndex: 'id', key: 'id' },
+  { title: 'ID', dataIndex: 'id', key: 'id', sorter: true },
   { title: '演讲室名称', dataIndex: 'name', key: 'name' },
-  { title: '创建者', dataIndex: 'creator', key: 'creator' },
-  { title: '状态', dataIndex: 'status', key: 'status' },
-  { title: '人数', dataIndex: 'members', key: 'members' },
+  { title: '描述', dataIndex: 'description', key: 'description' },
+  { title: '创建者', dataIndex: 'creator_name', key: 'creator_name' },
+  { title: '状态', dataIndex: 'status', key: 'status',
+    customRender: ({ text }) => {
+      if (text === 0) return '等待开始';
+      if (text === 1) return '进行中';
+      if (text === 2) return '已结束';
+      return text;
+    },
+    filters: [
+      { text: '全部', value: null },
+      { text: '等待开始', value: 0 },
+      { text: '进行中', value: 1 },
+      { text: '已结束', value: 2 }
+    ],
+    filterMultiple: false
+  },
+  { title: '人数', dataIndex: 'total_participants', key: 'total_participants', sorter: true },
   { title: '操作', key: 'action' }
 ]
+
+// 新增排序状态
+const roomSorter = ref({ field: 'id', order: 'descend' })
+
 const roomData = ref([])
+// 新增分页状态
+const roomPagination = ref({ current: 1, pageSize: 5, total: 0 })
+
+// 修改fetchRooms，支持状态筛选
 const fetchRooms = async () => {
   try {
     const token = localStorage.getItem('token')
-    const res = await adminAPI.getRooms(token)
+    const params = {
+      page: roomPagination.value.current,
+      per_page: roomPagination.value.pageSize,
+      sort_by: roomSorter.value.field,
+      order: roomSorter.value.order === 'ascend' ? 'asc' : 'desc',
+      status: roomStatusFilter.value !== null ? roomStatusFilter.value : undefined
+    }
+    const res = await adminAPI.getRooms(token, params)
     roomData.value = res.data.rooms
+    if (res.data.pagination) {
+      roomPagination.value.total = res.data.pagination.total
+    }
   } catch (e) {
     message.error('获取演讲室列表失败')
   }
 }
 onMounted(fetchRooms)
+
+// 分页、排序、筛选切换事件
+const handleRoomTableChange = (pagination, filters, sorter) => {
+  roomPagination.value.current = pagination.current
+  roomPagination.value.pageSize = pagination.pageSize
+  if (sorter && sorter.field) {
+    roomSorter.value.field = sorter.field
+    roomSorter.value.order = sorter.order
+  }
+  // 状态筛选
+  if (filters && filters.status !== undefined) {
+    if (filters.status && filters.status.length > 0) {
+      roomStatusFilter.value = filters.status[0] !== null ? filters.status[0] : null
+    } else {
+      roomStatusFilter.value = null
+    }
+  }
+  fetchRooms()
+}
 
 const handleRoomDelete = (room) => {
   Modal.confirm({
@@ -523,6 +596,7 @@ const handleRoomDelete = (room) => {
         await api.delete(`/admin/speech-rooms/${room.id}`, { data: { token } })
         message.success('删除成功')
         fetchRooms()
+        fetchAdminStats() // 新增：删除后立即刷新统计卡片
       } catch (e) {
         message.error(e?.response?.data?.message || '删除失败')
       }
@@ -547,14 +621,43 @@ const roomMemberColumns = [
 const roomMemberModalVisible = ref(false)
 const roomMemberData = ref([])
 const roomMemberPagination = ref({ current: 1, pageSize: 10 })
+// 新增排序相关变量
+const roomMemberSortKey = ref('role') // 'role' 或 'joined_at'
+const roomMemberSortOrder = ref('asc') // 'asc' 或 'desc'
+
+// 排序函数
+const sortRoomMembers = () => {
+  let data = roomMemberData.value.slice()
+  if (roomMemberSortKey.value === 'role') {
+    data.sort((a, b) => {
+      if (a.role !== b.role) return (roomMemberSortOrder.value === 'asc' ? a.role - b.role : b.role - a.role)
+      if (a.role === 2 && b.role === 2) return (roomMemberSortOrder.value === 'asc' ? a.user_id - b.user_id : b.user_id - a.user_id)
+      return 0
+    })
+  } else if (roomMemberSortKey.value === 'joined_at') {
+    data.sort((a, b) => {
+      const t1 = new Date(a.joined_at).getTime()
+      const t2 = new Date(b.joined_at).getTime()
+      return roomMemberSortOrder.value === 'asc' ? t1 - t2 : t2 - t1
+    })
+  }
+  roomMemberData.value = data
+}
 
 // 2. 修改handleRoomViewMembers方法，弹窗表格展示成员信息
 const handleRoomViewMembers = async (room) => {
   try {
     const token = localStorage.getItem('token')
     const res = await adminAPI.getRoomMembers(room.id, token)
-    roomMemberData.value = res.data.members || []
+    // 默认排序：创建者 > 演讲者 > 听众（用户id升序）
+    roomMemberData.value = (res.data.members || []).slice().sort((a, b) => {
+      if (a.role !== b.role) return a.role - b.role
+      if (a.role === 2 && b.role === 2) return a.user_id - b.user_id
+      return 0
+    })
     roomMemberModalVisible.value = true
+    roomMemberSortKey.value = 'role'
+    roomMemberSortOrder.value = 'asc'
   } catch (e) {
     message.error('获取成员失败')
   }
@@ -575,6 +678,7 @@ const handleRoomForceClose = (room) => {
         await api.post(`/admin/speech-rooms/${room.id}/force-close`, { token })
         message.success('演讲室已强制关闭')
         fetchRooms()
+        fetchAdminStats() // 新增：强制关闭后立即刷新统计卡片
       } catch (e) {
         message.error(e?.response?.data?.message || '强制关闭失败')
       }
@@ -600,6 +704,27 @@ const userDetail = ref({
   invitations: [],
   createdRooms: []
 })
+
+// 新增：被邀请记录表格列定义，带映射
+const invitationColumns = [
+  { title: '房间名', dataIndex: 'room_name', key: 'room_name' },
+  { title: '角色', dataIndex: 'role', key: 'role',
+    customRender: ({ text }) => {
+      if (text === 0) return '听众';
+      if (text === 1) return '演讲者';
+      return text;
+    }
+  },
+  { title: '状态', dataIndex: 'status', key: 'status',
+    customRender: ({ text }) => {
+      if (text === 0) return '待接受';
+      if (text === 1) return '已接受';
+      if (text === 2) return '已拒绝';
+      if (text === 3) return '已失效';
+      return text;
+    }
+  }
+]
 
 // 2. 新增API调用（通过user_id调用管理后台接口）
 const fetchUserDetails = async (user) => {

@@ -157,7 +157,7 @@ export const adminAPI = {
     // 删除用户
     deleteUser: (id, token) => api.delete(`/admin/users/${id}`, { data: { token } }),
     // 获取所有演讲室
-    getRooms: (token) => api.get('/admin/speech-rooms/all', { params: { token } }),
+    getRooms: (token, params = {}) => api.get('/admin/speech-rooms/all', { params: { token, ...params } }),
     // 获取演讲室成员
     getRoomMembers: (roomId, token) => api.get(`/admin/speech-rooms/${roomId}/members`, { params: { token } }),
 }

@@ -3985,27 +3985,37 @@ paths:
                       properties:
                         id:
                           type: integer
+                          description: 演讲室ID
                         name:
                           type: string
+                          description: 演讲室名称
                         description:
                           type: string
+                          description: 演讲室描述
                         creator_id:
                           type: integer
+                          description: 创建者ID
                         creator_name:
                           type: string
+                          description: 创建者用户名
                         speaker_id:
                           type: integer
                           nullable: true
+                          description: 演讲者ID
                         speaker_name:
                           type: string
                           nullable: true
+                          description: 演讲者用户名
                         status:
                           type: integer
+                          description: 房间状态（0-等待开始，1-进行中，2-已结束）
                         created_at:
                           type: string
                           format: date-time
+                          description: 创建时间
                         total_participants:
                           type: integer
+                          description: 参与总人数
                   pagination:
                     type: object
                     properties:
