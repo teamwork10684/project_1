@@ -25,7 +25,7 @@ let lastUrl = ''
 let lastPage = 1
 let resizeObserver = null
 
-const renderPdf = async (url, pageNum) => {
+const renderPdf = async (url, pageNum,retryCount=0) => {
   loading.value = true
   error.value = ''
   try {
@@ -56,6 +56,12 @@ const renderPdf = async (url, pageNum) => {
     lastUrl = url
     lastPage = pageNum
   } catch (e) {
+    if (retryCount < 3) {
+      setTimeout(() => {
+        renderPdf(url, pageNum, retryCount + 1)
+      }, 300)
+      return
+    }
     error.value = 'PDF 加载失败'
   } finally {
     loading.value = false
