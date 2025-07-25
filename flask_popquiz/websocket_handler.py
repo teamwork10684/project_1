@@ -1,5 +1,6 @@
 from flask_socketio import SocketIO, emit, join_room, leave_room
 from flask import request
+import json
 from datetime import datetime
 from models import db
 from models.speech_room_online import SpeechRoomOnline
@@ -38,7 +39,6 @@ def handle_disconnect():
 
 @socketio.on('join_room')
 def handle_join_room(data):
-    print(f"[WebSocket] join_room: {data}")
     room_id = data.get('room_id')
     user_id = data.get('user_id')
     username = data.get('username')
@@ -131,6 +131,7 @@ def handle_send_message(data):
         # 新增：判断当前房间有无进行中的题目
         from models.published_question import PublishedQuestion
         question_id = -1
+        published = None
         try:
             published = PublishedQuestion.query.filter_by(room_id=room_id, status=0).first()
             if published:
@@ -157,6 +158,33 @@ def handle_send_message(data):
             'timestamp': datetime.now().isoformat(),
             'is_system': False
         }, room=room_id)
+
+        # 新增：如果有进行中题目，emit question_discussion
+        if published:
+            # 获取房间名
+            from models.speech_room import SpeechRoom
+            room = SpeechRoom.query.filter_by(id=room_id).first()
+            room_name = room.name if room else ''
+            # 获取discussion刚插入的id和created_at
+            try:
+                # 重新查找刚插入的discussion
+                last_discussion = Discussion.query.filter_by(room_id=room_id, user_id=user_id, content=message).order_by(Discussion.id.desc()).first()
+            except Exception:
+                last_discussion = discussion
+            emit('question_discussion', {
+                'id': last_discussion.id if last_discussion else None,
+                'question_id': int(question_id),
+                'room_id': room_id,
+                'room_name': room_name,
+                'user_id': user_id,
+                'username': username,
+                'content': message,
+                'is_system': False,
+                'created_at': (last_discussion.created_at.isoformat() if last_discussion and last_discussion.created_at else datetime.now().isoformat())
+            }, room=room_id)
+
+        
+
 
 def get_room_online_count(room_id):
     """获取房间在线人数"""
