@@ -325,7 +325,7 @@
                 </template>
               </a-card-meta>
               <template #actions>
-                <a-button type="link" @click.stop="viewResults(presentation)">
+                <a-button type="link" @click.stop="enterRoom(presentation)">
                   <BarChartOutlined />
                   查看结果
                 </a-button>

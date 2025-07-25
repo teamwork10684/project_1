@@ -230,6 +230,7 @@ const statsData = ref({
   correct: 0,
   wrong: 0,
   skip: 0,
+  rank: ''
 });
 
 // 在线人员显示控制
@@ -396,9 +397,10 @@ const fetchUserRoomStats = async () => {
       correct: data.correct_count || 0,
       wrong: data.wrong_count || 0,
       skip: data.skipped_count || 0,
+      rank: data.rank || ''
     };
   } catch (err) {
-    statsData.value = { score: 0, accuracy: 0, correct: 0, wrong: 0, skip: 0 };
+    statsData.value = { score: 0, accuracy: 0, correct: 0, wrong: 0, skip: 0, rank: '' };
   }
 };
 
