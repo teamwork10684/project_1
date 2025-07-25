@@ -4,7 +4,8 @@
       <span class="back-arrow" @click="goBack">&#8592; {{ roomName || '房间' }}</span>
       <div class="topbar-right">
         <button class="topbar-btn" @click="showHistory">历史</button>
-        <span class="topbar-timer">{{ countdown || '--:--' }}</span>
+        <span class="topbar-timer" v-if="countdown">{{ countdown }}</span>
+        <span class="topbar-timer" v-else>--:--</span>
       </div>
     </div>
     <div class="main-vertical">
@@ -13,7 +14,7 @@
           <template v-if="currentQuestion && currentQuestion.question && options.length && options.some(opt => opt.text)">
             <span class="main-question-text">{{ currentQuestion.question }}</span>
             <div class="question-options vertical-options">
-              <div v-for="opt in options" :key="opt.value" v-if="opt.text" class="option-row">
+              <div v-for="opt in options" :key="opt.value" :class="['option-row', {selected: selectedOption === opt.value}]" @click="selectedOption = opt.value">
                 <span class="option-label">{{ opt.value }}.</span>
                 <span class="option-text">{{ opt.text }}</span>
               </div>
@@ -26,14 +27,34 @@
         <button v-if="questionStatus === 0 && !myAnswer" class="publish-btn" :disabled="!selectedOption" @click="submitAnswer">提交</button>
       </div>
       <div class="stats-card tight-card">
-        <div class="stats-title">正确率统计</div>
-        <img src="https://img2.baidu.com/it/u=1813931372,1843083532&fm=253&fmt=auto&app=138&f=JPEG?w=500&h=375" alt="统计图" class="stats-img" />
+        <!-- <div class="stats-title">选项统计</div> -->
+        <div class="stats-options-panel" v-if="currentStats && options.length">
+           <table class="stats-table">
+             <tbody>
+               <tr v-for="opt in options" :key="opt.value">
+                 <td class="stats-td stats-option-label">{{ opt.value }}</td>
+                 <td class="stats-td">
+                   <span :class="['stats-count', currentStats['option_' + opt.value.toLowerCase() + '_count'] > 0 ? 'stats-count-active' : '']">
+                     {{ currentStats['option_' + opt.value.toLowerCase() + '_count'] || 0 }}
+                   </span>
+                 </td>
+               </tr>
+               <tr>
+                 <td class="stats-td stats-unselected-label" colspan="2">
+                   <span class="unselected-label-text">未选择人数</span>
+                   <span class="unselected-count">{{ currentStats.unselected_count || 0 }}</span>
+                 </td>
+               </tr>
+             </tbody>
+           </table>
+        </div>
+        <div v-else>暂无统计数据</div>
       </div>
       <div class="chat-card tight-card">
         <div class="chat-header">
           <span class="online-dot"></span> <span class="online-count">{{ onlineCount }}人在线</span>
         </div>
-        <div class="chat-list">
+        <div class="chat-list" ref="chatListRef">
           <div v-for="msg in chatList" :key="msg.id">
             <template v-if="msg.is_system || msg.username === '系统' || msg.username === '未知用户'">
               <div class="chat-msg-system">系统提示：{{ msg.content }}</div>
@@ -49,13 +70,12 @@
       </div>
     </div>
     <div class="chat-input-row">
-      <input v-model="chatInput" placeholder="同学们可以说一下理由哦" />
+      <input v-model="chatInput" placeholder="请分享您的看法" />
       <button @click="sendChat">发送</button>
     </div>
     <!-- 历史题目弹窗 -->
     <div v-if="historyVisible" class="history-modal-bg">
       <div class="history-modal">
-        <div class="history-title">历史题目</div>
         <div class="history-list-scroll">
           <div v-if="publishedQuestions.length === 0" class="history-empty">暂无历史题目</div>
           <div v-else>
@@ -87,6 +107,21 @@
                     错误：{{ expandedQuestionStats.statistics.wrong_count }}，
                     正确率：{{ expandedQuestionStats.statistics.accuracy_rate }}%
                   </div>
+                  <!-- 新增：题目讨论区 -->
+                  <div class="expand-q-discussions">
+                    <div v-if="expandedQuestionDiscussions.loading">讨论加载中...</div>
+                    <div v-else-if="expandedQuestionDiscussions.error" style="color:#f00;">{{ expandedQuestionDiscussions.error }}</div>
+                    <template v-else>
+                      <div v-if="Array.isArray(expandedQuestionDiscussions) && expandedQuestionDiscussions.length === 0" style="color:#888;">暂无讨论</div>
+                      <div v-else>
+                        <div v-for="d in expandedQuestionDiscussions" :key="d.id" class="expand-q-discussion-item">
+                          <span class="expand-q-discussion-username">{{ d.username }}：</span>
+                          <span class="expand-q-discussion-content">{{ d.content }}</span>
+                          <span class="expand-q-discussion-time">{{ d.created_at }}</span>
+                        </div>
+                      </div>
+                    </template>
+                  </div>
                 </template>
               </div>
             </div>
@@ -108,13 +143,12 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { questionAPI, getToken, discussionAPI } from '@/api'
+import { questionAPI, getToken, discussionAPI, speechRoomAPI } from '@/api'
 import axios from 'axios'
 import dayjs from 'dayjs'
 import duration from 'dayjs/plugin/duration'
-import { io } from 'socket.io-client'
 import wsManager from '@/utils/websocket'
 import eventBus from '@/utils/eventBus'
 let socket = null
@@ -137,10 +171,15 @@ const publishedQuestions = ref([])
 const userStats = ref(null)
 const expandedQuestionId = ref(null)
 const expandedQuestionStats = ref({})
+const expandedQuestionDiscussions = ref({})
 
 // 新增：聊天板相关
 const chatList = ref([])
 const onlineCount = ref(0)
+const chatListRef = ref(null)
+
+// 新增：在线用户列表
+const onlineUsers = ref([])
 
 // 新增：答题相关状态
 const selectedOption = ref('')
@@ -148,8 +187,9 @@ const myAnswer = ref('')
 const correctAnswer = ref('')
 const options = ref([])
 const questionStatus = ref(0) // 0进行中 1已结束
-const showCorrect = ref(false)
+const showSubmit = ref(false)
 const showMyAnswer = ref(false)
+const currentStats = ref(null) // 新增：当前题目统计数据
 
 // 拉取历史消息时统一格式
 async function fetchHistoryChats(roomId, token) {
@@ -163,6 +203,12 @@ async function fetchHistoryChats(roomId, token) {
         is_system: d.is_system
       }))
       onlineCount.value = res.data.discussions.length
+      // 新增：拉取历史消息后自动滚动到底部
+      nextTick(() => {
+        if (chatListRef.value) {
+          chatListRef.value.scrollTop = chatListRef.value.scrollHeight
+        }
+      })
     } else {
       chatList.value = []
       onlineCount.value = 0
@@ -181,6 +227,11 @@ function handleNewMessage(data) {
     content: data.message, // 统一用 content
     is_system: data.is_system
   })
+  nextTick(() => {
+    if (chatListRef.value) {
+      chatListRef.value.scrollTop = chatListRef.value.scrollHeight
+    }
+  })
 }
 
 // 用户信息，优先从 localStorage 获取
@@ -191,23 +242,47 @@ const userInfo = ref({
 })
 
 async function toggleExpandQuestion(q) {
+  
+  
   if (expandedQuestionId.value === q.id) {
     expandedQuestionId.value = null
     expandedQuestionStats.value = {}
+    expandedQuestionDiscussions.value = {}
     return
   }
   expandedQuestionId.value = q.id
   expandedQuestionStats.value = { loading: true }
+  expandedQuestionDiscussions.value = { loading: true }
   const token = getToken()
   try {
-    const res = await axios.get(`/popquiz/published-questions/${q.id}/statistics-for-audience`, { params: { token } })
-    if (res.data && res.data.question_info && res.data.statistics) {
-      expandedQuestionStats.value = res.data
+    
+    // 获取统计信息
+    const statsRes = await axios.get(`/popquiz/published-questions/${q.id}/statistics-for-audience`, { params: { token } })
+    if (statsRes.data && statsRes.data.question_info && statsRes.data.statistics) {
+      expandedQuestionStats.value = statsRes.data
     } else {
       expandedQuestionStats.value = { error: '暂无统计信息' }
     }
   } catch (e) {
     expandedQuestionStats.value = { error: '获取统计失败' }
+  }
+
+  try {
+    
+    console.log('获取题目讨论信息', q.question_id)
+    // 获取讨论信息
+    const discussRes = await discussionAPI.getQuestionDiscussions(q.question_id, token)
+    console.log('获取题目讨论信息', discussRes)
+    if (discussRes.data && Array.isArray(discussRes.data.discussions)) {
+      expandedQuestionDiscussions.value = discussRes.data.discussions
+      console.log('获取题目讨论信息成功', discussRes.data.discussions)
+    } else {
+      expandedQuestionDiscussions.value = []
+      console.log('获取题目讨论信息为空', discussRes)
+    }
+  } catch (e) {
+    expandedQuestionDiscussions.value = { error: '获取讨论失败' }
+    console.log('获取题目讨论信息失败', e)
   }
 }
 
@@ -224,16 +299,17 @@ function updateCountdown() {
     countdown.value = '00:00'
     clearInterval(countdownTimer)
     countdownTimer = null
+    // 倒计时结束自动刷新题目
+    fetchCurrentQuestion()
     return
   }
-  const d = dayjs.duration(diff * 1000)
   const mm = String(Math.floor(diff / 60)).padStart(2, '0')
   const ss = String(diff % 60).padStart(2, '0')
   countdown.value = `${mm}:${ss}`
 }
 
-// 修改 fetchCurrentQuestionAndStats，获取题目和统计
-async function fetchCurrentQuestionAndStats() {
+// 实现 fetchCurrentQuestion 方法，调用后端接口获取题目
+async function fetchCurrentQuestion() {
   const roomId = route.params.id
   const token = getToken()
   if (!roomId || !token) return
@@ -241,88 +317,70 @@ async function fetchCurrentQuestionAndStats() {
     const res = await questionAPI.getCurrentQuestionForAudience(roomId, token)
     if (res.data && res.data.published_question && res.data.published_question.question) {
       const q = res.data.published_question
-      // 兼容题干和选项结构
-      let questionText = ''
-      let optionA = '', optionB = '', optionC = '', optionD = ''
-      if (q.question && typeof q.question === 'object') {
-        questionText = q.question.question
-        optionA = q.question.option_a
-        optionB = q.question.option_b
-        optionC = q.question.option_c
-        optionD = q.question.option_d
-      } else {
-        questionText = q.question
-        optionA = q.option_a
-        optionB = q.option_b
-        optionC = q.option_c
-        optionD = q.option_d
+      // 题干和选项都在 q.question 里
+      currentQuestion.value = {
+        id: q.id, // published_question.id
+        question_id: q.question_id, // 新增：原始题目id
+        question: q.question.question,
+        hasAnswered: q.has_answered,
+        userAnswer: q.user_answer
       }
-      currentQuestion.value = { ...q, question: questionText }
-      questionPublishTime.value = q.publish_time || q.created_at
-      questionLimitSeconds.value = q.time_limit || 0
-      questionStatus.value = q.status || 0
-      correctAnswer.value = q.answer || ''
-      myAnswer.value = q.my_answer || ''
-      showCorrect.value = questionStatus.value === 1
-      showMyAnswer.value = !!myAnswer.value
+      // 记录发布时间和限时
+      questionPublishTime.value = q.start_time
+      questionLimitSeconds.value = q.time_limit
+      // 启动倒计时
+      if (countdownTimer) clearInterval(countdownTimer)
+      updateCountdown()
+      countdownTimer = setInterval(updateCountdown, 1000)
+      // 在 fetchCurrentQuestion 赋值 options 时，过滤掉无效选项
       options.value = [
-        { value: 'A', text: optionA, count: q.option_a_count },
-        { value: 'B', text: optionB, count: q.option_b_count },
-        { value: 'C', text: optionC, count: q.option_c_count },
-        { value: 'D', text: optionD, count: q.option_d_count }
-      ]
-      if (questionPublishTime.value && questionLimitSeconds.value) {
-        updateCountdown()
-        if (countdownTimer) clearInterval(countdownTimer)
-        countdownTimer = setInterval(updateCountdown, 1000)
-      }
+        { value: 'A', text: q.question.option_a },
+        { value: 'B', text: q.question.option_b },
+        { value: 'C', text: q.question.option_c },
+        { value: 'D', text: q.question.option_d }
+      ].filter(opt => typeof opt.text === 'string' && opt.text.trim().length > 0)
+      showSubmit.value = !q.has_answered && q.status === 0
     } else {
       currentQuestion.value = null
+      options.value = []
+      showSubmit.value = false
       questionPublishTime.value = null
       questionLimitSeconds.value = 0
       countdown.value = ''
-      questionStatus.value = 0
-      correctAnswer.value = ''
-      myAnswer.value = ''
-      showCorrect.value = false
-      showMyAnswer.value = false
-      options.value = []
       if (countdownTimer) clearInterval(countdownTimer)
       countdownTimer = null
     }
   } catch (e) {
     currentQuestion.value = null
+    options.value = []
+    showSubmit.value = false
     questionPublishTime.value = null
     questionLimitSeconds.value = 0
     countdown.value = ''
-    questionStatus.value = 0
-    correctAnswer.value = ''
-    myAnswer.value = ''
-    showCorrect.value = false
-    showMyAnswer.value = false
-    options.value = []
     if (countdownTimer) clearInterval(countdownTimer)
     countdownTimer = null
   }
 }
 
-// 新增：答题提交
+// 题目提交按钮逻辑（接口实现）
 async function submitAnswer() {
-  if (!selectedOption.value) return
+  if (!selectedOption.value || !currentQuestion.value) return
   const roomId = route.params.id
   const token = getToken()
+  // 修正：始终用原始题目的 question_id
+  const questionId = currentQuestion.value.question_id
+  const answer = selectedOption.value
   try {
-    await axios.post(`/popquiz/speech-rooms/${roomId}/answer-question`, {
+    const res = await axios.post(`/popquiz/speech-rooms/${roomId}/answer-question`, {
       token,
-      question_id: currentQuestion.value?.id,
-      answer: selectedOption.value
+      question_id: questionId,
+      answer
     })
-    myAnswer.value = selectedOption.value
-    showMyAnswer.value = true
+    window.$message?.success?.('答题成功！')
     selectedOption.value = ''
-    await fetchCurrentQuestionAndStats()
+    await fetchCurrentQuestion()
   } catch (e) {
-    // 可加错误提示
+    window.$message?.error?.(e.response?.data?.message || '提交失败')
   }
 }
 
@@ -343,6 +401,28 @@ async function fetchPublishedQuestions() {
   }
 }
 
+// 获取当前题目的统计数据
+async function fetchCurrentStats() {
+  if (!currentQuestion.value || !currentQuestion.value.id) {
+    currentStats.value = null
+    return
+  }
+  const publishedQuestionId = currentQuestion.value.id // published_question.id
+  const token = getToken()
+  try {
+    const res = await axios.get(`/popquiz/published-questions/${publishedQuestionId}/statistics-for-audience`, { params: { token } })
+    if (res.data && res.data.statistics) {
+      currentStats.value = res.data.statistics
+    } else {
+      currentStats.value = null
+    }
+  } catch (e) {
+    currentStats.value = null
+  }
+}
+
+// 移除 fetchOnlineParticipants 相关内容
+
 // 进入房间后自动获取最新题目和讨论列表
 onMounted(async () => {
   const roomId = route.params.id
@@ -350,10 +430,13 @@ onMounted(async () => {
   if (!roomId || !token) return
   try {
     // 获取题目
-    await fetchCurrentQuestionAndStats()
+    await fetchCurrentQuestion()
+    // 获取题目统计
+    await fetchCurrentStats()
     // 获取讨论列表（历史消息）
     await fetchHistoryChats(roomId, token)
     await fetchPublishedQuestions()
+    // 移除：await fetchOnlineParticipants(roomId, token)
   } catch (e) {
     currentQuestion.value = null
     questionPublishTime.value = null
@@ -369,6 +452,8 @@ onMounted(async () => {
     countdownTimer = null
     chatList.value = []
     onlineCount.value = 0
+    onlineUsers.value = []
+    currentStats.value = null
   }
 
   // WebSocket 连接（只用 wsManager）
@@ -381,18 +466,35 @@ onMounted(async () => {
   }
   wsManager.connect(roomId, userId, username, role)
   eventBus.on('newMessage', handleNewMessage)
-  eventBus.on('answerSubmitted', fetchCurrentQuestionAndStats)
+  eventBus.on('answerSubmitted', async () => {
+    await fetchCurrentQuestion()
+    await fetchCurrentStats()
+  })
   eventBus.on('questionPublished', async (data) => {
     // 新题目推送，刷新题目栏和历史题目
     await fetchPublishedQuestions()
-    await fetchCurrentQuestionAndStats()
+    await fetchCurrentQuestion()
+    await fetchCurrentStats() // 新增：刷新统计数据
   })
+  // 监听 room_users 信号
+  wsManager.socket?.on('room_users', (data) => {
+    onlineCount.value = data.total_online || (data.users ? data.users.length : 0)
+    onlineUsers.value = data.users || []
+  })
+  // 新增：监听 user_joined/user_left 信号
+  wsManager.socket?.on('user_joined', () => {
+    onlineCount.value++
+  })
+  wsManager.socket?.on('user_left', () => {
+    if (onlineCount.value > 0) onlineCount.value--
+  })
+  // 保留 join/left 事件用于动画等（可选）
 })
 
 onUnmounted(() => {
   wsManager.disconnect()
   eventBus.off('newMessage', handleNewMessage)
-  eventBus.off('answerSubmitted', fetchCurrentQuestionAndStats)
+  eventBus.off('answerSubmitted', fetchCurrentQuestion)
   eventBus.off('questionPublished')
 })
 
@@ -426,6 +528,20 @@ async function sendChat() {
   const content = chatInput.value.trim()
   if (!content) return
   wsManager.sendMessage(content)
+  // 新增：调用 RESTful API 存储消息
+  const roomId = route.params.id
+  const token = getToken()
+  try {
+    await discussionAPI.createDiscussion({
+      token,
+      room_id: roomId,
+      content,
+      question_id: -1 // 或根据实际需求传递题目ID
+    })
+  } catch (e) {
+    // 可选：提示用户消息存储失败
+    window.$message?.error?.(e.response?.data?.message || '消息存储失败')
+  }
   chatInput.value = ''
 }
 function goBack() {
@@ -511,116 +627,79 @@ function goBack() {
   flex-direction: column;
   justify-content: flex-start;
 }
-.question-card { height: 36%; }
-.stats-card { height: 20%; border-top: 1px solid #e0e0e0; margin-top: 10px; }
-.chat-card { height: 44%; border-top: 1px solid #e0e0e0; margin-top: 10px; }
+.question-card {
+  height: 36%;
+  max-height: 260px;
+  min-height: 180px;
+  overflow-y: auto;
+  background: #fff;
+  padding: 18px 16px 14px 16px; /* 左右padding一致，选项与题目左对齐 */
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  border-radius: 16px;
+  box-shadow: 0 2px 12px rgba(22,119,255,0.06);
+}
 .question-title {
-  font-size: 22px;
+  font-size: 18px;
   font-weight: bold;
   color: #1677ff;
-  margin-bottom: 18px;
+  margin-bottom: 12px;
   letter-spacing: 0.5px;
   text-align: center;
 }
 .main-question-text {
-  font-size: 1.35em;
+  font-size: 0.98em;
   font-weight: 700;
   color: #222;
   display: block;
   margin-bottom: 0;
   line-height: 1.7;
   word-break: break-word;
+  text-align: left;
+  padding: 0;
 }
-.vertical-options {
+.question-options {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  margin-bottom: 10px;
+  gap: 8px;
+  margin: 14px 0 0 0;
   align-items: stretch;
 }
-.option-block {
-  width: 100%;
+.option-row {
   display: flex;
   align-items: center;
-  background: #fff;
-  border: 2px solid #e6e6e6;
-  border-radius: 10px;
-  padding: 16px 18px;
-  font-size: 1.1em;
-  font-weight: 600;
+  font-size: 0.91em;
+  margin-bottom: 0;
+  padding-left: 0; /* 继承父容器对齐 */
+  background: #f5faff;
+  border-radius: 8px;
+  /* 移除 box-shadow、border、margin-left 等 */
+  box-shadow: none;
+  border: none;
   cursor: pointer;
-  transition: all 0.2s;
-  box-shadow: 0 2px 8px rgba(22,119,255,0.03);
-  margin: 0;
+  transition: background 0.2s;
 }
-.option-block:hover {
-  border-color: #1677ff;
-  background: #f0f7ff;
-}
-.option-block.my-selected {
-  background: #1677ff;
-  color: #fff;
-  border-color: #1677ff;
-}
-.option-block.correct {
-  background: #eaffea;
-  color: #52c41a;
-  border-color: #52c41a;
-}
-.option-block.wrong {
-  background: #fffbe6;
-  color: #ff9800;
-  border-color: #ff9800;
+.option-row.selected {
+  background: #e6f0ff;
 }
 .option-label {
-  font-weight: 700;
-  margin-right: 16px;
-  font-size: 1.1em;
+  font-weight: 600;
+  margin-right: 7px;
+  color: #1677ff;
+  font-size: 1em;
+  text-align: left;
 }
 .option-text {
-  flex: 1;
+  font-size: 0.97em;
+  color: #222;
   text-align: left;
-  font-size: 1.1em;
-  font-weight: 600;
+  word-break: break-word;
 }
 .option-count {
   color: #888;
   font-size: 0.98em;
   margin-left: 12px;
-}
-.question-options {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 16px 28px;
-  margin-bottom: 10px;
-  align-items: center;
-}
-.option {
-  font-size: 16px;
-  color: #1677ff;
-  padding: 4px 16px;
-  border-radius: 8px;
-  background: #f0f7ff;
-  font-weight: 600;
-  transition: background 0.2s, color 0.2s;
-  cursor: pointer;
-}
-.option.correct {
-  color: #1ca01c;
-  font-weight: bold;
-  background: #eafbe7;
-}
-.option.my-selected {
-  background: #e6f7ff;
-  border: 1px solid #1677ff;
-  color: #1677ff;
-  font-weight: bold;
-}
-.option.wrong {
-  background: #fffbe6;
-  border: 1px solid #ff9800;
-  color: #ff9800;
-  font-weight: bold;
 }
 .publish-btn {
   margin-left: auto;
@@ -701,6 +780,10 @@ function goBack() {
   font-size: 15px;
   color: #333;
   padding-left: 2px;
+  max-height: 260px;
+  min-height: 120px;
+  background: #fff;
+  scroll-behavior: smooth;
 }
 .chat-msg {
   display: flex;
@@ -781,9 +864,11 @@ function goBack() {
 .history-list-scroll {
   flex: 1 1 auto;
   overflow-y: auto;
-  max-height: 340px;
-  margin-bottom: 14px;
-  padding-bottom: 12px;
+  max-height: 480px;
+  /* margin-bottom: 14px; */
+  /* padding-bottom: 12px; */
+  margin-bottom: 0;
+  padding-bottom: 0;
 }
 .history-title {
   font-size: 25px;
@@ -804,12 +889,9 @@ function goBack() {
   border-radius: 16px;
   box-shadow: 0 4px 16px rgba(22,119,255,0.08);
   border: 2px solid #e6f0ff;
-  margin-bottom: 22px;
+  margin-bottom: 0;
   padding: 22px 20px 14px 20px;
   transition: box-shadow 0.2s;
-}
-.history-question-item:last-child {
-  margin-bottom: 0;
 }
 .history-q-content-main-row {
   display: flex;
@@ -1002,18 +1084,121 @@ function goBack() {
 .option-row {
   display: flex;
   align-items: center;
-  font-size: 1.1em;
-  margin-bottom: 8px;
+  font-size: 0.92em;
+  margin: 0;
+  padding: 6px 0;
+  border-radius: 8px;
+  background: #f5faff;
+  cursor: pointer;
+  transition: background 0.2s;
+  box-shadow: none;
+  border: none;
+  text-align: left;
+}
+.option-row.selected {
+  background: #e6f4ff;
+  color: #1677ff;
 }
 .option-label {
-  font-weight: 700;
-  margin-right: 16px;
-  font-size: 1.1em;
+  font-weight: 600;
+  margin-right: 6px;
+  padding: 0;
+  font-size: 1em;
 }
 .option-text {
-  flex: 1;
+  padding: 0;
+  margin: 0;
   text-align: left;
-  font-size: 1.1em;
+  flex: 1;
+  font-size: 0.98em;
+  word-break: break-word;
+}
+.stats-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 8px;
+}
+.stats-th {
+  text-align: left;
+  font-weight: 700;
+  color: #222;
+  padding: 4px 0 6px 0;
+  font-size: 15px;
+}
+.stats-td {
+  text-align: left;
+  padding: 3px 0 3px 0;
+  font-size: 15px;
+  color: #222;
+}
+.stats-option-label {
+  color: #1677ff;
+  font-weight: bold;
+  width: 48px;
+}
+.stats-unselected-label {
+  color: #888;
+  font-size: 13px;
+  padding-top: 8px;
+  padding-bottom: 2px;
+  text-align: left;
+  vertical-align: middle;
+}
+.unselected-label-text {
+  color: #888;
+  font-size: 13px;
+  margin-right: 8px;
+}
+.unselected-count {
+  display: inline-block;
+  min-width: 18px;
+  padding: 2px 10px;
+  border-radius: 4px;
+  background: #f5faff;
+  color: #222;
+  font-weight: 500;
+  font-size: 14px;
+  vertical-align: middle;
+}
+.stats-count {
+  display: inline-block;
+  min-width: 18px;
+  padding: 2px 10px;
+  border-radius: 4px;
+  background: #f5faff;
+  color: #222;
+  font-weight: 500;
+  text-align: left;
+}
+.stats-count-active {
+  background: #1677ff;
+  color: #fff;
+}
+/* 新增讨论区样式 */
+.expand-q-discussions {
+  margin-top: 14px;
+  background: #f5faff;
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+.expand-q-discussion-item {
+  font-size: 15px;
+  color: #333;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.expand-q-discussion-username {
+  color: #1677ff;
   font-weight: 600;
+}
+.expand-q-discussion-content {
+  flex: 1;
+}
+.expand-q-discussion-time {
+  color: #bbb;
+  font-size: 13px;
+  margin-left: 8px;
 }
 </style> 
