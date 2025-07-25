@@ -242,6 +242,8 @@ const userInfo = ref({
 })
 
 async function toggleExpandQuestion(q) {
+  
+  
   if (expandedQuestionId.value === q.id) {
     expandedQuestionId.value = null
     expandedQuestionStats.value = {}
@@ -253,6 +255,7 @@ async function toggleExpandQuestion(q) {
   expandedQuestionDiscussions.value = { loading: true }
   const token = getToken()
   try {
+    
     // 获取统计信息
     const statsRes = await axios.get(`/popquiz/published-questions/${q.id}/statistics-for-audience`, { params: { token } })
     if (statsRes.data && statsRes.data.question_info && statsRes.data.statistics) {
@@ -263,16 +266,23 @@ async function toggleExpandQuestion(q) {
   } catch (e) {
     expandedQuestionStats.value = { error: '获取统计失败' }
   }
+
   try {
+    
+    console.log('获取题目讨论信息', q.question_id)
     // 获取讨论信息
-    const discussRes = await axios.get(`/questions/${q.question_id}/discussions`, { params: { token } })
+    const discussRes = await discussionAPI.getQuestionDiscussions(q.question_id, token)
+    console.log('获取题目讨论信息', discussRes)
     if (discussRes.data && Array.isArray(discussRes.data.discussions)) {
       expandedQuestionDiscussions.value = discussRes.data.discussions
+      console.log('获取题目讨论信息成功', discussRes.data.discussions)
     } else {
       expandedQuestionDiscussions.value = []
+      console.log('获取题目讨论信息为空', discussRes)
     }
   } catch (e) {
     expandedQuestionDiscussions.value = { error: '获取讨论失败' }
+    console.log('获取题目讨论信息失败', e)
   }
 }
 

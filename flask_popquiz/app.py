@@ -962,6 +962,7 @@ def get_discussions():
 @app.route('/popquiz/questions/<int:question_id>/discussions', methods=['GET'])
 def get_question_discussions(question_id):
     """获取指定题目ID的所有讨论列表"""
+    print('获取指定题目ID的所有讨论列表', question_id)
     token = request.args.get('token', '').strip()
     if not token:
         return jsonify({'message': '参数错误'}), 400
