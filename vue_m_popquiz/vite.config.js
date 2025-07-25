@@ -16,15 +16,10 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      '/popquiz': {
-        target: 'http://localhost:5000',
-        changeOrigin: true,
-        rewrite: path => path.replace(/^\/popquiz/, '/popquiz')
-      },
+      '/popquiz': 'http://localhost:5000',
       '/socket.io': {
         target: 'http://localhost:5000',
-        ws: true,
-        changeOrigin: true
+        ws: true
       }
     }
   }
