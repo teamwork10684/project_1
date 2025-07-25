@@ -28,8 +28,6 @@ db_conf = config.get('database', {})
 SQLALCHEMY_DATABASE_URI = f"mysql+pymysql://{db_conf.get('user','root')}:{db_conf.get('password','')}@{db_conf.get('host','localhost')}:{db_conf.get('port',3306)}/{db_conf.get('name','popquiz')}?charset={db_conf.get('charset','utf8mb4')}"
 
 # SQLAlchemy配置
-
-
 app.config['SQLALCHEMY_DATABASE_URI'] = SQLALCHEMY_DATABASE_URI
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = config.get('sqlalchemy_track_modifications', False)
 
@@ -1931,6 +1929,7 @@ def get_room_published_questions(room_id):
 @app.route('/popquiz/user-room-statistics', methods=['POST'])
 def get_user_room_statistics():
     """获取用户在指定房间内的答题数据（分数、正确率、正确题目数、错误题目数、跳过题目数）"""
+    print(" 获取用户在指定房间内的答题数据")
     data = request.get_json() or {}
     token = data.get('token', '').strip()
     room_id = data.get('room_id')
@@ -1951,7 +1950,7 @@ def get_user_room_statistics():
     # 排除正在进行中的题目
     question_ids = [pq.question_id for pq in published_questions if pq.question_id != ongoing_qid]
     if not question_ids:
-        return jsonify({'score': 0, 'accuracy': 0.0, 'correct_count': 0, 'wrong_count': 0, 'skipped_count': 0, 'message': '无答题数据'}), 200
+        return jsonify({'score': 0, 'accuracy': 0.0, 'correct_count': 0, 'wrong_count': 0, 'skipped_count': 0, 'rank': '1/1', 'message': '无答题数据'}), 200
     # 获取用户在该房间的所有答题记录
     user_answers = QuestionAnswer.query.filter_by(room_id=room_id, user_id=user_id).all()
     answer_map = {a.question_id: a.selected_answer for a in user_answers}
@@ -1975,12 +1974,46 @@ def get_user_room_statistics():
     accuracy = round((correct_count / answered_count * 100), 2) if answered_count > 0 else 0.0
     # 假设每题10分
     score = correct_count * 10
+
+    # 统计分数排名
+    # 1. 获取房间所有成员user_id
+    member_user_ids = [m.user_id for m in SpeechRoomMember.query.filter_by(room_id=room_id).all()]
+    # 2. 获取房间的creator_id和speaker_id
+    creator_id = room.creator_id
+    speaker_id = room.speaker_id
+    # 3. 剔除creator和speaker，得到听众user_id
+    audience_user_ids = [uid for uid in member_user_ids if uid not in {creator_id, speaker_id}]
+    total_audience = len(audience_user_ids)
+    # 4. 统计所有听众分数
+    user_scores = []
+    for uid in audience_user_ids:
+        user_answers = QuestionAnswer.query.filter_by(room_id=room_id, user_id=uid).all()
+        answer_map = {a.question_id: a.selected_answer for a in user_answers}
+        correct = 0
+        for qid in question_ids:
+            question = Question.query.get(qid)
+            if not question:
+                continue
+            user_answer = answer_map.get(qid)
+            if user_answer is not None and user_answer == question.answer:
+                correct += 1
+        user_scores.append((uid, correct * 10))
+    # 5. 排序并找当前用户排名
+    user_scores.sort(key=lambda x: x[1], reverse=True)
+    rank = 1
+    for idx, (uid, s) in enumerate(user_scores, 1):
+        if uid == user_id:
+            rank = idx
+            break
+    rank_str = f'{rank}/{total_audience}' if total_audience > 0 else '1/1'
+    print(f"rank_str: {rank_str}")
     return jsonify({
         'score': score,
         'accuracy': accuracy,
         'correct_count': correct_count,
         'wrong_count': wrong_count,
         'skipped_count': skipped_count,
+        'rank': rank_str,
         'message': '获取成功',
         'ongoing_question_id': ongoing_qid  # 可选：返回正在进行中的题目id，便于前端提示
     }), 200
